@@ -1,13 +1,17 @@
-# Task Checklist: Top 10 High-Probability Pump Candidates Tab (COMPLETED)
+# Task Checklist: Monorepo Architecture & Binance Futures Terminal (COMPLETED)
 
-## Phase 1: Backend Pump Scoring Engine
-- [x] Task 1.1: Viết hàm `calculate_pump_score()` trong `web_app.py` chấm điểm từ $0 \to 100$ dựa trên 7 biểu hiện vi mô.
-- [x] Task 1.2: Xây dựng pipeline quét 2 giai đoạn (Two-Stage Fast Pipeline) quét 526 cặp trong background thread.
-- [x] Task 1.3: Cung cấp API `GET /api/top_pump_candidates` trả về Top 10 kèm điểm PumpScore và nhãn giai đoạn.
-- [x] Checkpoint 1: Kiểm thử API trả về danh sách 10 coin có điểm PumpScore cao nhất.
+## Phase 1: Core Domain Packages (`packages/`)
+- [x] Task 1.1: `packages/core_engine/`: 7-Layer Confirmation Engine, RSI (14), ATR (14), Pump Potential Scoring (0-100), and Adaptive Tier Classification (Bluechip vs Mid-Cap vs Meme).
+- [x] Task 1.2: `packages/exchange_connectors/`: Binance Futures (USDT-M) REST/WebSocket client and Bybit connector wrapper.
+- [x] Task 1.3: `packages/risk_management/`: 3-stage Cascade Take-Profit, Dynamic ATR Stop Loss, Circuit Breaker ($-\$50$), 2h max hold limit, 30m cooldown, and Historical Backtest Engine.
 
-## Phase 2: Giao Diện Tab & Bảng Xếp Hạng Top 10 Realtime
-- [x] Task 2.1: Thêm Section/Tab Top 10 Ứng Viên Pump trong `templates/index.html`.
-- [x] Task 2.2: Bổ sung CSS styles cho Rank Badges (Huy hiệu 1, 2, 3), thanh điểm Progress Bar và hiệu ứng Glow trong `static/css/style.css`.
-- [x] Task 2.3: Viết logic `loadTopPumpCandidates()` trong `static/js/app.js`, tự động refresh mỗi 4s và liên kết soi nến/vào lệnh nhanh.
-- [x] Checkpoint 2: Xác nhận giao diện hiển thị bảng Top 10 sinh động, trực quan và bấm vào là soi nến ngay.
+## Phase 2: Executable Applications (`apps/`)
+- [x] Task 2.1: `apps/web_terminal/`: Full-stack Flask Web Dashboard with Top 10 Pump Candidates ranking, 526-pair Live Radar, Offline TradingView Lightweight Charts, and Backtest Modal.
+- [x] Task 2.2: `apps/cli_scanner/`: Autonomous headless CLI scanner for 500+ pairs with paper trading.
+- [x] Task 2.3: `apps/backtest_runner/`: Standalone batch strategy backtest simulator CLI.
+
+## Phase 3: Automated Testing & Packaging
+- [x] Task 3.1: Unit tests in `tests/test_core_engine.py` and `tests/test_risk_management.py` (100% passing).
+- [x] Task 3.2: Monorepo workspace configuration via `pyproject.toml`.
+- [x] Task 3.3: 100% Technical English `README.md` without emoji spam.
+- [x] Task 3.4: Committed and pushed to GitHub repository `sinhnguyen1411/crypto-pump-scanner`.
