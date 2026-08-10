@@ -1,124 +1,160 @@
-<div align="center">
+# DeepAlpha Binance Futures Pump Scanner & Real-Time Terminal
 
-# DeepAlpha Binance Futures (USDT-M) Pump Scanner & AI Terminal
-
-### Hệ thống Quét Sóng Đột Biến & Bảng Xếp Hạng Top 10 Real-Time Cho 526 Cặp Binance Futures
-
-[![Python](https://img.shields.io/badge/Python-3.9+-blue.svg)](https://python.org)
-[![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
-[![Binance](https://img.shields.io/badge/Exchange-Binance%20Futures%20(USDT--M)-F0B90B.svg)](https://www.binance.com)
-[![TradingView](https://img.shields.io/badge/Charts-Lightweight%20Charts-00f2fe.svg)](https://tradingview.github.io/lightweight-charts/)
-
-</div>
+An automated market microstructure scanner, momentum anomaly detector, and multi-tier trading terminal designed specifically for Binance Futures (USDT-M) perpetual contracts.
 
 ---
 
-## 🌟 Tổng Quan Hệ Thống
+## Overview
 
-**DeepAlpha Binance Futures Pump Scanner** là hệ thống phân tích dòng tiền vi mô (Orderflow Microstructure) và phát hiện chân sóng Pump thời gian thực trên toàn bộ **526 cặp Binance Futures (USDT-M)**.
+DeepAlpha Binance Futures Pump Scanner continuously monitors orderflow anomalies and volume breakouts across 500+ USDT-Margined perpetual contracts on Binance Futures. 
+
+By analyzing early 1-minute candlestick spikes against rolling volume baselines alongside taker buy ratios and open interest delta, the engine distinguishes genuine institutional buy pressure from low-liquidity wash trades and price exhaustion.
 
 ```
-[ 526 Cặp Binance Futures (USDT-M) ] ──> Quét Song Song (10 Threads / 3s)
-                      │
-                      ├──> [ 1. Volume Spike 1M (≥ 2.0x - 5.0x vs 20m EWMA) ]
-                      ├──> [ 2. Taker Buy Pressure (≥ 65% - 80%) ]
-                      ├──> [ 3. Gia Tốc Giá 5M (≥ +1.0% - +3.0%) ]
-                      ├──> [ 4. RSI Vùng Ngọt Động Lượng (60 - 85) ]
-                      ├──> [ 5. Chuỗi 3 Nến Xanh Liên Tiếp ]
-                      └──> [ 6. Open Interest Expansion & Funding Rate ]
-                                              │
-                      ┌───────────────────────┴───────────────────────┐
-                      ▼                                               ▼
-    [ 🔥 TOP 10 ỨNG VIÊN SẮP PUMP ]               [ 🎯 CASCADE TP & RISK ENGINE ]
-  • Pump Potential Score (0 - 100)              • TP1 (+5%): Chốt 40% & SL Hòa Vốn (+0.2%)
-  • Nhãn Sóng: Chân Sóng, Gom Hàng, Bùng Nổ     • TP2 (+10%): Chốt 30% & Trailing 3%
-  • Tương tác 1-chạm soi nến & vào lệnh         • TP3 (+20%): Chốt toàn bộ vị thế
+[ 526 Binance Futures USDT-M Pairs ]
+                 |
+  (Fast Two-Stage Multi-Threaded Engine)
+                 |
+                 +--> 1. Volume Spike (1M vs. 20-period EWMA Baseline)
+                 +--> 2. Taker Buy Pressure Ratio (>= 65% - 80%)
+                 +--> 3. 5-Minute Price Velocity (>= +1.0% to +3.0%)
+                 +--> 4. RSI Momentum Sweetspot (60 - 85)
+                 +--> 5. 3 Consecutive Bullish Candles
+                 +--> 6. Open Interest Expansion (Delta OI > 0)
+                 +--> 7. Volatility Expansion (1.5x ATR)
+                 |
+                 +-----------------------+-----------------------+
+                 |                                               |
+                 v                                               v
+     [ Top 10 Pump Candidates ]                      [ Cascade Take-Profit Engine ]
+   - Composite Score (0-100)                       - TP1 (+5%): Close 40% & Breakeven SL (+0.2%)
+   - Wave Stage Classification                     - TP2 (+10%): Close 30% & 3% Trailing Stop
+   - One-Click Terminal Navigation                 - TP3 (+20%): Close Remaining Position
 ```
 
 ---
 
-## ✨ Tính Năng Nổi Bật
+## Key Features
 
-### 1. 🧮 Thuật Toán Chấm Điểm Động Lượng (Pump Potential Score: $0 \to 100$)
-- Tự động chấm điểm và xếp hạng liên tục **Top 10 Cặp Có Xác Suất Pump Cao Nhất**.
-- Gắn nhãn giai đoạn sóng tự động:
-  - `🚀 CHÂN SÓNG`: Volume gom đột biến, Taker Buy $\ge 65\%$, giá vừa chớm tăng $\le 2\%$.
-  - `⚡ ĐANG BÙNG NỔ`: Đủ 3 nến xanh, gia tốc giá dốc đứng, RSI bứt phá $> 65$.
-  - `🔥 GOM HÀNG CỰC ĐẠI`: Taker Buy áp đảo $\ge 70\%$, cá mập vét cạn sổ lệnh.
-  - `⏳ NÉN TÍCH LŨY`: Động lượng chuẩn bị vào nhịp bứt phá.
+### 1. Multi-Factor Pump Scoring Engine
+- Computes a normalized composite score (0 to 100) per symbol based on weighted microstructure variables:
+  - Volume Spike Ratio (25% weight)
+  - Taker Buy Volume Ratio (25% weight)
+  - 5-Minute Price Momentum (20% weight)
+  - RSI Sweetspot Distance (15% weight)
+  - Consecutive Bullish Candles (10% weight)
+  - Open Interest Acceleration (5% weight)
+- Automatically classifies market structure into wave phases: Early Breakout, Momentum Surge, Heavy Accumulation, and Compression.
 
-### 2. 👑 Cơ Chế Thích Ứng Theo Nhóm Coin (Adaptive Tier Engine)
-- **Bluechip Large-Cap (`BTC`, `ETH`, `SOL`, `BNB`...)**: Vol $\ge 2.0\times$, Giá $5\text{m} \ge +1.0\%$.
-- **Mid-Cap Trending (`DOGE`, `LINK`, `NEAR`...)**: Vol $\ge 3.5\times$, Giá $5\text{m} \ge +2.0\%$.
-- **High-Volatility / Meme (`TUT`, `AKE`, `CAP`...)**: Vol $\ge 5.0\times$, Giá $5\text{m} \ge +3.0\%$.
+### 2. Adaptive Asset Classification
+Applies calibrated sensitivity thresholds depending on market capitalization and liquidity depth:
+- **Bluechip Large-Cap** (`BTC`, `ETH`, `SOL`, `BNB`, `XRP`, `ADA`, `AVAX`):
+  - Volume Threshold: >= 2.0x baseline
+  - 5M Price Velocity: >= +1.0%
+  - Target Scale: TP1 +2.0% / TP2 +4.0% / TP3 +8.0%
+- **Mid-Cap Trending** (`DOGE`, `LINK`, `NEAR`, `SUI`, `APT`, `TRX`):
+  - Volume Threshold: >= 3.5x baseline
+  - 5M Price Velocity: >= +2.0%
+  - Target Scale: TP1 +3.5% / TP2 +7.0% / TP3 +15.0%
+- **High-Volatility & Small-Cap / Meme** (`TUT`, `AKE`, `BMT`, `CAP`, `PEPE`):
+  - Volume Threshold: >= 5.0x baseline
+  - 5M Price Velocity: >= +3.0%
+  - Target Scale: TP1 +5.0% / TP2 +10.0% / TP3 +20.0%
 
-### 3. 📊 Giao Diện Terminal Chuyên Nghiệp (TradingView Lightweight Charts)
-- Tích hợp 100% thư viện Offline cục bộ, không phụ thuộc mạng CDN.
-- Vẽ trực tiếp đường giá **Stop Loss (Đỏ đứt đoạn)**, **TP1 (Xanh lá)**, **TP2 (Xanh Cyan Trailing)** trên biểu đồ.
-- Hỗ trợ đầy đủ **9 khung thời gian**: `1M`, `3M`, `5M`, `15M`, `30M`, `1H`, `2H`, `4H`, `1D`.
-- Thanh truy cập nhanh **20 mã vừa tra gần đây** lưu trữ qua `localStorage`.
+### 3. Integrated TradingView Lightweight Charts
+- Fully local offline bundle without external CDN dependencies.
+- Dynamic price lines rendered directly on the chart for Stop Loss (1.5x ATR), Take Profit 1 (+5%), and Take Profit 2 (+10%).
+- Full multi-timeframe switching across 9 standard intervals: `1M`, `3M`, `5M`, `15M`, `30M`, `1H`, `2H`, `4H`, `1D`.
+- Auto-scaling price precision for micro-priced assets (down to 8 decimals).
+- Persistent 20-symbol recent lookup history stored via browser localStorage.
 
-### 4. 🧪 Engine Backtest Lịch Sử (Cascade Take Profit Simulator)
-- Mô phỏng chính xác chiến lược Cascade TP trên dữ liệu nến 1m lịch sử của Binance Futures.
-- Đo lường chi tiết: Tổng lợi nhuận ($), Tỷ lệ thắng (Win Rate %), Profit Factor, Max Drawdown và Trade Log.
+### 4. Historical Cascade Backtest Engine
+- High-speed historical backtesting module for 1-minute historical klines.
+- Evaluates entry signals, partial take-profits, trailing stop adjustments, and maximum holding duration limits.
+- Generates detailed performance metrics: Net Profit ($), Return (%), Win Rate (%), Profit Factor, Maximum Drawdown (%), and granular execution logs.
 
-### 5. 🛡️ Quản Trị Rủi Ro Chặt Chẽ
-- **Stop Loss Động**: Cắt lỗ theo $1.5\times$ ATR.
-- **Hạn Vị Thế 2H**: Tự động thoát lệnh sau 120 phút.
-- **Cooldown 30M**: Khóa coin chống đu đỉnh lại nhịp xả.
-- **Circuit Breaker**: Dừng giao dịch khi lỗ ngày chạm $-\$50$.
-- **Cảnh Báo Âm Thanh**: Web Audio API Synthesizer phát chuông khi có tín hiệu $\ge 75\%$.
+### 5. Risk Management Architecture
+- **ATR-Based Dynamic Stop Loss**: Position stop level calculated dynamically from 14-period Average True Range.
+- **2-Hour Maximum Holding Time**: Automatic time-stop limit to avoid prolonged capital stagnation.
+- **30-Minute Cooldown Filter**: Prevents re-entry on recently traded symbols to avoid distribution traps.
+- **Daily Loss Circuit Breaker**: Hard safety stop when daily unrealized/realized loss exceeds predefined thresholds.
 
 ---
 
-## 🚀 Hướng Dẫn Cài Đặt & Khởi Chạy
+## Installation & Setup
 
-### 1. Cài đặt môi trường
+### Prerequisites
+- Python 3.9 or higher
+- Git
+
+### 1. Clone Repository
 ```bash
-git clone https://github.com/<your-username>/crypto-pump-scanner.git
+git clone https://github.com/sinhnguyen1411/crypto-pump-scanner.git
 cd crypto-pump-scanner
+```
+
+### 2. Install Dependencies
+```bash
 pip install -r requirements.txt
 ```
 
-### 2. Cấu hình biến môi trường
-Tạo file `.env` từ `.env.example`:
+### 3. Configure Environment
+Copy the sample environment file:
 ```bash
 cp .env.example .env
 ```
-*(Chỉ cần điền API Key nếu muốn chạy chế độ Live Trading, chế độ Paper Trade & Radar Scanner hoạt động trực tiếp không cần API Key).*
+*Note: API keys are optional for paper trading, backtesting, and market scanning. Binance public market data endpoints do not require authenticated credentials.*
 
-### 3. Khởi chạy Web Dashboard
+---
+
+## Usage
+
+### Running the Web Terminal
+Start the Flask web dashboard:
 ```bash
 python web_app.py
 ```
-👉 Mở trình duyệt truy cập: **`http://localhost:5050`**
+Open your browser and navigate to:
+```
+http://localhost:5050
+```
 
-### 4. Khởi chạy CLI Scanner (Tùy chọn)
+### Running the Standalone CLI Scanner
+For headless server environments or automated command-line execution:
 ```bash
 python binance_pump_scanner.py
 ```
 
 ---
 
-## 📁 Cấu Trúc Mã Nguồn
+## Project Structure
 
 ```
 crypto-pump-scanner/
-├── web_app.py                  # Flask Backend Server, Adaptive Engine & Radar Thread
-├── backtest_engine.py          # Vector/Loop Cascade TP Historical Simulator
-├── binance_pump_scanner.py     # Standalone CLI Scanner & Paper Trading
-├── templates/
-│   └── index.html              # HTML Dashboard (Top 10, Radar, Charts, Backtest Modal)
-├── static/
-│   ├── css/style.css           # Dark Glassmorphism Stylesheet
-│   └── js/
-│       ├── app.js              # Client Frontend Logic & Real-time WebSocket/Polling
-│       └── lightweight-charts.js # Local TradingView Charts Bundle
-├── tasks/                      # Project Specifications & Todo Checklists
-└── requirements.txt            # Python Dependencies (Flask, python-binance, etc.)
+|-- web_app.py                  # Core backend server, scanner threads, and REST API
+|-- backtest_engine.py          # Historical simulation and strategy validation engine
+|-- binance_pump_scanner.py     # Standalone CLI scanner and paper trading execution
+|-- templates/
+|   `-- index.html              # Frontend terminal interface
+|-- static/
+|   |-- css/
+|   |   `-- style.css           # Terminal stylesheet
+|   `-- js/
+|       |-- app.js              # Client state, data synchronization, and UI logic
+|       `-- lightweight-charts.js # Standalone TradingView charting bundle
+|-- requirements.txt            # Python package dependencies
+|-- README.md                   # Project documentation
+`-- LICENSE                     # MIT License
 ```
 
 ---
 
-## 📄 License
-Phát hành theo giấy phép [MIT License](LICENSE).
+## Disclaimer
+
+This software is intended for research, educational, and simulation purposes. Cryptocurrency futures trading involves significant market risk. Always test strategies thoroughly using paper trading before considering live deployment.
+
+---
+
+## License
+
+This project is licensed under the [MIT License](LICENSE).
