@@ -7,3 +7,4 @@ binance_seen_listings.json
 *.log
 data/
 *.png
+tools/

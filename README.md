@@ -1,42 +1,56 @@
-# DeepAlpha Binance Futures Pump Scanner & Real-Time Terminal
+# DeepAlpha Binance Futures Pump Scanner & Real-Time Terminal (Monorepo)
 
-An automated market microstructure scanner, momentum anomaly detector, and multi-tier trading terminal designed specifically for Binance Futures (USDT-M) perpetual contracts.
+An automated market microstructure scanner, momentum anomaly detector, and multi-tier trading terminal designed specifically for Binance Futures (USDT-M) perpetual contracts, organized as a modular enterprise monorepo.
 
 ---
 
-## Overview
+## Architecture Overview
 
-DeepAlpha Binance Futures Pump Scanner continuously monitors orderflow anomalies and volume breakouts across 500+ USDT-Margined perpetual contracts on Binance Futures. 
-
-By analyzing early 1-minute candlestick spikes against rolling volume baselines alongside taker buy ratios and open interest delta, the engine distinguishes genuine institutional buy pressure from low-liquidity wash trades and price exhaustion.
+This project is structured as a scalable Python monorepo separating presentation applications (`apps/`) from reusable domain packages (`packages/`):
 
 ```
-[ 526 Binance Futures USDT-M Pairs ]
-                 |
-  (Fast Two-Stage Multi-Threaded Engine)
-                 |
-                 +--> 1. Volume Spike (1M vs. 20-period EWMA Baseline)
-                 +--> 2. Taker Buy Pressure Ratio (>= 65% - 80%)
-                 +--> 3. 5-Minute Price Velocity (>= +1.0% to +3.0%)
-                 +--> 4. RSI Momentum Sweetspot (60 - 85)
-                 +--> 5. 3 Consecutive Bullish Candles
-                 +--> 6. Open Interest Expansion (Delta OI > 0)
-                 +--> 7. Volatility Expansion (1.5x ATR)
-                 |
-                 +-----------------------+-----------------------+
-                 |                                               |
-                 v                                               v
-     [ Top 10 Pump Candidates ]                      [ Cascade Take-Profit Engine ]
-   - Composite Score (0-100)                       - TP1 (+5%): Close 40% & Breakeven SL (+0.2%)
-   - Wave Stage Classification                     - TP2 (+10%): Close 30% & 3% Trailing Stop
-   - One-Click Terminal Navigation                 - TP3 (+20%): Close Remaining Position
+crypto-pump-scanner/ (Monorepo Root)
+|-- apps/
+|   |-- web-terminal/            # Flask Web Application & Real-Time Terminal UI
+|   |   |-- app.py               # Web server entrypoint
+|   |   |-- templates/           # Jinja2 HTML templates
+|   |   `-- static/              # CSS, JavaScript & Offline TradingView bundle
+|   |
+|   |-- cli-scanner/             # Headless Autonomous CLI Scanner & Worker
+|   |   `-- main.py              # CLI scanner execution script
+|   |
+|   `-- backtest-runner/         # Standalone Batch Strategy Backtester
+|       `-- run_backtest.py      # Backtest script
+|
+|-- packages/                    # Reusable Domain Libraries
+|   |-- core-engine/             # 7-Layer Confirmation Engine & Adaptive Tiers
+|   |   |-- detector.py          # Microstructure anomaly detectors (RSI, ATR, Vol Spike)
+|   |   |-- scoring.py           # Pump Potential Score (0-100) & Wave Stage Tagging
+|   |   `-- classifier.py       # Bluechip vs. Mid-Cap vs. Meme Tier Classifier
+|   |
+|   |-- exchange-connectors/     # Exchange Clients & Session Managers
+|   |   |-- binance_client.py    # Binance Futures USDT-M connector
+|   |   `-- bybit_client.py      # Bybit Perpetual connector
+|   |
+|   `-- risk-management/         # Cascade Take-Profit & Safety Management
+|       |-- cascade_tp.py        # 3-tier partial TP & Trailing Stop Calculator
+|       |-- circuit_breaker.py   # Daily loss limit & cooldown manager
+|       `-- backtest_engine.py   # Vectorized historical simulator
+|
+|-- tests/                       # Automated Unit & Integration Test Suite
+|   |-- test_core_engine.py
+|   `-- test_risk_management.py
+|
+|-- pyproject.toml               # Monorepo workspace configuration
+|-- requirements.txt             # Aggregate dependencies
+`-- README.md                    # Project documentation
 ```
 
 ---
 
 ## Key Features
 
-### 1. Multi-Factor Pump Scoring Engine
+### 1. Multi-Factor Pump Potential Scoring
 - Computes a normalized composite score (0 to 100) per symbol based on weighted microstructure variables:
   - Volume Spike Ratio (25% weight)
   - Taker Buy Volume Ratio (25% weight)
@@ -44,7 +58,7 @@ By analyzing early 1-minute candlestick spikes against rolling volume baselines 
   - RSI Sweetspot Distance (15% weight)
   - Consecutive Bullish Candles (10% weight)
   - Open Interest Acceleration (5% weight)
-- Automatically classifies market structure into wave phases: Early Breakout, Momentum Surge, Heavy Accumulation, and Compression.
+- Automatically tags market structure into wave phases: Early Breakout, Momentum Surge, Heavy Accumulation, and Compression.
 
 ### 2. Adaptive Asset Classification
 Applies calibrated sensitivity thresholds depending on market capitalization and liquidity depth:
@@ -112,6 +126,8 @@ cp .env.example .env
 ### Running the Web Terminal
 Start the Flask web dashboard:
 ```bash
+python apps/web_terminal/app.py
+# Or use the root launcher:
 python web_app.py
 ```
 Open your browser and navigate to:
@@ -119,39 +135,23 @@ Open your browser and navigate to:
 http://localhost:5050
 ```
 
-### Running the Standalone CLI Scanner
-For headless server environments or automated command-line execution:
+### Running the Autonomous CLI Scanner
 ```bash
+python apps/cli_scanner/main.py
+# Or use the root launcher:
 python binance_pump_scanner.py
 ```
 
----
-
-## Project Structure
-
-```
-crypto-pump-scanner/
-|-- web_app.py                  # Core backend server, scanner threads, and REST API
-|-- backtest_engine.py          # Historical simulation and strategy validation engine
-|-- binance_pump_scanner.py     # Standalone CLI scanner and paper trading execution
-|-- templates/
-|   `-- index.html              # Frontend terminal interface
-|-- static/
-|   |-- css/
-|   |   `-- style.css           # Terminal stylesheet
-|   `-- js/
-|       |-- app.js              # Client state, data synchronization, and UI logic
-|       `-- lightweight-charts.js # Standalone TradingView charting bundle
-|-- requirements.txt            # Python package dependencies
-|-- README.md                   # Project documentation
-`-- LICENSE                     # MIT License
+### Running Batch Backtests
+```bash
+python apps/backtest_runner/run_backtest.py --symbol BTCUSDT --days 7 --balance 1000.0
 ```
 
----
-
-## Disclaimer
-
-This software is intended for research, educational, and simulation purposes. Cryptocurrency futures trading involves significant market risk. Always test strategies thoroughly using paper trading before considering live deployment.
+### Running Unit Tests
+```bash
+python tests/test_core_engine.py
+python tests/test_risk_management.py
+```
 
 ---
 
