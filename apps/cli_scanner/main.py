@@ -11,7 +11,7 @@ from pathlib import Path
 ROOT_DIR = Path(__file__).resolve().parent.parent.parent
 sys.path.insert(0, str(ROOT_DIR / "packages"))
 
-from core_engine import classify_asset_tier, evaluate_confirmation_layers, calculate_pump_score
+from core_engine import classify_asset_tier, evaluate_confirmation_layers, calculate_pump_score, is_excluded_asset
 from exchange_connectors import BinanceFuturesConnector
 from risk_management import calculate_trade_plan, CircuitBreakerManager
 
@@ -36,8 +36,10 @@ def run_scanner_loop():
 
             for t in tickers[:50]:
                 sym = t["symbol"]
-                if circuit_mgr.is_symbol_in_cooldown(sym):
+                if is_excluded_asset(sym) or circuit_mgr.is_symbol_in_cooldown(sym):
                     continue
+
+
 
                 try:
                     klines = connector.get_klines(sym, interval="1m", limit=35)

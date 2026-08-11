@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>DeepAlpha — Top 10 Ứng Cử Viên Sắp Pump Mạnh Nhất (Binance Futures)</title>
+  
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+  
+  <!-- Custom Style -->
+  <link rel="stylesheet" href="/static/css/style.css?v=2.2">
+</head>
+<body>
+
+  <!-- Header with Navigation -->
+  <header class="app-header">
+    <div class="brand-container">
+      <div class="logo-badge">🔥</div>
+      <div>
+        <h1 class="brand-title">Top 10 Pump Ranking</h1>
+        <div class="brand-subtitle">Xếp Hạng Tự Động 526 Cặp Binance Futures</div>
+      </div>
+    </div>
+
+    <!-- Navigation Menu -->
+    <nav class="nav-menu">
+      <a href="/" class="nav-link">
+        <span>⚡ Terminal Realtime</span>
+      </a>
+      <a href="/top" class="nav-link active">
+        <span>🔥 Top 10 Sắp Pump</span>
+        <span class="nav-badge">Live</span>
+      </a>
+      <a href="/pre-pump" class="nav-link">
+        <span>🔮 Dự Báo Sớm (10x-40x)</span>
+        <span class="nav-badge" style="background: rgba(255, 51, 102, 0.2); color: var(--accent-red);">Radar</span>
+      </a>
+    </nav>
+    
+    <div class="header-status">
+      <!-- Audio Alert Toggle Button -->
+      <button id="btn-audio-toggle" class="header-btn" onclick="toggleAudioAlert()" title="Bật/Tắt chuông cảnh báo khi phát hiện tín hiệu Pump">
+        <span id="audio-icon">🔊</span>
+        <span id="audio-status-text">Chuông: BẬT</span>
+      </button>
+
+      <!-- Backtest Trigger Button -->
+      <button class="header-btn btn-backtest-trigger" onclick="openBacktestModal()">
+        <span>🧪 Backtest Lịch Sử</span>
+      </button>
+
+      <div class="status-pill">
+        <div class="pulse-dot"></div>
+        <span id="market-status-text">526 Cặp Futures Live</span>
+      </div>
+      <div class="status-pill" style="border-color: rgba(255, 179, 0, 0.4); color: var(--accent-yellow); background: rgba(255, 179, 0, 0.1);">
+        <span>⚡ Auto-Rank (3s)</span>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Container -->
+  <main class="main-container">
+
+    <!-- Top Summary Stat Cards -->
+    <div class="stat-grid-4">
+      <div class="stat-card high">
+        <span class="stat-card-label">🥇 TOP 1 ĐIỂM CAO NHẤT</span>
+        <div id="stat-top-symbol" class="stat-card-val" style="color: var(--accent-yellow);">---</div>
+        <span id="stat-top-score" class="stat-card-sub">Điểm tiềm năng: 0/100</span>
+      </div>
+
+      <div class="stat-card watch">
+        <span class="stat-card-label">🌊 ĐANG ĐỘT PHÁ SỚM (BREAKOUT)</span>
+        <div id="stat-breakout-count" class="stat-card-val" style="color: var(--accent-cyan);">0</div>
+        <span class="stat-card-sub">Volume Spike ≥ 5.0x</span>
+      </div>
+
+      <div class="stat-card">
+        <span class="stat-card-label">🛒 TAKER BUY TRUNG BÌNH</span>
+        <div id="stat-avg-buy" class="stat-card-val" style="color: var(--accent-green);">0.0%</div>
+        <span class="stat-card-sub">Lực mua chủ động phe bò</span>
+      </div>
+
+      <div class="stat-card">
+        <span class="stat-card-label">⏱️ CẬP NHẬT GẦN NHẤT</span>
+        <div id="stat-last-time" class="stat-card-val">--:--:--</div>
+        <span class="stat-card-sub">Chu kỳ quét 3 giây</span>
+      </div>
+    </div>
+
+    <!-- 🔥 TOP PUMP CANDIDATES SECTION -->
+    <section class="card-panel" style="border-color: rgba(255, 179, 0, 0.35); box-shadow: 0 4px 25px rgba(255, 179, 0, 0.08);">
+      <div class="panel-header">
+        <div style="display: flex; align-items: center; gap: 10px;">
+          <div style="font-size: 1.4rem;">🔥</div>
+          <div>
+            <h3 class="asset-title" style="font-size: 1.25rem; color: var(--accent-yellow);">BẢNG XẾP HẠNG ỨNG CỬ VIÊN SẮP PUMP MẠNH</h3>
+            <div style="font-size: 0.78rem; color: var(--text-dim);">Chấm điểm theo 7 tầng xác thực vi mô, Taker Buy Pressure và Động lượng nén 5M</div>
+          </div>
+        </div>
+
+        <!-- Tier Filter Buttons -->
+        <div class="filter-group">
+          <button class="filter-btn active" onclick="filterByTier('ALL')">Tất Cả Tiers</button>
+          <button class="filter-btn" onclick="filterByTier('MEME_HIGH_VOL')">🚀 Meme & High-Vol</button>
+          <button class="filter-btn" onclick="filterByTier('MID_CAP')">⚡ Mid-Cap</button>
+          <button class="filter-btn" onclick="filterByTier('BLUECHIP')">💎 Bluechip</button>
+        </div>
+      </div>
+
+      <div class="table-wrapper">
+        <table class="styled-table">
+          <thead>
+            <tr>
+              <th style="width: 50px;"># Rank</th>
+              <th>Cặp Coin</th>
+              <th>Giá Hiện Tại</th>
+              <th>24h %</th>
+              <th style="width: 180px;">Điểm Tiềm Năng Pump</th>
+              <th>Giai Đoạn Sóng</th>
+              <th>Volume Spike</th>
+              <th>Taker Buy</th>
+              <th>Biến Động 5M</th>
+              <th>RSI (1M)</th>
+              <th>Thao Tác</th>
+            </tr>
+          </thead>
+          <tbody id="top-pump-body">
+            <tr>
+              <td colspan="11" style="text-align: center; color: var(--text-dim); padding: 30px;">
+                <div class="pulse-dot" style="margin: 0 auto 10px auto;"></div>
+                Đang nạp dữ liệu phân tích từ 526 cặp Binance Futures... Vui lòng chờ vài giây!
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- Backtest Modal Dialog -->
+  <div id="backtest-modal" class="modal-overlay" style="display: none;">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3 style="font-size: 1.3rem; font-weight: 800; color: var(--accent-cyan);">🧪 Chạy Backtest Lịch Sử (Cascade TP Engine)</h3>
+        <button class="modal-close-btn" onclick="closeBacktestModal()">✕</button>
+      </div>
+
+      <div class="modal-body">
+        <div style="display: grid; grid-template-columns: 2fr 1fr 1fr; gap: 12px; margin-bottom: 16px;">
+          <div>
+            <label class="form-lbl">MÃ CẶP COIN:</label>
+            <input type="text" id="bt-symbol" class="search-input" value="BTCUSDT" style="width: 100%;">
+          </div>
+          <div>
+            <label class="form-lbl">KHOẢNG THỜI GIAN:</label>
+            <select id="bt-days" class="search-input" style="width: 100%; height: 42px;">
+              <option value="3">3 Ngày (Nhanh)</option>
+              <option value="7" selected>7 Ngày (Chuẩn)</option>
+              <option value="14">14 Ngày</option>
+              <option value="30">30 Ngày (Sâu)</option>
+            </select>
+          </div>
+          <div style="display: flex; align-items: flex-end;">
+            <button id="btn-run-backtest" class="btn-scan" style="width: 100%; height: 42px;" onclick="runHistoricalBacktest()">
+              <span>🚀 Chạy Test</span>
+            </button>
+          </div>
+        </div>
+
+        <div id="bt-results-container" style="display: none;">
+          <div class="bt-summary-grid">
+            <div class="bt-stat-box">
+              <span class="bt-stat-lbl">TỔNG LỢI NHUẬN RÒNG</span>
+              <strong id="bt-net-profit" class="bt-stat-val">$0.00</strong>
+              <span id="bt-return-pct" style="font-size: 0.8rem;">(+0.00%)</span>
+            </div>
+            <div class="bt-stat-box">
+              <span class="bt-stat-lbl">TỶ LỆ THẮNG (WIN RATE)</span>
+              <strong id="bt-win-rate" class="bt-stat-val">0.0%</strong>
+              <span id="bt-trade-counts" style="font-size: 0.8rem;">0 thắng / 0 thua</span>
+            </div>
+            <div class="bt-stat-box">
+              <span class="bt-stat-lbl">PROFIT FACTOR</span>
+              <strong id="bt-profit-factor" class="bt-stat-val">0.00</strong>
+              <span style="font-size: 0.8rem; color: var(--text-muted);">Tổng lãi / Tổng lỗ</span>
+            </div>
+            <div class="bt-stat-box">
+              <span class="bt-stat-lbl">MAX DRAWDOWN</span>
+              <strong id="bt-max-dd" class="bt-stat-val" style="color: var(--accent-red);">0.0%</strong>
+              <span style="font-size: 0.8rem; color: var(--text-muted);">Sụt giảm vốn tối đa</span>
+            </div>
+          </div>
+
+          <h4 style="margin: 16px 0 8px 0; font-size: 0.95rem; color: var(--text-main);">📝 Lịch Sử Chi Tiết Các Lệnh Đã Khớp:</h4>
+          <div style="max-height: 220px; overflow-y: auto; border: 1px solid var(--border-color); border-radius: 6px;">
+            <table class="styled-table" style="font-size: 0.82rem;">
+              <thead>
+                <tr>
+                  <th>Vào Lệnh</th>
+                  <th>Thoát Lệnh</th>
+                  <th>Giá Vào</th>
+                  <th>Giá Thoát</th>
+                  <th>PnL ($)</th>
+                  <th>% Lãi/Lỗ</th>
+                  <th>Lý Do Thoát</th>
+                </tr>
+              </thead>
+              <tbody id="bt-trades-body"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <div id="bt-loading" style="display: none; text-align: center; padding: 30px; color: var(--accent-cyan);">
+          <div class="pulse-dot" style="margin: 0 auto 10px auto; width: 16px; height: 16px;"></div>
+          <span>Đang tải nến 1m lịch sử từ Binance và mô phỏng 7 tầng xác thực...</span>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- Scripts -->
+  <script src="/static/js/top.js?v=2.2"></script>
+</body>
+</html>

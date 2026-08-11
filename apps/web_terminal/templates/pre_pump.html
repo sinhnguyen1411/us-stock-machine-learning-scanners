@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>DeepAlpha — Radar Dự Báo Sớm Siêu Bơm (10x - 40x Pre-Pump Indicator)</title>
+  
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+  
+  <!-- Custom Style -->
+  <link rel="stylesheet" href="/static/css/style.css?v=2.3">
+</head>
+<body>
+
+  <!-- Header with Navigation -->
+  <header class="app-header">
+    <div class="brand-container">
+      <div class="logo-badge" style="background: linear-gradient(135deg, var(--accent-red), var(--accent-purple)); color: #fff;">🔮</div>
+      <div>
+        <h1 class="brand-title" style="background: linear-gradient(90deg, #ffffff, var(--accent-red)); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">Pre-Pump Leading Radar</h1>
+        <div class="brand-subtitle">Phát Hiện Dấu Hiệu Gom Hàng & Short Squeeze (10x - 40x)</div>
+      </div>
+    </div>
+
+    <!-- Navigation Menu -->
+    <nav class="nav-menu">
+      <a href="/" class="nav-link">
+        <span>⚡ Terminal Realtime</span>
+      </a>
+      <a href="/top" class="nav-link">
+        <span>🔥 Top 10 Sắp Pump</span>
+        <span class="nav-badge">Live</span>
+      </a>
+      <a href="/pre-pump" class="nav-link active">
+        <span>🔮 Dự Báo Sớm (10x-40x)</span>
+        <span class="nav-badge" style="background: rgba(255, 51, 102, 0.2); color: var(--accent-red);">Radar</span>
+      </a>
+    </nav>
+    
+    <div class="header-status">
+      <!-- Audio Alert Toggle Button -->
+      <button id="btn-audio-toggle" class="header-btn" onclick="toggleAudioAlert()" title="Bật/Tắt chuông cảnh báo khi phát hiện tín hiệu Pump">
+        <span id="audio-icon">🔊</span>
+        <span id="audio-status-text">Chuông: BẬT</span>
+      </button>
+
+      <!-- Backtest Trigger Button -->
+      <button class="header-btn btn-backtest-trigger" onclick="openBacktestModal()">
+        <span>🧪 Backtest Lịch Sử</span>
+      </button>
+
+      <div class="status-pill" style="border-color: rgba(255, 51, 102, 0.4); color: var(--accent-red); background: rgba(255, 51, 102, 0.1);">
+        <div class="pulse-dot" style="background: var(--accent-red); box-shadow: 0 0 8px var(--accent-red);"></div>
+        <span id="market-status-text">526 Cặp Futures Live</span>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Container -->
+  <main class="main-container">
+
+    <!-- Hero Introduction Banner (Compact & Sleek) -->
+    <section class="pre-pump-hero" style="padding: 14px 20px; margin-bottom: 18px;">
+      <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
+        <div>
+          <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 4px;">
+            <span class="nav-badge" style="background: rgba(255, 51, 102, 0.2); color: var(--accent-red); padding: 3px 8px; font-size: 0.75rem;">🚨 ĐỘNG CƠ ĐỊNH LƯỢNG 4 TRỤ CỘT BẮT SỚM SIÊU BƠM</span>
+            <h2 style="font-size: 1.15rem; font-weight: 800; color: #fff; margin: 0;">
+              Bắt Trọn Điểm Khởi Phát Của Các Siêu Sóng Tăng Trưởng &amp; Short Squeeze
+            </h2>
+          </div>
+          <div style="font-size: 0.8rem; color: var(--text-muted);">
+            Hệ thống giám sát vi mô 1H tự động đo lường 4 tín hiệu vàng: <strong style="color: var(--accent-cyan);">1. Biên độ nén 1H &le; 3.5% (Gom hàng đáy)</strong> &rarr; <strong style="color: var(--accent-yellow);">2. Cây nến mồi lửa Vol Spike &ge; 3.0x + Taker Buy &ge; 53% (Ignition)</strong> &rarr; <strong style="color: var(--accent-red);">3. Bẫy Funding Rate âm sâu (Short Squeeze Fuel)</strong> &rarr; <strong style="color: var(--accent-green);">4. Đòn bẩy OI bùng nổ</strong>
+          </div>
+        </div>
+        <div style="font-family: var(--font-mono); font-size: 0.75rem; color: var(--accent-cyan); background: rgba(0, 229, 255, 0.08); border: 1px solid rgba(0, 229, 255, 0.2); padding: 5px 12px; border-radius: 6px;">
+          ⚡ Giám Sát Vi Mô Tự Động Toàn Thị Trường
+        </div>
+      </div>
+    </section>
+
+
+
+    <!-- 4 Golden Signal Status Metric Cards -->
+    <div class="stat-grid-4">
+      <div class="stat-card" style="border-color: rgba(255, 145, 0, 0.4); background: linear-gradient(135deg, rgba(255, 145, 0, 0.12), rgba(18, 24, 36, 0.85));">
+        <span class="stat-card-label" style="color: var(--accent-orange);">🚀 1. VỪA MỒI LỬA (IGNITION)</span>
+        <div id="stat-ignition-count" class="stat-card-val" style="color: var(--accent-yellow);">0</div>
+        <span class="stat-card-sub">Vol Spike &ge; 3x &bull; Taker Buy &ge; 53%</span>
+      </div>
+
+      <div class="stat-card watch">
+        <span class="stat-card-label">🧊 2. ĐANG NÉN ĐÁY (COILING)</span>
+        <div id="stat-coiling-count" class="stat-card-val" style="color: var(--accent-cyan);">0</div>
+        <span class="stat-card-sub">Biên độ nén 1H &le; 3.5% trong 24h</span>
+      </div>
+
+      <div class="stat-card critical">
+        <span class="stat-card-label">🚨 3. BẪY FUNDING ÂM SÂU</span>
+        <div id="stat-neg-funding-count" class="stat-card-val" style="color: var(--accent-red);">0</div>
+        <span id="stat-worst-funding-sub" class="stat-card-sub">Funding &le; -0.05%</span>
+      </div>
+
+      <div class="stat-card">
+        <span class="stat-card-label">💎 4. ĐIỂM SIÊU BƠM CAO (&ge; 65)</span>
+        <div id="stat-high-score-count" class="stat-card-val" style="color: var(--accent-green);">0</div>
+        <span class="stat-card-sub">Hội tụ đủ 4 trụ cột vi mô</span>
+      </div>
+    </div>
+
+    <!-- PRE-PUMP LEADING RADAR TABLE SECTION -->
+    <section class="card-panel" style="border-color: rgba(255, 51, 102, 0.3); box-shadow: 0 4px 25px rgba(255, 51, 102, 0.08);">
+      <div class="panel-header">
+        <div style="display: flex; align-items: center; gap: 10px;">
+          <div style="font-size: 1.4rem;">🔮</div>
+          <div>
+            <h3 class="asset-title" style="font-size: 1.25rem; color: var(--accent-red);">BẢNG QUÉT VI MÔ 4 TRỤ CỘT & PHÂN LOẠI PHA PUMP</h3>
+            <div style="font-size: 0.78rem; color: var(--text-dim);">Tự động quét nến 1H lịch sử và Order Flow trên toàn bộ Binance Futures (Cập nhật mỗi 3s)</div>
+          </div>
+        </div>
+
+        <!-- 4 Phase Filter Buttons -->
+        <div class="filter-group">
+          <button class="filter-btn active" onclick="filterPrePumpPhase('ALL')">Tất Cả</button>
+          <button class="filter-btn" onclick="filterPrePumpPhase('IGNITION')">🚀 Vừa Mồi Lửa (Ignition)</button>
+          <button class="filter-btn" onclick="filterPrePumpPhase('COILING')">🧊 Đang Nén Đáy (Coiling)</button>
+          <button class="filter-btn" onclick="filterPrePumpPhase('NEG_FUNDING')">🚨 Funding Âm Sâu</button>
+          <button class="filter-btn" onclick="filterPrePumpPhase('EXPANSION')">🔥 Short Squeeze Đang Bay</button>
+        </div>
+      </div>
+
+      <div class="table-wrapper">
+        <table class="styled-table">
+          <thead>
+            <tr>
+              <th style="width: 45px;"># Rank</th>
+              <th>Cặp Coin</th>
+              <th>Giá & 24h %</th>
+              <th>Pha Thị Trường</th>
+              <th>Funding (8h) & Hạn</th>
+              <th>Độ Nén 1H (24h)</th>
+              <th>Vol Spike 1H</th>
+              <th>Taker Buy 1H</th>
+              <th style="width: 150px;">Điểm Siêu Bơm</th>
+              <th>Chiến Lược Gợi Ý</th>
+              <th>Thao Tác</th>
+            </tr>
+          </thead>
+          <tbody id="pre-pump-body">
+            <tr>
+              <td colspan="11" style="text-align: center; color: var(--text-dim); padding: 35px;">
+                <div class="pulse-dot" style="margin: 0 auto 10px auto; background: var(--accent-red); box-shadow: 0 0 8px var(--accent-red);"></div>
+                Đang quét nến 1H lịch sử, đo lường độ nén và phát hiện cây nến mồi lửa từ 526 cặp...
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- Theoretical Guide & Playbook Box -->
+    <section class="card-panel" style="background: rgba(18, 24, 36, 0.4); border-color: rgba(255, 255, 255, 0.05); margin-top: 20px;">
+      <h4 style="font-size: 1.05rem; font-weight: 700; color: var(--accent-cyan); margin-bottom: 12px;">
+        💡 Bí Kíp Đọc 4 Pha Thị Trường & Vào Lệnh Thực Chiến:
+      </h4>
+      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 16px; font-size: 0.84rem; color: var(--text-muted); line-height: 1.6;">
+        <div style="background: rgba(0, 0, 0, 0.25); padding: 14px; border-radius: 8px; border-left: 3px solid var(--accent-cyan);">
+          <strong style="color: var(--accent-cyan);">Pha 1: Đang Nén Đáy (Coiling)</strong><br>
+          Biên độ 1H &le; 3.5%. Vùng nén biên độ hẹp, dòng tiền thông minh tích lũy âm thầm. Đặt vào Watchlist và chuẩn bị vốn.
+        </div>
+        <div style="background: rgba(0, 0, 0, 0.25); padding: 14px; border-radius: 8px; border-left: 3px solid var(--accent-yellow);">
+          <strong style="color: var(--accent-yellow);">Pha 2: Vừa Mồi Lửa (Ignition Trigger)</strong><br>
+          Nến 1H đầu tiên nổ Vol &ge; 3x &amp; Taker Buy &ge; 53%. <strong>Thời điểm vàng vào lệnh Entry</strong>, đặt SL ngay dưới đáy nến mồi.
+        </div>
+        <div style="background: rgba(0, 0, 0, 0.25); padding: 14px; border-radius: 8px; border-left: 3px solid var(--accent-red);">
+          <strong style="color: var(--accent-red);">Pha 3: Short Squeeze (Expansion)</strong><br>
+          Funding âm sâu (&le; -0.1%), hiệu ứng thanh lý Short dây chuyền đẩy giá bùng nổ mạnh mẽ. Chốt TP1 (+20%), dời SL hòa vốn và gồng Trailing Stop 12%.
+        </div>
+        <div style="background: rgba(0, 0, 0, 0.25); padding: 14px; border-radius: 8px; border-left: 3px solid var(--accent-green);">
+          <strong style="color: var(--accent-green);">Pha 4: Thoát Lệnh Bảo Toàn Vốn</strong><br>
+          Chốt hết khi Funding Rate chuyển dương trở lại hoặc gãy mốc Trailing Stop để bảo toàn lợi nhuận siêu ngạch.
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- Backtest Modal Dialog -->
+  <div id="backtest-modal" class="modal-overlay" style="display: none;">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3 style="font-size: 1.3rem; font-weight: 800; color: var(--accent-cyan);">🧪 Chạy Backtest Lịch Sử (Cascade TP Engine)</h3>
+        <button class="modal-close-btn" onclick="closeBacktestModal()">✕</button>
+      </div>
+
+      <div class="modal-body">
+        <div style="display: grid; grid-template-columns: 2fr 1fr 1fr; gap: 12px; margin-bottom: 16px;">
+          <div>
+            <label class="form-lbl">MÃ CẶP COIN:</label>
+            <input type="text" id="bt-symbol" class="search-input" value="BTCUSDT" style="width: 100%;">
+          </div>
+          <div>
+            <label class="form-lbl">KHOẢNG THỜI GIAN:</label>
+            <select id="bt-days" class="search-input" style="width: 100%; height: 42px;">
+              <option value="3">3 Ngày (Nhanh)</option>
+              <option value="7" selected>7 Ngày (Chuẩn)</option>
+              <option value="14">14 Ngày</option>
+              <option value="30">30 Ngày (Sâu)</option>
+            </select>
+          </div>
+          <div style="display: flex; align-items: flex-end;">
+            <button id="btn-run-backtest" class="btn-scan" style="width: 100%; height: 42px;" onclick="runHistoricalBacktest()">
+              <span>🚀 Chạy Test</span>
+            </button>
+          </div>
+        </div>
+
+        <div id="bt-results-container" style="display: none;">
+          <div class="bt-summary-grid">
+            <div class="bt-stat-box">
+              <span class="bt-stat-lbl">TỔNG LỢI NHUẬN RÒNG</span>
+              <strong id="bt-net-profit" class="bt-stat-val">$0.00</strong>
+              <span id="bt-return-pct" style="font-size: 0.8rem;">(+0.00%)</span>
+            </div>
+            <div class="bt-stat-box">
+              <span class="bt-stat-lbl">TỶ LỆ THẮNG (WIN RATE)</span>
+              <strong id="bt-win-rate" class="bt-stat-val">0.0%</strong>
+              <span id="bt-trade-counts" style="font-size: 0.8rem;">0 thắng / 0 thua</span>
+            </div>
+            <div class="bt-stat-box">
+              <span class="bt-stat-lbl">PROFIT FACTOR</span>
+              <strong id="bt-profit-factor" class="bt-stat-val">0.00</strong>
+              <span style="font-size: 0.8rem; color: var(--text-muted);">Tổng lãi / Tổng lỗ</span>
+            </div>
+            <div class="bt-stat-box">
+              <span class="bt-stat-lbl">MAX DRAWDOWN</span>
+              <strong id="bt-max-dd" class="bt-stat-val" style="color: var(--accent-red);">0.0%</strong>
+              <span style="font-size: 0.8rem; color: var(--text-muted);">Sụt giảm vốn tối đa</span>
+            </div>
+          </div>
+
+          <h4 style="margin: 16px 0 8px 0; font-size: 0.95rem; color: var(--text-main);">📝 Lịch Sử Chi Tiết Các Lệnh Đã Khớp:</h4>
+          <div style="max-height: 220px; overflow-y: auto; border: 1px solid var(--border-color); border-radius: 6px;">
+            <table class="styled-table" style="font-size: 0.82rem;">
+              <thead>
+                <tr>
+                  <th>Vào Lệnh</th>
+                  <th>Thoát Lệnh</th>
+                  <th>Giá Vào</th>
+                  <th>Giá Thoát</th>
+                  <th>PnL ($)</th>
+                  <th>% Lãi/Lỗ</th>
+                  <th>Lý Do Thoát</th>
+                </tr>
+              </thead>
+              <tbody id="bt-trades-body"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <div id="bt-loading" style="display: none; text-align: center; padding: 30px; color: var(--accent-cyan);">
+          <div class="pulse-dot" style="margin: 0 auto 10px auto; width: 16px; height: 16px;"></div>
+          <span>Đang tải nến 1m lịch sử từ Binance và mô phỏng 7 tầng xác thực...</span>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- Scripts -->
+  <script src="/static/js/pre_pump.js?v=2.3"></script>
+</body>
+</html>

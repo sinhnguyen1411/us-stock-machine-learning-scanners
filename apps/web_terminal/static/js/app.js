@@ -14,19 +14,18 @@ let radarInterval = null;
 let audioAlertEnabled = true;
 let audioCtx = null;
 
+// Check URL parameters for symbol (e.g. /?symbol=BEATUSDT)
+const urlParams = new URLSearchParams(window.location.search);
+const symParam = urlParams.get("symbol");
+if (symParam) {
+  currentSymbol = symParam.trim().toUpperCase();
+}
+
 // Initialize on DOM Ready
 document.addEventListener("DOMContentLoaded", () => {
-  try { initChart(); } catch (e) { console.error("initChart error:", e); }
-  try { initRecentSymbols(); } catch (e) { console.error("initRecentSymbols error:", e); }
-  try { loadTopMovers(); } catch (e) { console.error("loadTopMovers error:", e); }
-  try { loadSymbol(currentSymbol); } catch (e) { console.error("loadSymbol error:", e); }
-  try { loadPortfolio(); } catch (e) { console.error("loadPortfolio error:", e); }
-  try { loadLiveRadar(); } catch (e) { console.error("loadLiveRadar error:", e); }
-  try { loadTopPumpCandidates(); } catch (e) { console.error("loadTopPumpCandidates error:", e); }
-
-  // Search input Enter key
   const searchInput = document.getElementById("symbol-search");
   if (searchInput) {
+    searchInput.value = currentSymbol;
     searchInput.addEventListener("keypress", (e) => {
       if (e.key === "Enter") {
         const val = searchInput.value.trim().toUpperCase();
@@ -42,6 +41,15 @@ document.addEventListener("DOMContentLoaded", () => {
       if (val) loadSymbol(val);
     });
   }
+
+  try { initChart(); } catch (e) { console.error("initChart error:", e); }
+  try { initRecentSymbols(); } catch (e) { console.error("initRecentSymbols error:", e); }
+  try { loadTopMovers(); } catch (e) { console.error("loadTopMovers error:", e); }
+  try { loadSymbol(currentSymbol); } catch (e) { console.error("loadSymbol error:", e); }
+  try { loadPortfolio(); } catch (e) { console.error("loadPortfolio error:", e); }
+  try { loadLiveRadar(); } catch (e) { console.error("loadLiveRadar error:", e); }
+  try { loadTopPumpCandidates(); } catch (e) { console.error("loadTopPumpCandidates error:", e); }
+
 
   // Auto-refresh every 4 seconds
   refreshInterval = setInterval(() => {

@@ -20,14 +20,20 @@ class BinanceFuturesConnector:
         # Configure session without inheriting restrictive system proxy for localhost reliability
         self.session = requests.Session()
         self.session.trust_env = False
+        adapter = requests.adapters.HTTPAdapter(pool_connections=50, pool_maxsize=50)
+        self.session.mount("https://", adapter)
+        self.session.mount("http://", adapter)
         self.client.session = self.session
 
+
     def get_all_usdt_tickers(self, min_quote_volume: float = 500000.0) -> List[Dict[str, Any]]:
-        """Fetch all 24-hour ticker statistics for USDT-M perpetual contracts."""
+        """Fetch all 24-hour ticker statistics for USDT-M perpetual contracts (excluding stablecoins, stocks & ETFs)."""
         tickers = self.client.futures_ticker()
+        from core_engine.classifier import is_excluded_asset
         return [
             t for t in tickers
             if t["symbol"].endswith("USDT")
+            and not is_excluded_asset(t["symbol"])
             and float(t.get("quoteVolume", 0)) >= min_quote_volume
         ]
 
@@ -57,3 +63,43 @@ class BinanceFuturesConnector:
         except Exception:
             pass
         return 0.0
+
+    def get_all_premium_index(self) -> List[Dict[str, Any]]:
+        """Fetch all mark prices and funding rates for all USDT-M contracts in 1 fast call (excluding stablecoins, stocks & ETFs)."""
+        try:
+            from core_engine.classifier import is_excluded_asset
+            data = self.client.futures_mark_price()
+            return [
+                d for d in data 
+                if d.get("symbol", "").endswith("USDT") and not is_excluded_asset(d.get("symbol", ""))
+            ]
+        except Exception:
+            return []
+
+
+
+    def get_orderbook_depth_ratio(self, symbol: str, limit: int = 20) -> Dict[str, Any]:
+        """Fetch orderbook depth to calculate Bid/Ask Liquidity Imbalance (Ask Vacuum)."""
+        try:
+            ob = self.client.futures_order_book(symbol=symbol, limit=limit)
+            bids = ob.get("bids", [])
+            asks = ob.get("asks", [])
+
+            total_bid_vol = sum(float(b[0]) * float(b[1]) for b in bids)
+            total_ask_vol = sum(float(a[0]) * float(a[1]) for a in asks)
+
+            ratio = round(total_bid_vol / max(total_ask_vol, 1e-4), 2)
+            return {
+                "bid_vol_usd": total_bid_vol,
+                "ask_vol_usd": total_ask_vol,
+                "depth_ratio": ratio,
+                "is_ask_vacuum": ratio >= 2.5,
+            }
+        except Exception:
+            return {
+                "bid_vol_usd": 0.0,
+                "ask_vol_usd": 0.0,
+                "depth_ratio": 1.0,
+                "is_ask_vacuum": False,
+            }
+

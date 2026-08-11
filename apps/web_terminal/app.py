@@ -14,8 +14,9 @@ from flask import Flask, render_template, jsonify, request
 ROOT_DIR = Path(__file__).resolve().parent.parent.parent
 sys.path.insert(0, str(ROOT_DIR / "packages"))
 
-from core_engine import classify_asset_tier, evaluate_confirmation_layers, calculate_pump_score
+from core_engine import classify_asset_tier, evaluate_confirmation_layers, calculate_pump_score, calculate_pre_pump_index, is_stablecoin, is_stock_or_etf, is_excluded_asset
 from exchange_connectors import BinanceFuturesConnector
+
 from risk_management import calculate_trade_plan, CascadeBacktestEngine, CircuitBreakerManager
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
@@ -26,6 +27,10 @@ app = Flask(
     template_folder=str(Path(__file__).parent / "templates"),
     static_folder=str(Path(__file__).parent / "static"),
 )
+app.config["TEMPLATES_AUTO_RELOAD"] = True
+app.jinja_env.auto_reload = True
+app.json.ensure_ascii = False          # Flask 3.x: output Vietnamese & emoji as-is in JSON
+
 
 connector = BinanceFuturesConnector()
 circuit_mgr = CircuitBreakerManager()
@@ -38,6 +43,7 @@ PAPER_PORTFOLIO = {
 
 LIVE_RADAR_SIGNALS = []
 TOP_10_PUMP_CANDIDATES = []
+PRE_PUMP_RADAR_ITEMS = []
 
 
 def analyze_symbol(symbol: str, interval: str = "1m") -> dict:
@@ -46,8 +52,13 @@ def analyze_symbol(symbol: str, interval: str = "1m") -> dict:
     if not sym.endswith("USDT"):
         sym += "USDT"
 
+    if is_excluded_asset(sym):
+        return {"error": f"{sym} là stablecoin / cổ phiếu / ETF và đã bị loại trừ khỏi hệ thống"}
+
     try:
         klines = connector.get_klines(symbol=sym, interval=interval, limit=60)
+
+
         if not klines or len(klines) < 25:
             return {"error": f"Không đủ dữ liệu nến cho {sym}"}
 
@@ -130,11 +141,31 @@ def analyze_symbol(symbol: str, interval: str = "1m") -> dict:
 
 @app.route("/")
 def index():
-    return render_template("index.html")
+    return render_template("index.html", active_page="terminal")
+
+
+@app.route("/top")
+def page_top():
+    return render_template("top.html", active_page="top")
+
+
+@app.route("/pre-pump")
+def page_pre_pump():
+    return render_template("pre_pump.html", active_page="pre_pump")
+
+
+@app.route("/api/pre_pump_radar")
+def api_pre_pump_radar():
+    return jsonify({
+        "timestamp": datetime.now(timezone.utc).strftime("%H:%M:%S"),
+        "total_analyzed": len(PRE_PUMP_RADAR_ITEMS),
+        "candidates": PRE_PUMP_RADAR_ITEMS,
+    })
 
 
 @app.route("/api/analyze/<symbol>")
 def api_analyze(symbol):
+
     interval = request.args.get("interval", "1m")
     data = analyze_symbol(symbol, interval=interval)
     if "error" in data:
@@ -317,10 +348,13 @@ def api_backtest():
 
 def _analyze_candidate(sym: str):
     """Worker function for concurrent candidate analysis."""
+    if is_excluded_asset(sym):
+        return None, None
     try:
         res = analyze_symbol(sym, interval="1m")
         if res.get("error"):
             return None, None
+
 
         sc = res.get("scorecard", {})
         vd = res.get("verdict", {})
@@ -369,16 +403,220 @@ def _analyze_candidate(sym: str):
         return None, None
 
 
+def _analyze_pre_pump_symbol(item_tuple):
+    """Worker function to analyze 1H microstructure & 4 pillars for pre-pump candidate."""
+    p, t_info = item_tuple
+    sym = p.get("symbol", "")
+    if is_excluded_asset(sym):
+        return None
+
+    fr = float(p.get("lastFundingRate", 0))
+    mark_p = float(p.get("markPrice", 0))
+    next_ft = p.get("nextFundingTime")
+    pct_24h = float(t_info.get("priceChangePercent", 0)) if t_info else 0.0
+    quote_vol = float(t_info.get("quoteVolume", 0)) if t_info else 0.0
+
+
+    try:
+        klines_1h = connector.get_klines(sym, interval="1h", limit=25)
+        if klines_1h and len(klines_1h) >= 10:
+            open_times = [int(k[0]) for k in klines_1h]
+            opens = [float(k[1]) for k in klines_1h]
+            highs = [float(k[2]) for k in klines_1h]
+            lows = [float(k[3]) for k in klines_1h]
+            closes = [float(k[4]) for k in klines_1h]
+            volumes = [float(k[5]) for k in klines_1h]
+            taker_buys = [float(k[9]) for k in klines_1h]
+
+            # 1. 24h Average 1H Range (Compression)
+            ranges = [(h - l) / max(l, 1e-9) * 100.0 for h, l in zip(highs[:-1], lows[:-1])]
+            range_1h_avg = sum(ranges) / len(ranges) if ranges else 5.0
+
+            # 2. Closed candle (N-1) stats:
+            closed_vol = volumes[-2]
+            base_vols_closed = volumes[-22:-2] if len(volumes) >= 22 else volumes[:-2]
+            base_mean_closed = sum(base_vols_closed) / len(base_vols_closed) if base_vols_closed else 1.0
+            spike_closed = closed_vol / max(base_mean_closed, 1e-9)
+            taker_buy_closed = (taker_buys[-2] / max(closed_vol, 1e-9)) * 100.0
+            candle_chg_closed = ((closes[-2] - opens[-2]) / max(opens[-2], 1e-9)) * 100.0
+
+            # 3. Current running candle (N) stats (projected by elapsed minutes):
+            curr_vol = volumes[-1]
+            base_vols_curr = volumes[-21:-1] if len(volumes) >= 21 else volumes[:-1]
+            base_mean_curr = sum(base_vols_curr) / len(base_vols_curr) if base_vols_curr else 1.0
+            now_ms = int(time.time() * 1000)
+            mins_elapsed = max(2.0, min(60.0, (now_ms - open_times[-1]) / 60000.0))
+            projected_curr_vol = curr_vol * (60.0 / mins_elapsed)
+            spike_curr = projected_curr_vol / max(base_mean_curr, 1e-9)
+            taker_buy_curr = (taker_buys[-1] / max(curr_vol, 1e-9)) * 100.0
+            candle_chg_curr = ((closes[-1] - opens[-1]) / max(opens[-1], 1e-9)) * 100.0
+
+            # Continuous representation: preserve confirmed ignition from recently closed candle
+            if spike_closed >= spike_curr or mins_elapsed < 15.0:
+                vol_spike_1h = max(spike_closed, spike_curr)
+                taker_buy_1h = taker_buy_closed if spike_closed >= spike_curr else taker_buy_curr
+                candle_1h_pct = candle_chg_closed if spike_closed >= spike_curr else candle_chg_curr
+            else:
+                vol_spike_1h = spike_curr
+                taker_buy_1h = taker_buy_curr
+                candle_1h_pct = candle_chg_curr
+
+            atr = (highs[-1] - lows[-1])
+
+        else:
+            range_1h_avg = 5.0
+            vol_spike_1h = 1.0
+            taker_buy_1h = 50.0
+            candle_1h_pct = 0.0
+            atr = 0.0
+    except Exception as ex:
+        logger.error(f"Error in _analyze_pre_pump_symbol for {sym}: {ex}")
+        range_1h_avg = 5.0
+        vol_spike_1h = 1.0
+        taker_buy_1h = 50.0
+        candle_1h_pct = 0.0
+        atr = 0.0
+
+
+    macro_cycle_pos = 50.0
+    drift_1d_pct = 0.0
+    higher_low_quality = 1.0
+    adr_contraction = 1.0
+
+    try:
+        klines_1d = connector.get_klines(sym, interval="1d", limit=45)
+        if klines_1d and len(klines_1d) >= 5:
+            d_closes = [float(k[4]) for k in klines_1d]
+            d_highs  = [float(k[2]) for k in klines_1d]
+            d_lows   = [float(k[3]) for k in klines_1d]
+
+            # Macro Cycle Position (price position within 45-day range)
+            h_max = max(d_highs)
+            l_min = min(d_lows)
+            macro_cycle_pos = (mark_p - l_min) / max(h_max - l_min, 1e-9) * 100.0
+
+            # Wyckoff Signal 1: 14-day drift direction
+            # 0~+12% = sideways-to-up = Wyckoff Base pattern
+            if len(d_closes) >= 15:
+                drift_start = d_closes[-15]
+                drift_1d_pct = (d_closes[-1] - drift_start) / max(drift_start, 1e-9) * 100.0
+
+            # Wyckoff Signal 2: Higher Low Structure
+            # Recent low = min of last 3 daily bars
+            # Prev low = min of daily bars from 7-14 days ago
+            recent_lows = [float(k[3]) for k in klines_1d[-4:-1]] if len(klines_1d) >= 4 else []
+            prev_lows   = [float(k[3]) for k in klines_1d[-14:-7]] if len(klines_1d) >= 14 else []
+            if recent_lows and prev_lows:
+                recent_low_val = min(recent_lows)
+                prev_low_val   = min(prev_lows)
+                higher_low_quality = recent_low_val / max(prev_low_val, 1e-9)
+
+            # Wyckoff Signal 3: ADR Contraction
+            # Recent ADR (7d) vs Historical ADR (8-21 days ago) — compressing = nén đáy
+            ranges_7d   = [(float(k[2]) - float(k[3])) / max(float(k[3]), 1e-9) * 100.0
+                           for k in klines_1d[-8:-1]] if len(klines_1d) >= 8 else []
+            ranges_prev = [(float(k[2]) - float(k[3])) / max(float(k[3]), 1e-9) * 100.0
+                           for k in klines_1d[-22:-8]] if len(klines_1d) >= 22 else []
+            if ranges_7d and ranges_prev:
+                adr_7d   = sum(ranges_7d)   / len(ranges_7d)
+                adr_prev = sum(ranges_prev) / len(ranges_prev)
+                adr_contraction = adr_7d / max(adr_prev, 0.001)
+
+    except Exception:
+        macro_cycle_pos    = 50.0
+        drift_1d_pct       = 0.0
+        higher_low_quality = 1.0
+        adr_contraction    = 1.0
+
+    return calculate_pre_pump_index(
+        symbol=sym,
+        current_price=mark_p,
+        funding_rate=fr,
+        open_interest=0.0,
+        quote_vol_24h=quote_vol,
+        pct_24h=pct_24h,
+        range_1h_avg=range_1h_avg,
+        vol_spike_1h=vol_spike_1h,
+        taker_buy_1h=taker_buy_1h,
+        depth_ratio=1.0,
+        next_funding_time=next_ft,
+        atr=atr,
+        candle_1h_pct=candle_1h_pct,
+        macro_cycle_pos=macro_cycle_pos,
+        drift_1d_pct=drift_1d_pct,
+        higher_low_quality=higher_low_quality,
+        adr_contraction=adr_contraction,
+    )
+
+
+
+
+
 def radar_scanner_loop():
-    """Continuous high-speed background thread scanning 526 pairs in parallel."""
+    """Continuous high-speed background thread scanning pairs, top candidates, and pre-pump anomalies."""
     import concurrent.futures
-    logger.info("High-speed Radar & Top 10 background scanner thread started.")
-    global LIVE_RADAR_SIGNALS, TOP_10_PUMP_CANDIDATES
+    logger.info("High-speed Radar, Top 10 & Pre-Pump background scanner thread started.")
+    global LIVE_RADAR_SIGNALS, TOP_10_PUMP_CANDIDATES, PRE_PUMP_RADAR_ITEMS
+
+    loop_count = 0
 
     while True:
         try:
-            usdt_tickers = connector.get_all_usdt_tickers(min_quote_volume=500000.0)
+            # 1. Fetch 24h tickers
+            usdt_tickers = connector.get_all_usdt_tickers(min_quote_volume=300000.0)
+            ticker_map = {t["symbol"]: t for t in usdt_tickers}
 
+            # 2. Pre-Pump Anomaly Scanner (Multi-Bucket Selection across Negative Funding, Movers & Volume)
+            try:
+                premium_indices = connector.get_all_premium_index()
+                premium_map = {p["symbol"]: p for p in premium_indices if p.get("symbol")}
+
+                target_syms = set()
+
+                # Bucket A: Top 70 Negative Funding (Short Trap candidates)
+                neg_fundings = sorted(
+                    [p for p in premium_indices if float(p.get("lastFundingRate", 0)) < 0 and not is_excluded_asset(p.get("symbol", "")) and p.get("symbol") not in ("BTCUSDT", "ETHUSDT")],
+                    key=lambda x: float(x.get("lastFundingRate", 0))
+                )[:70]
+                for p in neg_fundings:
+                    target_syms.add(p["symbol"])
+
+                # Bucket B: Top 60 Volatility & Movers (Ignition & Breakouts like MAV, OGN)
+                gainers_movers = sorted(
+                    [t for t in usdt_tickers if not is_excluded_asset(t["symbol"]) and t["symbol"] not in ("BTCUSDT", "ETHUSDT")],
+                    key=lambda x: abs(float(x.get("priceChangePercent", 0))),
+                    reverse=True
+                )[:60]
+                for t in gainers_movers:
+                    target_syms.add(t["symbol"])
+
+                # Bucket C: Top 40 Volume Leaders (Whale flow)
+                vol_movers = sorted(
+                    [t for t in usdt_tickers if not is_excluded_asset(t["symbol"]) and t["symbol"] not in ("BTCUSDT", "ETHUSDT")],
+                    key=lambda x: float(x.get("quoteVolume", 0)),
+                    reverse=True
+                )[:40]
+                for t in vol_movers:
+                    target_syms.add(t["symbol"])
+
+
+                scan_targets = [
+                    (premium_map.get(s, {"symbol": s, "lastFundingRate": 0.0, "markPrice": 0.0}), ticker_map.get(s, {}))
+                    for s in target_syms
+                ]
+
+                if scan_targets:
+                    with concurrent.futures.ThreadPoolExecutor(max_workers=15) as pre_exec:
+                        raw_list = list(pre_exec.map(_analyze_pre_pump_symbol, scan_targets))
+                        pre_pump_list = [item for item in raw_list if item is not None and not is_excluded_asset(item.get("symbol", ""))]
+                        if pre_pump_list:
+                            PRE_PUMP_RADAR_ITEMS = sorted(pre_pump_list, key=lambda x: x["pre_pump_score"], reverse=True)[:50]
+
+            except Exception as ex:
+                logger.debug(f"Pre-pump scan error: {ex}")
+
+
+            # 3. Top 10 Candidates & Live Radar Signals
             sorted_by_change = sorted(
                 usdt_tickers,
                 key=lambda x: abs(float(x.get("priceChangePercent", 0))),
@@ -405,15 +643,17 @@ def radar_scanner_loop():
                         signals.append(signal)
 
             if all_scored:
-                TOP_10_PUMP_CANDIDATES = sorted(all_scored, key=lambda x: x["pump_score"], reverse=True)[:10]
+                TOP_10_PUMP_CANDIDATES = sorted(all_scored, key=lambda x: x["pump_score"], reverse=True)[:15]
 
             if signals:
                 LIVE_RADAR_SIGNALS = sorted(signals, key=lambda x: x["confidence"], reverse=True)[:10]
 
-            time.sleep(3)
+            time.sleep(3.0)
+
         except Exception as e:
-            logger.debug(f"Radar/Top10 scanner error: {e}")
-            time.sleep(4)
+            logger.error(f"Error in radar scan loop: {e}")
+            time.sleep(5.0)
+
 
 
 if __name__ == "__main__":
