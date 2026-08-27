@@ -157,4 +157,5 @@ python tests/test_risk_management.py
 
 ## License
 
-This project is licensed under the [MIT License](LICENSE).
+Copyright &copy; 2026 Sinh Nguyen. All rights reserved. **Proprietary & Confidential**.
+
