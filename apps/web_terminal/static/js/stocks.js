@@ -95,6 +95,11 @@ async function fetchTradFiData() {
     const data = await res.json();
     allTradFiStocks = data.data || [];
 
+    // Assign true global rank before any filtering
+    allTradFiStocks.forEach((s, idx) => {
+      s.globalRank = idx + 1;
+    });
+
     updateSessionHeader(data.session);
     updateTopStatCards();
     renderTradFiTable();
@@ -164,6 +169,8 @@ function handleStockSearch(val) {
 
 function renderTradFiTable() {
   const tbody = document.getElementById("tradfi-stock-body");
+  const titleEl = document.getElementById("tradfi-table-title");
+  const subtitleEl = document.getElementById("tradfi-table-subtitle");
   if (!tbody) return;
 
   let list = allTradFiStocks;
@@ -179,19 +186,49 @@ function renderTradFiTable() {
     );
   }
 
+  // Dynamic panel title & subtitle to avoid misleading "Bảng Xếp Hạng" on single lookup
+  if (titleEl && subtitleEl) {
+    if (currentSearchQuery) {
+      if (list.length === 1) {
+        const item = list[0];
+        titleEl.innerText = `Kết Quả Tra Cứu Vi Mô: ${item.ticker || item.symbol} (Hạng #${item.globalRank}/${allTradFiStocks.length})`;
+        subtitleEl.innerText = `Tra cứu vi mô thời gian thực • Giữ nguyên thứ hạng thực tế toàn hệ thống`;
+      } else {
+        titleEl.innerText = `Kết Quả Tìm Kiếm: "${currentSearchQuery}" (${list.length} mã)`;
+        subtitleEl.innerText = `Danh sách tìm kiếm theo ký tự • Giữ nguyên thứ hạng thực tế`;
+      }
+    } else if (currentSectorFilter !== "ALL") {
+      const sectorNames = {
+        "MEGA_TECH": "Mega Tech",
+        "SEMICONDUCTORS": "Bán Dẫn (Semi)",
+        "INDEX_AND_ETFS": "Index & ETF",
+        "AI_AND_PRE_IPO": "AI & Pre-IPO",
+        "FINANCIALS": "Tài Chính",
+        "GLOBAL_EQUITIES": "Quốc Tế",
+        "CONSUMER_AND_HEALTHCARE": "Tiêu Dùng"
+      };
+      const secName = sectorNames[currentSectorFilter] || currentSectorFilter;
+      titleEl.innerText = `Danh Sách Phân Ngành: ${secName} (${list.length} mã)`;
+      subtitleEl.innerText = `Lọc theo lĩnh vực • Giữ nguyên thứ hạng thực tế trong toàn hệ thống`;
+    } else {
+      titleEl.innerText = `Bảng Xếp Hạng Machine Learning Phái Sinh Chứng Khoán Mỹ`;
+      subtitleEl.innerText = `Xếp hạng theo điểm tổng hợp ML Score (0 - 100) • Tự động tính toán VWAP, Taker Buy, Gap %`;
+    }
+  }
+
   if (!list || list.length === 0) {
     tbody.innerHTML = `
       <tr>
         <td colspan="11" style="text-align: center; color: var(--text-dim); padding: 35px;">
-          Chưa tìm thấy mã chứng khoán nào phù hợp với bộ lọc "${currentSectorFilter}". Đang quét vi mô 5M...
+          Chưa tìm thấy mã chứng khoán nào phù hợp với từ khóa "${currentSearchQuery || currentSectorFilter}". Đang quét vi mô 5M...
         </td>
       </tr>
     `;
     return;
   }
 
-  tbody.innerHTML = list.map((s, idx) => {
-    const rank = idx + 1;
+  tbody.innerHTML = list.map((s) => {
+    const rank = s.globalRank;
     const rankBadge = rank === 1 ? "🥇 #1" : rank === 2 ? "🥈 #2" : rank === 3 ? "🥉 #3" : `#${rank}`;
     const rankStyle = rank <= 3 ? "color: var(--accent-cyan); font-weight: 800;" : "color: var(--text-muted);";
 

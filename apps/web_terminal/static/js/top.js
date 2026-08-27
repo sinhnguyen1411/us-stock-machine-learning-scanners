@@ -19,6 +19,11 @@ async function fetchTopPumpCandidates() {
     const data = await res.json();
     allTopCandidates = data.candidates || [];
 
+    // Assign true global rank before filtering
+    allTopCandidates.forEach((c, idx) => {
+      c.globalRank = idx + 1;
+    });
+
     updateTopStats(data.timestamp);
     renderTopPumpTable();
   } catch (e) {
@@ -72,6 +77,8 @@ function filterByTier(tier) {
 
 function renderTopPumpTable() {
   const tbody = document.getElementById("top-pump-body");
+  const titleEl = document.getElementById("top-table-title");
+  const subtitleEl = document.getElementById("top-table-subtitle");
   if (!tbody) return;
 
   let list = allTopCandidates;
@@ -81,6 +88,22 @@ function renderTopPumpTable() {
       const tName = (c.tier && c.tier.name) || "";
       return tCode === currentTierFilter || tName.toUpperCase().includes(currentTierFilter.replace("_", " "));
     });
+  }
+
+  if (titleEl && subtitleEl) {
+    if (currentTierFilter !== "ALL") {
+      const tierLabels = {
+        "MEME_AND_HIGH_VOL": "Meme & High-Vol",
+        "MID_CAP": "Mid-Cap",
+        "BLUECHIP": "Bluechip"
+      };
+      const tLbl = tierLabels[currentTierFilter] || currentTierFilter;
+      titleEl.innerText = `DANH SÁCH ỨNG CỬ VIÊN PHÂN TẦNG: ${tLbl.toUpperCase()} (${list.length} CẶP)`;
+      subtitleEl.innerText = `Lọc theo nhóm vốn hóa • Giữ nguyên thứ hạng thực tế trong toàn bộ 526 cặp Binance Futures`;
+    } else {
+      titleEl.innerText = `BẢNG XẾP HẠNG ỨNG CỬ VIÊN SẮP PUMP MẠNH`;
+      subtitleEl.innerText = `Chấm điểm theo 7 tầng xác thực vi mô, Taker Buy Pressure và Động lượng nén 5M`;
+    }
   }
 
   if (!list || list.length === 0) {
@@ -94,8 +117,8 @@ function renderTopPumpTable() {
     return;
   }
 
-  tbody.innerHTML = list.map((c, idx) => {
-    const rank = idx + 1;
+  tbody.innerHTML = list.map((c) => {
+    const rank = c.globalRank;
     const rankBadge = rank === 1 ? "🥇 #1" : rank === 2 ? "🥈 #2" : rank === 3 ? "🥉 #3" : `#${rank}`;
     const rankStyle = rank <= 3 ? "color: var(--accent-yellow); font-weight: 800;" : "color: var(--text-muted);";
 

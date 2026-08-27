@@ -19,6 +19,11 @@ async function fetchPrePumpRadar() {
     const data = await res.json();
     allPrePumpCandidates = data.candidates || [];
 
+    // Assign true global rank before filtering
+    allPrePumpCandidates.forEach((c, idx) => {
+      c.globalRank = idx + 1;
+    });
+
     updatePrePumpStats(data.timestamp);
     renderPrePumpTable();
   } catch (e) {
@@ -74,6 +79,8 @@ function formatFundingCountdown(nextFundingTime) {
 
 function renderPrePumpTable() {
   const tbody = document.getElementById("pre-pump-body");
+  const titleEl = document.getElementById("pre-pump-table-title");
+  const subtitleEl = document.getElementById("pre-pump-table-subtitle");
   if (!tbody) return;
 
   let list = allPrePumpCandidates;
@@ -87,6 +94,23 @@ function renderPrePumpTable() {
     list = allPrePumpCandidates.filter(c => c.phase === "SQUEEZE_EXPANSION" || (c.funding_rate <= -0.005 && c.pct_24h >= 8.0));
   }
 
+  if (titleEl && subtitleEl) {
+    if (currentPrePumpPhase !== "ALL") {
+      const phaseLabels = {
+        "IGNITION": "Vừa Mồi Lửa (Ignition)",
+        "COILING": "Đang Nén Đáy (Coiling)",
+        "NEG_FUNDING": "Funding Âm Sâu (Short Trap)",
+        "EXPANSION": "Short Squeeze Đang Bay"
+      };
+      const pLbl = phaseLabels[currentPrePumpPhase] || currentPrePumpPhase;
+      titleEl.innerText = `DANH SÁCH LỌC PHA THỊ TRƯỜNG: ${pLbl.toUpperCase()} (${list.length} CẶP)`;
+      subtitleEl.innerText = `Lọc theo cấu trúc vi mô • Giữ nguyên thứ hạng thực tế trong toàn hệ thống`;
+    } else {
+      titleEl.innerText = `BẢNG QUÉT VI MÔ 4 TRỤ CỘT & PHÂN LOẠI PHA PUMP`;
+      subtitleEl.innerText = `Tự động quét nến 1H lịch sử và Order Flow trên toàn bộ Binance Futures (Cập nhật mỗi 3s)`;
+    }
+  }
+
   if (!list || list.length === 0) {
     tbody.innerHTML = `
       <tr>
@@ -98,8 +122,8 @@ function renderPrePumpTable() {
     return;
   }
 
-  tbody.innerHTML = list.map((c, idx) => {
-    const rank = idx + 1;
+  tbody.innerHTML = list.map((c) => {
+    const rank = c.globalRank;
     const rankBadge = rank === 1 ? "🥇 #1" : rank === 2 ? "🥈 #2" : rank === 3 ? "🥉 #3" : `#${rank}`;
     const rankStyle = rank <= 3 ? "color: var(--accent-red); font-weight: 800;" : "color: var(--text-muted);";
     const pScore = Math.min(100, Math.max(0, c.pre_pump_score || 0));
