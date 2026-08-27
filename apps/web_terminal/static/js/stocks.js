@@ -109,7 +109,7 @@ function updateSessionHeader(session) {
   const stateEl = document.getElementById("ny-session-state");
   const pillText = document.getElementById("session-status-text");
 
-  if (timeEl) timeEl.innerText = `🕒 NY Time: ${session.est_time}`;
+  if (timeEl) timeEl.innerText = `NY Time: ${session.est_time}`;
   if (stateEl) stateEl.innerText = session.session_name;
   if (pillText) pillText.innerText = session.session_name;
 }
@@ -252,12 +252,12 @@ function renderTradFiTable() {
         </td>
         <td style="text-align: center;">
           <span class="signal-tag ${s.signal_class || 'tradfi-signal-neutral'}" style="padding: 3px 8px; border-radius: 4px; font-size: 0.72rem; font-weight: 700;">
-            ${s.signal_tag || "⚪ TÍCH LŨY"}
+            ${s.signal_tag || "TÍCH LŨY"}
           </span>
         </td>
         <td style="text-align: center;">
           <button class="action-btn-mini" onclick="event.stopPropagation(); selectTradFiStock('${s.symbol}')" style="background: rgba(0, 242, 254, 0.15); border: 1px solid rgba(0, 242, 254, 0.3); color: var(--accent-cyan); padding: 4px 10px; border-radius: 4px; font-size: 0.75rem; cursor: pointer;">
-            📊 Soi Nến
+            Soi Nến
           </button>
         </td>
       </tr>
@@ -407,10 +407,9 @@ function toggleAudioAlert() {
   const icon = document.getElementById("audio-icon");
   const txt = document.getElementById("audio-status-text");
   if (isAudioEnabled) {
-    if (icon) icon.innerText = "🔊";
     if (txt) txt.innerText = "Chuông: BẬT";
   } else {
-    if (icon) icon.innerText = "🔇";
     if (txt) txt.innerText = "Chuông: TẮT";
   }
+  if (icon) icon.innerText = "";
 }

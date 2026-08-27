@@ -142,7 +142,7 @@ function renderTopPumpTable() {
         </td>
         <td>
           <a href="/?symbol=${c.symbol}" class="btn-inspect" title="Mở biểu đồ nến và 7 tầng xác thực">
-            <span>🔍 Soi Nến</span>
+            <span>Soi Nến</span>
           </a>
         </td>
       </tr>
@@ -224,5 +224,5 @@ function toggleAudioAlert() {
   const txt = document.getElementById("audio-status-text");
   const ico = document.getElementById("audio-icon");
   if (txt) txt.innerText = isAudioAlertEnabled ? "Chuông: BẬT" : "Chuông: TẮT";
-  if (ico) ico.innerText = isAudioAlertEnabled ? "🔊" : "🔇";
+  if (ico) ico.innerText = "";
 }

@@ -58,7 +58,7 @@ def test_calculate_pump_score():
 
     result = calculate_pump_score(scorecard, tier)
     assert result["score"] >= 70.0
-    assert result["stage_tag"] in ["🚀 CHÂN SÓNG", "⚡ ĐANG BÙNG NỔ"]
+    assert result["stage_tag"] in ["CHÂN SÓNG", "ĐANG BÙNG NỔ"]
 
 
 if __name__ == "__main__":

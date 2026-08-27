@@ -205,24 +205,24 @@ def calculate_pre_pump_index(
     # 1. Squeeze Expansion: Active short squeeze in progress
     if (pct_24h >= 8.0 and (funding_rate < 0 or final_score >= 65.0) and vol_spike_1h >= 1.8) or (pct_24h >= 20.0 and vol_spike_1h >= 2.5):
         phase = "SQUEEZE_EXPANSION"
-        phase_tag = "🔥 SHORT SQUEEZE (10X-40X)"
+        phase_tag = "SHORT SQUEEZE (10X-40X)"
         phase_class = "phase-squeeze"
-        recommendation = "🚨 BẪY THANH LÝ: Phe Short chịu phí âm, máy xay thanh lý ép giá dựng cột. Kích hoạt Trailing Stop 12% để gồng."
+        recommendation = "BẪY THANH LÝ: Phe Short chịu phí âm, máy xay thanh lý ép giá dựng cột. Kích hoạt Trailing Stop 12% để gồng."
 
     # 2. Ignition Triggered: Volume spike breakout with bullish candle
     elif vol_spike_1h >= 2.2 and is_bullish_ignition and pct_24h >= -3.0:
         phase = "IGNITION_TRIGGERED"
-        phase_tag = "🚀 VỪA MỒI LỬA (IGNITION)"
+        phase_tag = "VỪA MỒI LỬA (IGNITION)"
         phase_class = "phase-ignition"
-        recommendation = "⚡ CƠ HỘI VÀNG: Cây nến mồi lửa bùng nổ (Vol Spike > 2.2x, nến xanh). Đã thoát khỏi vùng nén, dòng tiền cá voi đã kích hoạt."
+        recommendation = "CƠ HỘI VÀNG: Cây nến mồi lửa bùng nổ (Vol Spike > 2.2x, nến xanh). Đã thoát khỏi vùng nén, dòng tiền cá voi đã kích hoạt."
 
     # 3. Wyckoff Base: Sideways accumulation with upward drift
     elif wyckoff_score >= 10.0 and adr_contraction <= 0.85 and macro_cycle_pos <= 55.0 and drift_1d_pct >= -5.0:
         phase = "WYCKOFF_BASE"
-        phase_tag = "🏗️ NỀN WYCKOFF (SIDEWAYS BASE)"
+        phase_tag = "NỀN WYCKOFF (SIDEWAYS BASE)"
         phase_class = "phase-coiling"
         recommendation = (
-            f"🏗️ CẤU TRÚC NỀN WYCKOFF: Giá đang tích lũy ngang hơi hướng lên ({drift_1d_pct:+.1f}% / 14 ngày), "
+            f"CẤU TRÚC NỀN WYCKOFF: Giá đang tích lũy ngang hơi hướng lên ({drift_1d_pct:+.1f}% / 14 ngày), "
             f"biên độ ngày co lại ({adr_contraction:.2f}x), đáy đang tôn trọng (HL={higher_low_quality:.2f}). "
             f"Đây là mô hình nền trước khi bơm 10-40x. Chờ nến mồi lửa Volume để vào lệnh."
         )
@@ -230,30 +230,30 @@ def calculate_pre_pump_index(
     # 4. High Plateau Warning: Price at cycle peak, likely distribution
     elif macro_cycle_pos >= 70.0 and range_1h_avg <= 5.0:
         phase = "TOP_HIGH_PLATEAU"
-        phase_tag = "🏔️ NÉN VÙNG ĐỈNH (HIGH PLATEAU)"
+        phase_tag = "NÉN VÙNG ĐỈNH (HIGH PLATEAU)"
         phase_class = "phase-normal"
-        recommendation = f"⚠️ CẢNH BÁO VÙNG CAO: Giá đang neo tại vùng đỉnh chu kỳ ({macro_cycle_pos:.1f}%). Khả năng nén phân phối chốt lời. Rủi ro cao khi Long."
+        recommendation = f"CẢNH BÁO VÙNG CAO: Giá đang neo tại vùng đỉnh chu kỳ ({macro_cycle_pos:.1f}%). Khả năng nén phân phối chốt lời. Rủi ro cao khi Long."
 
     # 5. Pre-Ignition Coiling & Negative Funding Trap
     elif range_1h_avg <= 4.0 or funding_rate <= -0.0005:
         phase = "PRE_IGNITION_COILING"
         if funding_rate <= -0.002:
-            phase_tag = "🚨 BẪY PHÍ ÂM (SHORT TRAP)"
+            phase_tag = "BẪY PHÍ ÂM (SHORT TRAP)"
             phase_class = "phase-coiling"
-            recommendation = "🚨 BẪY SHORT CỰC NẶNG: Phe Short bu đông (Funding âm sâu < -0.2%), nhưng CHƯA có nến mồi xanh. Chờ nến mồi Volume xác nhận để Long."
+            recommendation = "BẪY SHORT CỰC NẶNG: Phe Short bu đông (Funding âm sâu < -0.2%), nhưng CHƯA có nến mồi xanh. Chờ nến mồi Volume xác nhận để Long."
         elif candle_1h_pct <= -1.5 and vol_spike_1h >= 2.0:
-            phase_tag = "🧊 ĐANG NÉN ĐÁY (COILING)"
+            phase_tag = "ĐANG NÉN ĐÁY (COILING)"
             phase_class = "phase-coiling"
-            recommendation = f"⚠️ ÁP LỰC XẢ: Nổ Volume 1H ({vol_spike_1h:.1f}x) nhưng là nến đỏ giảm ({candle_1h_pct:+.1f}%) phe bán xả hàng. Chờ lực đỡ hỗ trợ."
+            recommendation = f"ÁP LỰC XẢ: Nổ Volume 1H ({vol_spike_1h:.1f}x) nhưng là nến đỏ giảm ({candle_1h_pct:+.1f}%) phe bán xả hàng. Chờ lực đỡ hỗ trợ."
         else:
-            phase_tag = "🧊 ĐANG NÉN ĐÁY (COILING)"
+            phase_tag = "ĐANG NÉN ĐÁY (COILING)"
             phase_class = "phase-coiling"
-            recommendation = f"🧊 TÍCH LŨY NỀN ĐÁY ({macro_cycle_pos:.1f}%): Nằm tại vùng gom hàng chu kỳ, biên độ 1H nén phẳng (< 3.5%), volume cạn kiệt. Chuẩn bị cho nhịp mồi lửa."
+            recommendation = f"TÍCH LŨY NỀN ĐÁY ({macro_cycle_pos:.1f}%): Nằm tại vùng gom hàng chu kỳ, biên độ 1H nén phẳng (< 3.5%), volume cạn kiệt. Chuẩn bị cho nhịp mồi lửa."
 
     # 6. Normal
     else:
         phase = "NORMAL"
-        phase_tag = "⚪ BÌNH THƯỜNG"
+        phase_tag = "BÌNH THƯỜNG"
         phase_class = "phase-normal"
         recommendation = "Chưa phát hiện sự bất đối xứng thanh khoản hay tín hiệu mồi lửa rõ rệt."
 

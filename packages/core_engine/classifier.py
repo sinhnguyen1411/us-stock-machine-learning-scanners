@@ -142,7 +142,7 @@ def classify_asset_tier(symbol: str, quote_vol_24h: float = 0.0, pct_24h: float 
     if sym in BLUECHIP_SYMBOLS:
         return CoinTier(
             code="LARGE_CAP",
-            name="👑 Bluechip Large-Cap",
+            name="Bluechip Large-Cap",
             req_vol_spike=2.0,
             req_price_spike=0.010,  # +1.0%
             req_buy_ratio=0.60,
@@ -153,7 +153,7 @@ def classify_asset_tier(symbol: str, quote_vol_24h: float = 0.0, pct_24h: float 
     elif sym in MID_CAP_SYMBOLS or (quote_vol_24h >= 200_000_000 and abs(pct_24h) < 15.0):
         return CoinTier(
             code="MID_CAP",
-            name="⚡ Mid-Cap Trending",
+            name="Mid-Cap Trending",
             req_vol_spike=3.5,
             req_price_spike=0.020,  # +2.0%
             req_buy_ratio=0.62,
@@ -164,7 +164,7 @@ def classify_asset_tier(symbol: str, quote_vol_24h: float = 0.0, pct_24h: float 
     else:
         return CoinTier(
             code="LOW_CAP_MEME",
-            name="🚀 High-Volatility / Meme",
+            name="High-Volatility / Meme",
             req_vol_spike=5.0,
             req_price_spike=0.030,  # +3.0%
             req_buy_ratio=0.65,

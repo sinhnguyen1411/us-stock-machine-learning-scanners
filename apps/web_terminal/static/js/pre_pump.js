@@ -100,6 +100,8 @@ function renderPrePumpTable() {
 
   tbody.innerHTML = list.map((c, idx) => {
     const rank = idx + 1;
+    const rankBadge = rank === 1 ? "🥇 #1" : rank === 2 ? "🥈 #2" : rank === 3 ? "🥉 #3" : `#${rank}`;
+    const rankStyle = rank <= 3 ? "color: var(--accent-red); font-weight: 800;" : "color: var(--text-muted);";
     const pScore = Math.min(100, Math.max(0, c.pre_pump_score || 0));
     const barColor = pScore >= 75 ? "var(--accent-red)" : pScore >= 60 ? "var(--accent-yellow)" : "var(--accent-cyan)";
 
@@ -120,10 +122,10 @@ function renderPrePumpTable() {
 
     if (c.is_bullish_ignition && volSpike >= 2.2) {
       volStyle = "vol-spike-high";
-      volSubBadge = ' <span style="font-size:0.7rem; color:var(--accent-yellow);">🔥 Mồi</span>';
+      volSubBadge = ' <span style="font-size:0.7rem; color:var(--accent-yellow);">(Mồi)</span>';
     } else if (!c.is_bullish_ignition && volSpike >= 2.0 && ((c.candle_1h_pct || 0) < -0.3 || (c.taker_buy_1h || 50) < 48.0)) {
       volStyle = "color: var(--accent-red);";
-      volSubBadge = ' <span style="font-size:0.7rem; color:var(--accent-red);">⚠️ Xả</span>';
+      volSubBadge = ' <span style="font-size:0.7rem; color:var(--accent-red);">(Xả)</span>';
     } else if (volSpike >= 2.0) {
       volStyle = "color: var(--accent-yellow);";
     }
@@ -131,14 +133,13 @@ function renderPrePumpTable() {
     const takerBuy = c.taker_buy_1h || 50.0;
     const buyStyle = takerBuy >= 53.0 ? "taker-buy-bull" : takerBuy <= 45.0 ? "color: var(--accent-red);" : "color: var(--text-muted);";
 
-
     const tp = c.trade_plan || {};
     const slFmt = tp.sl ? `$${tp.sl < 1 ? tp.sl.toFixed(4) : tp.sl.toFixed(2)}` : "--";
     const tp1Fmt = tp.tp1 ? `$${tp.tp1 < 1 ? tp.tp1.toFixed(4) : tp.tp1.toFixed(2)}` : "--";
 
     return `
       <tr>
-        <td style="color: var(--text-dim); font-weight: 700; font-family: var(--font-mono);">#${rank}</td>
+        <td style="${rankStyle} font-family: var(--font-mono);">${rankBadge}</td>
         <td>
           <div style="font-weight: 700; color: #fff; font-size: 0.95rem;">${c.symbol}</div>
           <div style="font-size: 0.72rem; color: var(--text-dim);">USDT-M Perpetual</div>
@@ -149,7 +150,7 @@ function renderPrePumpTable() {
         </td>
         <td>
           <span class="phase-badge ${c.phase_class || 'phase-normal'}">
-            ${c.phase_tag || '⚪ BÌNH THƯỜNG'}
+            ${c.phase_tag || 'BÌNH THƯỜNG'}
           </span>
         </td>
         <td>
@@ -157,12 +158,12 @@ function renderPrePumpTable() {
             ${(c.funding_pct || 0) >= 0 ? '+' : ''}${(c.funding_pct || 0).toFixed(4)}%
           </div>
           <div style="font-family: var(--font-mono); color: var(--text-dim); font-size: 0.72rem;">
-            ⏳ ${countdown}
+            ${countdown}
           </div>
         </td>
         <td class="${rangeStyle}" style="font-size: 0.9rem;">
           ${range1h.toFixed(2)}%
-          ${range1h <= 3.5 ? ' <span style="font-size:0.7rem; color:var(--accent-cyan);">🧊 Nén</span>' : ''}
+          ${range1h <= 3.5 ? ' <span style="font-size:0.7rem; color:var(--accent-cyan);">(Nén)</span>' : ''}
         </td>
         <td class="${volStyle}" style="font-size: 0.9rem;">
           ${volSpike.toFixed(1)}x${volSubBadge}
@@ -181,13 +182,13 @@ function renderPrePumpTable() {
         </td>
         <td>
           <div class="trade-plan-box">
-            <span>🛡️ SL: <strong style="color:var(--accent-red);">${slFmt}</strong></span>
-            <span>🎯 TP1 (+20%): <strong style="color:var(--accent-green);">${tp1Fmt}</strong></span>
+            <span>SL: <strong style="color:var(--accent-red);">${slFmt}</strong></span>
+            <span>TP1 (+20%): <strong style="color:var(--accent-green);">${tp1Fmt}</strong></span>
           </div>
         </td>
         <td>
           <a href="/?symbol=${c.symbol}" class="btn-inspect" title="Mở Terminal để soi nến và phân tích 7 lớp">
-            <span>🔍 Soi Nến</span>
+            <span>Soi Nến</span>
           </a>
         </td>
       </tr>
@@ -269,5 +270,5 @@ function toggleAudioAlert() {
   const txt = document.getElementById("audio-status-text");
   const ico = document.getElementById("audio-icon");
   if (txt) txt.innerText = isAudioAlertEnabled ? "Chuông: BẬT" : "Chuông: TẮT";
-  if (ico) ico.innerText = isAudioAlertEnabled ? "🔊" : "🔇";
+  if (ico) ico.innerText = "";
 }

@@ -21,7 +21,7 @@
   <!-- Header with Navigation -->
   <header class="app-header">
     <div class="brand-container">
-      <div class="logo-badge" style="background: linear-gradient(135deg, #00f2fe, #4facfe); color: #000;">🏛️</div>
+      <div class="logo-badge" style="background: linear-gradient(135deg, #00f2fe, #4facfe); color: #000;">US</div>
       <div>
         <h1 class="brand-title" style="background: linear-gradient(90deg, #ffffff, #00f2fe); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">US Stock ML Scanners</h1>
         <div class="brand-subtitle">TradFi USD-M Perpetual Futures & Institutional Flow</div>
@@ -31,18 +31,18 @@
     <!-- Navigation Menu -->
     <nav class="nav-menu">
       <a href="/" class="nav-link">
-        <span>⚡ Terminal Realtime</span>
+        <span>Terminal Realtime</span>
       </a>
       <a href="/top" class="nav-link">
-        <span>🔥 Top 10 Sắp Pump</span>
+        <span>Top 10 Sắp Pump</span>
         <span class="nav-badge">Live</span>
       </a>
       <a href="/pre-pump" class="nav-link">
-        <span>🔮 Dự Báo Sớm (10x-40x)</span>
+        <span>Dự Báo Sớm (10x-40x)</span>
         <span class="nav-badge" style="background: rgba(255, 51, 102, 0.2); color: var(--accent-red);">Radar</span>
       </a>
       <a href="/stocks" class="nav-link active">
-        <span>🏛️ US Stock TradFi ML</span>
+        <span>US Stock TradFi ML</span>
         <span class="nav-badge" style="background: rgba(0, 242, 254, 0.2); color: var(--accent-cyan);">90+ Stocks</span>
       </a>
     </nav>
@@ -50,7 +50,7 @@
     <div class="header-status">
       <!-- Audio Alert Toggle Button -->
       <button id="btn-audio-toggle" class="header-btn" onclick="toggleAudioAlert()" title="Bật/Tắt chuông cảnh báo khi phát hiện tín hiệu">
-        <span id="audio-icon">🔊</span>
+        <span id="audio-icon"></span>
         <span id="audio-status-text">Chuông: BẬT</span>
       </button>
 
@@ -75,7 +75,7 @@
       <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
         <div>
           <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 4px;">
-            <span class="nav-badge" style="background: rgba(0, 242, 254, 0.2); color: var(--accent-cyan); padding: 3px 8px; font-size: 0.75rem;">🏛️ TRADFI MACHINE LEARNING DERIVATIVES SCANNER</span>
+            <span class="nav-badge" style="background: rgba(0, 242, 254, 0.2); color: var(--accent-cyan); padding: 3px 8px; font-size: 0.75rem;">TRADFI MACHINE LEARNING DERIVATIVES SCANNER</span>
             <h2 style="font-size: 1.15rem; font-weight: 800; color: #fff; margin: 0;">
               Giám Sát Vi Mô Thể Chế, VWAP &amp; Dòng Tiền Phái Sinh Cổ Phiếu Mỹ (USD-M)
             </h2>
@@ -85,7 +85,7 @@
           </div>
         </div>
         <div id="ny-session-banner-box" style="font-family: var(--font-mono); font-size: 0.8rem; color: var(--accent-cyan); background: rgba(0, 229, 255, 0.1); border: 1px solid rgba(0, 229, 255, 0.3); padding: 6px 14px; border-radius: 8px; text-align: right;">
-          <div id="ny-session-time" style="font-weight: 700;">🕒 NY Time: --:-- EST</div>
+          <div id="ny-session-time" style="font-weight: 700;">NY Time: --:-- EST</div>
           <div id="ny-session-state" style="font-size: 0.72rem; color: var(--text-dim);">Phiên Giao Dịch</div>
         </div>
       </div>
@@ -94,25 +94,25 @@
     <!-- Stat Summary Cards -->
     <div class="stat-grid-4">
       <div class="stat-card high" style="border-color: rgba(0, 242, 254, 0.4); background: linear-gradient(135deg, rgba(0, 242, 254, 0.12), rgba(18, 24, 36, 0.85));">
-        <span class="stat-card-label" style="color: var(--accent-cyan);">🥇 TOP 1 ML SCORE CAO NHẤT</span>
+        <span class="stat-card-label" style="color: var(--accent-cyan);">TOP 1 ML SCORE CAO NHẤT</span>
         <div id="stat-top-stock-symbol" class="stat-card-val" style="color: var(--accent-cyan);">---</div>
         <span id="stat-top-stock-score" class="stat-card-sub">Điểm tiềm năng: 0/100</span>
       </div>
 
       <div class="stat-card watch" style="border-color: rgba(0, 230, 118, 0.4); background: linear-gradient(135deg, rgba(0, 230, 118, 0.12), rgba(18, 24, 36, 0.85));">
-        <span class="stat-card-label" style="color: var(--accent-green);">🚀 ĐỘT PHÁ MUA MẠNH (BUY BREAKOUT)</span>
+        <span class="stat-card-label" style="color: var(--accent-green);">ĐỘT PHÁ MUA MẠNH (BUY BREAKOUT)</span>
         <div id="stat-breakout-stock-count" class="stat-card-val" style="color: var(--accent-green);">0</div>
         <span class="stat-card-sub">Volume Spike ≥ 2.0x &bull; Nằm trên VWAP</span>
       </div>
 
       <div class="stat-card" style="border-color: rgba(255, 179, 0, 0.4); background: linear-gradient(135deg, rgba(255, 179, 0, 0.12), rgba(18, 24, 36, 0.85));">
-        <span class="stat-card-label" style="color: var(--accent-yellow);">🔥 THỂ CHẾ GOM HÀNG (ACCUMULATION)</span>
+        <span class="stat-card-label" style="color: var(--accent-yellow);">THỂ CHẾ GOM HÀNG (ACCUMULATION)</span>
         <div id="stat-accum-stock-count" class="stat-card-val" style="color: var(--accent-yellow);">0</div>
         <span class="stat-card-sub">Taker Buy ≥ 65% quanh mốc VWAP</span>
       </div>
 
       <div class="stat-card">
-        <span class="stat-card-label">📊 TỔNG MÃ THEO DÕI</span>
+        <span class="stat-card-label">TỔNG MÃ THEO DÕI</span>
         <div id="stat-total-stock-count" class="stat-card-val" style="color: #ffffff;">90+</div>
         <span class="stat-card-sub">Cập nhật vi mô 5M tự động</span>
       </div>
@@ -121,25 +121,25 @@
     <!-- SECTOR FILTER TABS & SEARCH BAR -->
     <div class="filter-bar" style="margin-bottom: 15px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
       <div class="filter-group" style="display: flex; gap: 6px; flex-wrap: wrap;">
-        <button class="filter-btn active" onclick="filterBySector('ALL')">🌐 Tất Cả</button>
-        <button class="filter-btn" onclick="filterBySector('MEGA_TECH')">💻 Mega Tech</button>
-        <button class="filter-btn" onclick="filterBySector('SEMICONDUCTORS')">⚡ Bán Dẫn (Semi)</button>
-        <button class="filter-btn" onclick="filterBySector('INDEX_AND_ETFS')">📊 Index &amp; ETF</button>
-        <button class="filter-btn" onclick="filterBySector('AI_AND_PRE_IPO')">🤖 AI &amp; Pre-IPO</button>
-        <button class="filter-btn" onclick="filterBySector('FINANCIALS')">🏦 Tài Chính</button>
-        <button class="filter-btn" onclick="filterBySector('GLOBAL_EQUITIES')">🌏 Quốc Tế</button>
-        <button class="filter-btn" onclick="filterBySector('CONSUMER_AND_HEALTHCARE')">🛒 Tiêu Dùng</button>
+        <button class="filter-btn active" onclick="filterBySector('ALL')">Tất Cả</button>
+        <button class="filter-btn" onclick="filterBySector('MEGA_TECH')">Mega Tech</button>
+        <button class="filter-btn" onclick="filterBySector('SEMICONDUCTORS')">Bán Dẫn (Semi)</button>
+        <button class="filter-btn" onclick="filterBySector('INDEX_AND_ETFS')">Index &amp; ETF</button>
+        <button class="filter-btn" onclick="filterBySector('AI_AND_PRE_IPO')">AI &amp; Pre-IPO</button>
+        <button class="filter-btn" onclick="filterBySector('FINANCIALS')">Tài Chính</button>
+        <button class="filter-btn" onclick="filterBySector('GLOBAL_EQUITIES')">Quốc Tế</button>
+        <button class="filter-btn" onclick="filterBySector('CONSUMER_AND_HEALTHCARE')">Tiêu Dùng</button>
       </div>
 
       <div class="search-wrapper" style="max-width: 280px; margin: 0;">
-        <span class="search-icon">🔍</span>
+        <span class="search-icon"></span>
         <input 
           type="text" 
           id="stock-search" 
           class="search-input" 
           placeholder="Tìm mã (NVDA, TSLA, SPY, QQQ, AAPL)..." 
           autocomplete="off"
-          style="padding: 6px 12px 6px 34px; font-size: 0.85rem;"
+          style="padding: 6px 12px 6px 14px; font-size: 0.85rem;"
           oninput="handleStockSearch(this.value)"
         >
       </div>
@@ -152,7 +152,6 @@
       <section class="card-panel" style="border-color: rgba(0, 242, 254, 0.3); box-shadow: 0 4px 25px rgba(0, 242, 254, 0.06);">
         <div class="panel-header" style="padding: 12px 18px;">
           <div style="display: flex; align-items: center; gap: 10px;">
-            <div style="font-size: 1.3rem;">🏛️</div>
             <div>
               <h2 class="panel-title">Bảng Xếp Hạng Machine Learning Phái Sinh Chứng Khoán Mỹ</h2>
               <div class="panel-subtitle">Xếp hạng theo điểm tổng hợp ML Score (0 - 100) &bull; Tự động tính toán VWAP, Taker Buy, Gap %</div>
@@ -231,7 +230,7 @@
         <!-- Trade Setup & Target Card -->
         <div class="card-panel" style="padding: 16px; border-color: rgba(0, 230, 118, 0.3);">
           <h3 style="font-size: 0.95rem; font-weight: 700; color: var(--accent-green); margin: 0 0 10px 0; display: flex; align-items: center; gap: 6px;">
-            <span>🎯</span> Kế Hoạch Giao Dịch Thể Chế (Trade Setup)
+            Kế Hoạch Giao Dịch Thể Chế (Trade Setup)
           </h3>
           <div style="display: flex; flex-direction: column; gap: 8px; font-size: 0.8rem;">
             <div style="display: flex; justify-content: space-between; border-bottom: 1px dashed rgba(255,255,255,0.08); padding-bottom: 4px;">
@@ -260,7 +259,7 @@
         <!-- ML Signal Reasons Panel -->
         <div class="card-panel" style="padding: 16px;">
           <h3 style="font-size: 0.9rem; font-weight: 700; color: #fff; margin: 0 0 8px 0;">
-            🧠 Lý Do Đánh Giá Của Động Cơ ML
+            Lý Do Đánh Giá Của Động Cơ ML
           </h3>
           <ul id="detail-ml-reasons" style="margin: 0; padding-left: 18px; font-size: 0.78rem; color: var(--text-muted); line-height: 1.5;">
             <li>Đang phân tích vi mô...</li>

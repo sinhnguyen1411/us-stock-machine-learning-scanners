@@ -47,16 +47,16 @@ def calculate_pump_score(scorecard: Dict[str, Any], tier: Dict[str, Any]) -> Dic
 
     # Wave Stage Tagging
     if vol_ratio >= req_vol and buy_ratio >= req_buy and price_change_5m <= req_price * 1.2:
-        stage_tag = "🚀 CHÂN SÓNG"
+        stage_tag = "CHÂN SÓNG"
         stage_class = "stage-early"
     elif price_change_5m >= req_price and green_candles >= 3:
-        stage_tag = "⚡ ĐANG BÙNG NỔ"
+        stage_tag = "ĐANG BÙNG NỔ"
         stage_class = "stage-surge"
     elif buy_ratio >= 0.70 and vol_ratio >= 2.5:
-        stage_tag = "🔥 GOM HÀNG CỰC ĐẠI"
+        stage_tag = "GOM HÀNG CỰC ĐẠI"
         stage_class = "stage-accum"
     else:
-        stage_tag = "⏳ NÉN TÍCH LŨY"
+        stage_tag = "NÉN TÍCH LŨY"
         stage_class = "stage-compress"
 
     return {

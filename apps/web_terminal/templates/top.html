@@ -18,7 +18,7 @@
   <!-- Header with Navigation -->
   <header class="app-header">
     <div class="brand-container">
-      <div class="logo-badge">🔥</div>
+      <div class="logo-badge">TOP</div>
       <div>
         <h1 class="brand-title">Top 10 Pump Ranking</h1>
         <div class="brand-subtitle">Xếp Hạng Tự Động 526 Cặp Binance Futures</div>
@@ -28,18 +28,18 @@
     <!-- Navigation Menu -->
     <nav class="nav-menu">
       <a href="/" class="nav-link">
-        <span>⚡ Terminal Realtime</span>
+        <span>Terminal Realtime</span>
       </a>
       <a href="/top" class="nav-link active">
-        <span>🔥 Top 10 Sắp Pump</span>
+        <span>Top 10 Sắp Pump</span>
         <span class="nav-badge">Live</span>
       </a>
       <a href="/pre-pump" class="nav-link">
-        <span>🔮 Dự Báo Sớm (10x-40x)</span>
+        <span>Dự Báo Sớm (10x-40x)</span>
         <span class="nav-badge" style="background: rgba(255, 51, 102, 0.2); color: var(--accent-red);">Radar</span>
       </a>
       <a href="/stocks" class="nav-link">
-        <span>🏛️ US Stock TradFi ML</span>
+        <span>US Stock TradFi ML</span>
         <span class="nav-badge" style="background: rgba(0, 242, 254, 0.2); color: var(--accent-cyan);">90+ Stocks</span>
       </a>
     </nav>
@@ -47,13 +47,13 @@
     <div class="header-status">
       <!-- Audio Alert Toggle Button -->
       <button id="btn-audio-toggle" class="header-btn" onclick="toggleAudioAlert()" title="Bật/Tắt chuông cảnh báo khi phát hiện tín hiệu Pump">
-        <span id="audio-icon">🔊</span>
+        <span id="audio-icon"></span>
         <span id="audio-status-text">Chuông: BẬT</span>
       </button>
 
       <!-- Backtest Trigger Button -->
       <button class="header-btn btn-backtest-trigger" onclick="openBacktestModal()">
-        <span>🧪 Backtest Lịch Sử</span>
+        <span>Backtest Lịch Sử</span>
       </button>
 
       <div class="status-pill">
@@ -61,7 +61,7 @@
         <span id="market-status-text">526 Cặp Futures Live</span>
       </div>
       <div class="status-pill" style="border-color: rgba(255, 179, 0, 0.4); color: var(--accent-yellow); background: rgba(255, 179, 0, 0.1);">
-        <span>⚡ Auto-Rank (3s)</span>
+        <span>Auto-Rank (3s)</span>
       </div>
     </div>
   </header>
@@ -72,35 +72,34 @@
     <!-- Top Summary Stat Cards -->
     <div class="stat-grid-4">
       <div class="stat-card high">
-        <span class="stat-card-label">🥇 TOP 1 ĐIỂM CAO NHẤT</span>
+        <span class="stat-card-label">TOP 1 ĐIỂM CAO NHẤT</span>
         <div id="stat-top-symbol" class="stat-card-val" style="color: var(--accent-yellow);">---</div>
         <span id="stat-top-score" class="stat-card-sub">Điểm tiềm năng: 0/100</span>
       </div>
 
       <div class="stat-card watch">
-        <span class="stat-card-label">🌊 ĐANG ĐỘT PHÁ SỚM (BREAKOUT)</span>
+        <span class="stat-card-label">ĐANG ĐỘT PHÁ SỚM (BREAKOUT)</span>
         <div id="stat-breakout-count" class="stat-card-val" style="color: var(--accent-cyan);">0</div>
         <span class="stat-card-sub">Volume Spike ≥ 5.0x</span>
       </div>
 
       <div class="stat-card">
-        <span class="stat-card-label">🛒 TAKER BUY TRUNG BÌNH</span>
+        <span class="stat-card-label">TAKER BUY TRUNG BÌNH</span>
         <div id="stat-avg-buy" class="stat-card-val" style="color: var(--accent-green);">0.0%</div>
         <span class="stat-card-sub">Lực mua chủ động phe bò</span>
       </div>
 
       <div class="stat-card">
-        <span class="stat-card-label">⏱️ CẬP NHẬT GẦN NHẤT</span>
+        <span class="stat-card-label">CẬP NHẬT GẦN NHẤT</span>
         <div id="stat-last-time" class="stat-card-val">--:--:--</div>
         <span class="stat-card-sub">Chu kỳ quét 3 giây</span>
       </div>
     </div>
 
-    <!-- 🔥 TOP PUMP CANDIDATES SECTION -->
+    <!-- TOP PUMP CANDIDATES SECTION -->
     <section class="card-panel" style="border-color: rgba(255, 179, 0, 0.35); box-shadow: 0 4px 25px rgba(255, 179, 0, 0.08);">
       <div class="panel-header">
         <div style="display: flex; align-items: center; gap: 10px;">
-          <div style="font-size: 1.4rem;">🔥</div>
           <div>
             <h3 class="asset-title" style="font-size: 1.25rem; color: var(--accent-yellow);">BẢNG XẾP HẠNG ỨNG CỬ VIÊN SẮP PUMP MẠNH</h3>
             <div style="font-size: 0.78rem; color: var(--text-dim);">Chấm điểm theo 7 tầng xác thực vi mô, Taker Buy Pressure và Động lượng nén 5M</div>
@@ -110,9 +109,9 @@
         <!-- Tier Filter Buttons -->
         <div class="filter-group">
           <button class="filter-btn active" onclick="filterByTier('ALL')">Tất Cả Tiers</button>
-          <button class="filter-btn" onclick="filterByTier('MEME_HIGH_VOL')">🚀 Meme & High-Vol</button>
-          <button class="filter-btn" onclick="filterByTier('MID_CAP')">⚡ Mid-Cap</button>
-          <button class="filter-btn" onclick="filterByTier('BLUECHIP')">💎 Bluechip</button>
+          <button class="filter-btn" onclick="filterByTier('MEME_HIGH_VOL')">Meme & High-Vol</button>
+          <button class="filter-btn" onclick="filterByTier('MID_CAP')">Mid-Cap</button>
+          <button class="filter-btn" onclick="filterByTier('BLUECHIP')">Bluechip</button>
         </div>
       </div>
 
@@ -151,8 +150,8 @@
   <div id="backtest-modal" class="modal-overlay" style="display: none;">
     <div class="modal-card">
       <div class="modal-header">
-        <h3 style="font-size: 1.3rem; font-weight: 800; color: var(--accent-cyan);">🧪 Chạy Backtest Lịch Sử (Cascade TP Engine)</h3>
-        <button class="modal-close-btn" onclick="closeBacktestModal()">✕</button>
+        <h3 style="font-size: 1.3rem; font-weight: 800; color: var(--accent-cyan);">Chạy Backtest Lịch Sử (Cascade TP Engine)</h3>
+        <button class="modal-close-btn" onclick="closeBacktestModal()">&times;</button>
       </div>
 
       <div class="modal-body">
@@ -172,7 +171,7 @@
           </div>
           <div style="display: flex; align-items: flex-end;">
             <button id="btn-run-backtest" class="btn-scan" style="width: 100%; height: 42px;" onclick="runHistoricalBacktest()">
-              <span>🚀 Chạy Test</span>
+              <span>Chạy Test</span>
             </button>
           </div>
         </div>
@@ -201,7 +200,7 @@
             </div>
           </div>
 
-          <h4 style="margin: 16px 0 8px 0; font-size: 0.95rem; color: var(--text-main);">📝 Lịch Sử Chi Tiết Các Lệnh Đã Khớp:</h4>
+          <h4 style="margin: 16px 0 8px 0; font-size: 0.95rem; color: var(--text-main);">Lịch Sử Chi Tiết Các Lệnh Đã Khớp:</h4>
           <div style="max-height: 220px; overflow-y: auto; border: 1px solid var(--border-color); border-radius: 6px;">
             <table class="styled-table" style="font-size: 0.82rem;">
               <thead>

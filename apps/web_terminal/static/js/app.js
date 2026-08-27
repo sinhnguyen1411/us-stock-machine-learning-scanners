@@ -70,13 +70,12 @@ function toggleAudioAlert() {
   const icon = document.getElementById("audio-icon");
   const txt = document.getElementById("audio-status-text");
   if (audioAlertEnabled) {
-    if (icon) icon.innerText = "🔊";
     if (txt) txt.innerText = "Chuông: BẬT";
     playSignalSound("PUMP_LONG");
   } else {
-    if (icon) icon.innerText = "🔇";
     if (txt) txt.innerText = "Chuông: TẮT";
   }
+  if (icon) icon.innerText = "";
 }
 
 function playSignalSound(action) {
@@ -448,19 +447,19 @@ function renderAnalysisData(data) {
   if (verdictCard && v) {
     verdictCard.className = `verdict-banner verdict-${v.action}`;
 
-    let actionText = "⏳ TRẠNG THÁI TRUNG LẬP";
+    let actionText = "TRẠNG THÁI TRUNG LẬP";
     let barColor = "var(--text-muted)";
 
     if (v.action === "PUMP_LONG") {
-      actionText = "🚀 PHÁT HIỆN TÍN HIỆU PUMP LONG!";
+      actionText = "PHÁT HIỆN TÍN HIỆU PUMP LONG!";
       barColor = "var(--accent-green)";
       if (v.confidence >= 75) playSignalSound("PUMP_LONG");
     } else if (v.action === "DUMP_SHORT") {
-      actionText = "🔻 PHÁT HIỆN TÍN HIỆU DUMP SHORT (BẮT ĐỈNH)!";
+      actionText = "PHÁT HIỆN TÍN HIỆU DUMP SHORT (BẮT ĐỈNH)!";
       barColor = "var(--accent-red)";
       if (v.confidence >= 75) playSignalSound("DUMP_SHORT");
     } else if (v.action === "OVERSOLD_REBOUND") {
-      actionText = "⚡ QUÁ BÁN SÂU (TIỀM NĂNG HỒI KỸ THUẬT)";
+      actionText = "QUÁ BÁN SÂU (TIỀM NĂNG HỒI KỸ THUẬT)";
       barColor = "var(--accent-yellow)";
     }
 
@@ -616,6 +615,7 @@ async function loadTopPumpCandidates() {
 
     body.innerHTML = data.candidates.map((c, idx) => {
       const rankNum = idx + 1;
+      const rankBadge = rankNum === 1 ? "🥇 #1" : rankNum === 2 ? "🥈 #2" : rankNum === 3 ? "🥉 #3" : `#${rankNum}`;
       const rankClass = rankNum === 1 ? "rank-1" : (rankNum === 2 ? "rank-2" : (rankNum === 3 ? "rank-3" : "rank-other"));
       
       const score = c.pump_score;
@@ -627,7 +627,7 @@ async function loadTopPumpCandidates() {
 
       return `
         <tr style="cursor: pointer; ${isCurrent ? 'background: rgba(0, 242, 254, 0.06);' : ''}" onclick="loadSymbol('${c.symbol}')">
-          <td><span class="rank-badge ${rankClass}">${rankNum}</span></td>
+          <td><span class="rank-badge ${rankClass}" style="font-family: var(--font-mono); font-weight: 800;">${rankBadge}</span></td>
           <td>
             <div style="display: flex; flex-direction: column;">
               <strong style="color: var(--accent-cyan); font-size: 1.05rem;">${c.symbol}</strong>
@@ -656,7 +656,7 @@ async function loadTopPumpCandidates() {
           <td>
             <div style="display: flex; gap: 6px;">
               <button class="btn-close-pos" style="border-color: var(--accent-cyan); color: var(--accent-cyan); background: rgba(0, 242, 254, 0.1);" onclick="event.stopPropagation(); loadSymbol('${c.symbol}')">
-                Soi Nến 🔍
+                Soi Nến
               </button>
             </div>
           </td>
@@ -685,7 +685,7 @@ async function loadLiveRadar() {
       const isPump = s.action === "PUMP_LONG";
       const isDump = s.action === "DUMP_SHORT";
       const badgeClass = isPump ? "badge-green" : (isDump ? "badge-red" : "layer-badge");
-      const actionTitle = isPump ? "🚀 PUMP LONG" : (isDump ? "🔻 DUMP SHORT" : "⚡ ĐỘT BIẾN");
+      const actionTitle = isPump ? "PUMP LONG" : (isDump ? "DUMP SHORT" : "ĐỘT BIẾN");
 
       return `
         <tr style="cursor: pointer;" onclick="loadSymbol('${s.symbol}')">
@@ -700,7 +700,7 @@ async function loadLiveRadar() {
           <td><strong style="color: var(--accent-cyan);">${s.confidence}%</strong></td>
           <td>
             <button class="btn-close-pos" style="border-color: var(--accent-cyan); color: var(--accent-cyan); background: rgba(0, 242, 254, 0.1);" onclick="event.stopPropagation(); loadSymbol('${s.symbol}')">
-              Soi Nến 🔍
+              Soi Nến
             </button>
           </td>
         </tr>
@@ -806,7 +806,7 @@ async function executePaperTrade(side) {
     if (data.error) {
       alert(`Không thể mở vị thế: ${data.error}`);
     } else {
-      alert(`✅ ${data.message}`);
+      alert(data.message);
       loadPortfolio();
     }
   } catch (err) {
@@ -826,7 +826,7 @@ async function closePosition(symbol) {
     if (data.error) {
       alert(`Lỗi: ${data.error}`);
     } else {
-      alert(`✅ ${data.message}`);
+      alert(data.message);
       loadPortfolio();
     }
   } catch (err) {
