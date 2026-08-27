@@ -77,8 +77,9 @@ function renderTopPumpTable() {
   let list = allTopCandidates;
   if (currentTierFilter !== "ALL") {
     list = allTopCandidates.filter(c => {
-      const tName = (c.tier && c.tier.tier_name) || "";
-      return tName.toUpperCase().includes(currentTierFilter.replace("_", " "));
+      const tCode = (c.tier && c.tier.code) || "";
+      const tName = (c.tier && c.tier.name) || "";
+      return tCode === currentTierFilter || tName.toUpperCase().includes(currentTierFilter.replace("_", " "));
     });
   }
 

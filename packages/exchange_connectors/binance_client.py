@@ -3,13 +3,15 @@ Binance Futures (USDT-M) Connector & Session Manager
 """
 
 import os
+import time
 import requests
 from typing import List, Dict, Any, Optional
 from binance.client import Client
+from binance.exceptions import BinanceAPIException
 
 
 class BinanceFuturesConnector:
-    """Robust client wrapper for Binance Futures USDT-M REST APIs."""
+    """Robust client wrapper for Binance Futures USDT-M REST APIs with TTL rate-limit cache."""
 
     def __init__(self, api_key: Optional[str] = None, api_secret: Optional[str] = None):
         self.api_key = api_key or os.getenv("BINANCE_API_KEY", "")
@@ -25,25 +27,85 @@ class BinanceFuturesConnector:
         self.session.mount("http://", adapter)
         self.client.session = self.session
 
+        # In-memory TTL caches to prevent IP bans
+        self._kline_cache: Dict[str, Any] = {}
+        self._ticker_cache: Dict[str, Any] = {}
+        self._tickers_all_cache: Optional[Dict[str, Any]] = None
+        self._tradfi_tickers_cache: Optional[Dict[str, Any]] = None
+        self._premium_index_cache: Optional[Dict[str, Any]] = None
 
     def get_all_usdt_tickers(self, min_quote_volume: float = 500000.0) -> List[Dict[str, Any]]:
-        """Fetch all 24-hour ticker statistics for USDT-M perpetual contracts (excluding stablecoins, stocks & ETFs)."""
-        tickers = self.client.futures_ticker()
-        from core_engine.classifier import is_excluded_asset
-        return [
-            t for t in tickers
-            if t["symbol"].endswith("USDT")
-            and not is_excluded_asset(t["symbol"])
-            and float(t.get("quoteVolume", 0)) >= min_quote_volume
-        ]
+        """Fetch all 24-hour ticker statistics for USDT-M perpetual contracts (cached for 3s)."""
+        now = time.time()
+        if self._tickers_all_cache and (now - self._tickers_all_cache["time"]) < 3.0:
+            cached = self._tickers_all_cache["data"]
+            return [t for t in cached if float(t.get("quoteVolume", 0)) >= min_quote_volume]
+
+        try:
+            tickers = self.client.futures_ticker()
+            from core_engine.classifier import is_excluded_asset
+            valid = [
+                t for t in tickers
+                if t.get("symbol", "").endswith("USDT")
+                and not is_excluded_asset(t.get("symbol", ""))
+            ]
+            self._tickers_all_cache = {"time": now, "data": valid}
+            return [t for t in valid if float(t.get("quoteVolume", 0)) >= min_quote_volume]
+        except Exception:
+            return self._tickers_all_cache["data"] if self._tickers_all_cache else []
+
+    def get_all_tradfi_stock_tickers(self) -> List[Dict[str, Any]]:
+        """Fetch all 24-hour ticker statistics specifically for TradFi, US Stock & ETF perpetual futures (cached for 3s)."""
+        now = time.time()
+        if self._tradfi_tickers_cache and (now - self._tradfi_tickers_cache["time"]) < 3.0:
+            return self._tradfi_tickers_cache["data"]
+
+        try:
+            from core_engine.classifier import is_stock_or_etf
+            tickers = self.client.futures_ticker()
+            valid = [
+                t for t in tickers
+                if t.get("symbol", "").endswith("USDT") and is_stock_or_etf(t.get("symbol", ""))
+            ]
+            self._tradfi_tickers_cache = {"time": now, "data": valid}
+            return valid
+        except Exception:
+            return self._tradfi_tickers_cache["data"] if self._tradfi_tickers_cache else []
 
     def get_klines(self, symbol: str, interval: str = "1m", limit: int = 60) -> List[Any]:
-        """Fetch historical kline/candlestick bars for a given symbol."""
-        return self.client.futures_klines(symbol=symbol, interval=interval, limit=limit)
+        """Fetch historical klines with smart TTL cache (15s for 1m/5m, 60s for 1h/1d)."""
+        cache_key = f"{symbol}_{interval}_{limit}"
+        now = time.time()
+        ttl = 60.0 if interval in ("1h", "1d", "4h") else 12.0
+
+        if cache_key in self._kline_cache:
+            entry_time, cached_data = self._kline_cache[cache_key]
+            if (now - entry_time) < ttl:
+                return cached_data
+
+        try:
+            klines = self.client.futures_klines(symbol=symbol, interval=interval, limit=limit)
+            if klines:
+                self._kline_cache[cache_key] = (now, klines)
+            return klines
+        except Exception as ex:
+            if cache_key in self._kline_cache:
+                return self._kline_cache[cache_key][1]
+            return []
 
     def get_24h_ticker(self, symbol: str) -> Dict[str, Any]:
-        """Fetch 24-hour rolling ticker data for a single symbol."""
-        return self.client.futures_ticker(symbol=symbol)
+        """Fetch 24-hour rolling ticker data for a single symbol with 3s TTL cache."""
+        now = time.time()
+        if symbol in self._ticker_cache:
+            t_time, t_data = self._ticker_cache[symbol]
+            if (now - t_time) < 3.0:
+                return t_data
+        try:
+            t = self.client.futures_ticker(symbol=symbol)
+            self._ticker_cache[symbol] = (now, t)
+            return t
+        except Exception:
+            return self._ticker_cache.get(symbol, (now, {}))[1]
 
     def get_funding_rate(self, symbol: str) -> float:
         """Fetch latest perpetual funding rate."""

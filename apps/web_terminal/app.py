@@ -14,7 +14,20 @@ from flask import Flask, render_template, jsonify, request
 ROOT_DIR = Path(__file__).resolve().parent.parent.parent
 sys.path.insert(0, str(ROOT_DIR / "packages"))
 
-from core_engine import classify_asset_tier, evaluate_confirmation_layers, calculate_pump_score, calculate_pre_pump_index, is_stablecoin, is_stock_or_etf, is_excluded_asset
+from core_engine import (
+    classify_asset_tier,
+    evaluate_confirmation_layers,
+    calculate_pump_score,
+    calculate_pre_pump_index,
+    is_stablecoin,
+    is_stock_or_etf,
+    is_excluded_asset,
+    get_tradfi_stock_info,
+    get_us_market_session,
+    SECTOR_LABELS,
+    TRADFI_STOCK_DIRECTORY,
+    evaluate_tradfi_ml_metrics,
+)
 from exchange_connectors import BinanceFuturesConnector
 
 from risk_management import calculate_trade_plan, CascadeBacktestEngine, CircuitBreakerManager
@@ -44,6 +57,8 @@ PAPER_PORTFOLIO = {
 LIVE_RADAR_SIGNALS = []
 TOP_10_PUMP_CANDIDATES = []
 PRE_PUMP_RADAR_ITEMS = []
+TRADFI_STOCKS_CACHE = []
+TRADFI_ML_SIGNALS = []
 
 
 def analyze_symbol(symbol: str, interval: str = "1m") -> dict:
@@ -139,6 +154,70 @@ def analyze_symbol(symbol: str, interval: str = "1m") -> dict:
         return {"error": str(e)}
 
 
+def analyze_tradfi_symbol(symbol: str, interval: str = "5m") -> dict:
+    """Analyze a single US Stock / TradFi Futures contract with ML features."""
+    sym = symbol.strip().upper()
+    if not sym.endswith("USDT"):
+        sym += "USDT"
+
+    try:
+        klines = connector.get_klines(symbol=sym, interval=interval, limit=60)
+        if not klines or len(klines) < 5:
+            return {"error": f"Không đủ dữ liệu nến cho mã TradFi {sym}"}
+
+        ticker_24h = connector.get_24h_ticker(symbol=sym)
+        price_now = float(ticker_24h.get("lastPrice", klines[-1][4]))
+        pct_24h = float(ticker_24h.get("priceChangePercent", 0))
+        high_24h = float(ticker_24h.get("highPrice", 0))
+        low_24h = float(ticker_24h.get("lowPrice", 0))
+        quote_vol_24h = float(ticker_24h.get("quoteVolume", 0))
+
+        opens = [float(k[1]) for k in klines]
+        highs = [float(k[2]) for k in klines]
+        lows = [float(k[3]) for k in klines]
+        closes = [float(k[4]) for k in klines]
+        volumes = [float(k[5]) for k in klines]
+        taker_buys = [float(k[9]) for k in klines]
+
+        funding_rate = connector.get_funding_rate(sym)
+        open_interest = connector.get_open_interest(sym)
+
+        eval_result = evaluate_tradfi_ml_metrics(
+            symbol=sym,
+            opens=opens,
+            highs=highs,
+            lows=lows,
+            closes=closes,
+            volumes=volumes,
+            taker_buy_volumes=taker_buys,
+            price_now=price_now,
+            pct_24h=pct_24h,
+            quote_vol_24h=quote_vol_24h,
+            open_interest=open_interest,
+            funding_rate=funding_rate,
+        )
+
+        candles_data = [
+            {
+                "time": k[0] // 1000,
+                "open": float(k[1]),
+                "high": float(k[2]),
+                "low": float(k[3]),
+                "close": float(k[4]),
+                "volume": float(k[5]),
+            }
+            for k in klines
+        ]
+        eval_result["candles"] = candles_data
+        eval_result["interval"] = interval
+        eval_result["high_24h"] = high_24h
+        eval_result["low_24h"] = low_24h
+        return eval_result
+    except Exception as e:
+        logger.error(f"Error analyzing TradFi stock {sym}: {e}", exc_info=True)
+        return {"error": str(e)}
+
+
 @app.route("/")
 def index():
     return render_template("index.html", active_page="terminal")
@@ -152,6 +231,85 @@ def page_top():
 @app.route("/pre-pump")
 def page_pre_pump():
     return render_template("pre_pump.html", active_page="pre_pump")
+
+
+@app.route("/stocks")
+@app.route("/tradfi")
+def page_stocks():
+    return render_template("stocks.html", active_page="stocks")
+
+
+@app.route("/api/tradfi/sectors")
+def api_tradfi_sectors():
+    return jsonify({
+        "sectors": SECTOR_LABELS,
+        "session": get_us_market_session(),
+        "total_directory": len(TRADFI_STOCK_DIRECTORY),
+    })
+
+
+@app.route("/api/tradfi/stocks")
+def api_tradfi_stocks():
+    sector_filter = request.args.get("sector", "ALL").upper()
+    search = request.args.get("search", "").strip().upper()
+    sort_by = request.args.get("sortBy", "ml_score")
+    sort_order = request.args.get("sortOrder", "desc")
+    page = int(request.args.get("page", 1))
+    page_size = int(request.args.get("pageSize", 50))
+
+    items = TRADFI_STOCKS_CACHE[:]
+    if sector_filter != "ALL":
+        items = [x for x in items if x.get("sector") == sector_filter]
+
+    if search:
+        items = [
+            x for x in items 
+            if search in x.get("symbol", "") or search in x.get("ticker", "") or search in x.get("name", "").upper()
+        ]
+
+    # Sort
+    reverse = (sort_order == "desc")
+    if sort_by in ["ml_score", "pct_24h", "quote_vol_24h", "vol_spike", "taker_buy_ratio", "price", "vwap_distance_pct"]:
+        items = sorted(items, key=lambda x: float(x.get(sort_by, 0)), reverse=reverse)
+
+    total_items = len(items)
+    start_idx = (page - 1) * page_size
+    paged_data = items[start_idx:start_idx + page_size]
+
+    return jsonify({
+        "timestamp": datetime.now(timezone.utc).strftime("%H:%M:%S"),
+        "session": get_us_market_session(),
+        "total_items": total_items,
+        "page": page,
+        "page_size": page_size,
+        "total_pages": max(1, (total_items + page_size - 1) // page_size),
+        "data": paged_data,
+    })
+
+
+@app.route("/api/tradfi/analyze/<symbol>")
+def api_tradfi_analyze(symbol):
+    interval = request.args.get("interval", "5m")
+    data = analyze_tradfi_symbol(symbol, interval=interval)
+    if "error" in data:
+        return jsonify({
+            "error": {
+                "code": "TRADFI_ANALYSIS_ERROR",
+                "message": data["error"]
+            }
+        }), 400
+    return jsonify(data)
+
+
+@app.route("/api/tradfi/ml_signals")
+def api_tradfi_ml_signals():
+    min_confidence = float(request.args.get("minConfidence", 70.0))
+    signals = [s for s in TRADFI_ML_SIGNALS if s.get("confidence", 0) >= min_confidence]
+    return jsonify({
+        "timestamp": datetime.now(timezone.utc).strftime("%H:%M:%S"),
+        "count": len(signals),
+        "signals": signals[:15],
+    })
 
 
 @app.route("/api/pre_pump_radar")
@@ -552,11 +710,70 @@ def _analyze_pre_pump_symbol(item_tuple):
 
 
 
+def _analyze_tradfi_worker(ticker_item):
+    """Worker to analyze one TradFi ticker with 5m klines."""
+    sym = ticker_item.get("symbol", "")
+    if not sym:
+        return None, None
+    try:
+        klines = connector.get_klines(sym, interval="5m", limit=30)
+        if not klines or len(klines) < 5:
+            return None, None
+
+        price_now = float(ticker_item.get("lastPrice", klines[-1][4]))
+        pct_24h = float(ticker_item.get("priceChangePercent", 0))
+        quote_vol_24h = float(ticker_item.get("quoteVolume", 0))
+
+        opens = [float(k[1]) for k in klines]
+        highs = [float(k[2]) for k in klines]
+        lows = [float(k[3]) for k in klines]
+        closes = [float(k[4]) for k in klines]
+        volumes = [float(k[5]) for k in klines]
+        taker_buys = [float(k[9]) for k in klines]
+
+        res = evaluate_tradfi_ml_metrics(
+            symbol=sym,
+            opens=opens,
+            highs=highs,
+            lows=lows,
+            closes=closes,
+            volumes=volumes,
+            taker_buy_volumes=taker_buys,
+            price_now=price_now,
+            pct_24h=pct_24h,
+            quote_vol_24h=quote_vol_24h,
+        )
+
+        signal = None
+        if res.get("signal") in ["STRONG_BUY_BREAKOUT", "INSTITUTIONAL_ACCUMULATION", "MOMENTUM_SURGE"]:
+            signal = {
+                "symbol": sym,
+                "ticker": res.get("ticker"),
+                "name": res.get("name"),
+                "sector": res.get("sector"),
+                "sector_name": res.get("sector_name"),
+                "price": price_now,
+                "pct_24h": pct_24h,
+                "ml_score": res.get("ml_score"),
+                "signal": res.get("signal"),
+                "signal_tag": res.get("signal_tag"),
+                "confidence": res.get("confidence"),
+                "vol_spike": res.get("vol_spike"),
+                "taker_buy_ratio": res.get("taker_buy_ratio"),
+                "vwap_distance_pct": res.get("vwap_distance_pct"),
+                "detected_at": datetime.now(timezone.utc).strftime("%H:%M:%S"),
+            }
+
+        return res, signal
+    except Exception:
+        return None, None
+
+
 def radar_scanner_loop():
     """Continuous high-speed background thread scanning pairs, top candidates, and pre-pump anomalies."""
     import concurrent.futures
-    logger.info("High-speed Radar, Top 10 & Pre-Pump background scanner thread started.")
-    global LIVE_RADAR_SIGNALS, TOP_10_PUMP_CANDIDATES, PRE_PUMP_RADAR_ITEMS
+    logger.info("High-speed Radar, Top 10, Pre-Pump & TradFi background scanner thread started.")
+    global LIVE_RADAR_SIGNALS, TOP_10_PUMP_CANDIDATES, PRE_PUMP_RADAR_ITEMS, TRADFI_STOCKS_CACHE, TRADFI_ML_SIGNALS
 
     loop_count = 0
 
@@ -599,7 +816,6 @@ def radar_scanner_loop():
                 for t in vol_movers:
                     target_syms.add(t["symbol"])
 
-
                 scan_targets = [
                     (premium_map.get(s, {"symbol": s, "lastFundingRate": 0.0, "markPrice": 0.0}), ticker_map.get(s, {}))
                     for s in target_syms
@@ -614,7 +830,6 @@ def radar_scanner_loop():
 
             except Exception as ex:
                 logger.debug(f"Pre-pump scan error: {ex}")
-
 
             # 3. Top 10 Candidates & Live Radar Signals
             sorted_by_change = sorted(
@@ -648,12 +863,32 @@ def radar_scanner_loop():
             if signals:
                 LIVE_RADAR_SIGNALS = sorted(signals, key=lambda x: x["confidence"], reverse=True)[:10]
 
+            # 4. TradFi US Stock Derivatives & ML Scanner
+            try:
+                tradfi_tickers = connector.get_all_tradfi_stock_tickers()
+                if tradfi_tickers:
+                    with concurrent.futures.ThreadPoolExecutor(max_workers=15) as tf_exec:
+                        tf_results = list(tf_exec.map(_analyze_tradfi_worker, tradfi_tickers))
+                        tf_stocks = []
+                        tf_signals = []
+                        for item, sig in tf_results:
+                            if item:
+                                tf_stocks.append(item)
+                            if sig:
+                                tf_signals.append(sig)
+
+                        if tf_stocks:
+                            TRADFI_STOCKS_CACHE = sorted(tf_stocks, key=lambda x: x["ml_score"], reverse=True)
+                        if tf_signals:
+                            TRADFI_ML_SIGNALS = sorted(tf_signals, key=lambda x: x["confidence"], reverse=True)
+            except Exception as ex:
+                logger.debug(f"TradFi scan loop error: {ex}")
+
             time.sleep(3.0)
 
         except Exception as e:
             logger.error(f"Error in radar scan loop: {e}")
             time.sleep(5.0)
-
 
 
 if __name__ == "__main__":
