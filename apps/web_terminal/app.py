@@ -258,6 +258,25 @@ def page_stock_detail(symbol):
     )
 
 
+@app.route("/slides")
+@app.route("/presentation")
+def page_presentation():
+    return render_template("presentation.html", active_page="presentation")
+
+
+@app.route("/api/download/pptx")
+def api_download_pptx():
+    from flask import send_file
+    pptx_path = ROOT_DIR / "final_project_us_stock_30_slides.pptx"
+    if os.path.exists(pptx_path):
+        return send_file(
+            pptx_path,
+            as_attachment=True,
+            download_name="US_Stock_ML_Scanners_Final_Project_30_Slides.pptx"
+        )
+    return jsonify({"error": "Presentation file not found"}), 404
+
+
 @app.route("/api/tradfi/sectors")
 def api_tradfi_sectors():
     return jsonify({
