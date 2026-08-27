@@ -293,7 +293,7 @@ function renderTradFiTable() {
           </span>
         </td>
         <td style="text-align: center;">
-          <button class="action-btn-mini" onclick="event.stopPropagation(); selectTradFiStock('${s.symbol}')">
+          <button class="action-btn-mini" onclick="event.stopPropagation(); window.location.href='/stock/${s.symbol}'" title="Chuyển đến trang soi nến và phân tích chi tiết">
             Soi Nến
           </button>
         </td>
@@ -307,6 +307,12 @@ function formatStockPrice(price) {
   if (price >= 1000) return price.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   if (price >= 1) return price.toFixed(2);
   return price.toFixed(4);
+}
+
+function openDedicatedStockPage() {
+  if (selectedTradFiSymbol) {
+    window.location.href = `/stock/${selectedTradFiSymbol}`;
+  }
 }
 
 function selectTradFiStock(symbol) {

@@ -198,7 +198,10 @@
               <span id="chart-stock-ticker" style="font-size: 1.15rem; font-weight: 800; color: #fff;">NVDAUSDT</span>
               <span id="chart-stock-name" style="font-size: 0.75rem; color: var(--text-dim); margin-left: 6px;">NVIDIA Corporation</span>
             </div>
-            <div style="display: flex; gap: 4px;">
+            <div style="display: flex; align-items: center; gap: 4px;">
+              <button onclick="openDedicatedStockPage()" class="action-btn-mini" style="padding: 3px 7px; font-size: 0.7rem; color: var(--accent-cyan); border-color: rgba(0, 242, 254, 0.4);" title="Mở trang soi nến toàn màn hình">
+                Phóng To
+              </button>
               <button class="timeframe-btn active" onclick="changeTradFiTimeframe('1m')">1M</button>
               <button class="timeframe-btn" onclick="changeTradFiTimeframe('5m')">5M</button>
               <button class="timeframe-btn" onclick="changeTradFiTimeframe('15m')">15M</button>

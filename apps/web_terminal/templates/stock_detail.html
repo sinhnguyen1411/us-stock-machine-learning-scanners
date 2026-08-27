@@ -1,0 +1,332 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{{ ticker }} / USD-M — Soi Nến Chuyên Sâu & Kế Hoạch Giao Dịch Thể Chế | DeepAlpha</title>
+  
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@500;700;800&display=swap" rel="stylesheet">
+  
+  <!-- TradingView Lightweight Charts (Local Bundle) -->
+  <script src="/static/js/lightweight-charts.js?v=2.1"></script>
+  
+  <!-- Custom Style System -->
+  <link rel="stylesheet" href="/static/css/style.css?v=2.6">
+</head>
+<body>
+
+  <!-- Header with Navigation -->
+  <header class="app-header">
+    <div class="brand-container">
+      <div class="logo-badge" style="background: linear-gradient(135deg, #00f2fe, #4facfe); color: #000;">US</div>
+      <div>
+        <h1 class="brand-title" style="background: linear-gradient(90deg, #ffffff, #00f2fe); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">US Stock ML Scanners</h1>
+        <div class="brand-subtitle">TradFi USD-M Perpetual Futures &amp; Institutional Flow</div>
+      </div>
+    </div>
+
+    <!-- Navigation Menu -->
+    <nav class="nav-menu">
+      <a href="/" class="nav-link">
+        <span>Terminal Realtime</span>
+      </a>
+      <a href="/top" class="nav-link">
+        <span>Top 10 Sắp Pump</span>
+        <span class="nav-badge">Live</span>
+      </a>
+      <a href="/pre-pump" class="nav-link">
+        <span>Dự Báo Sớm (10x-40x)</span>
+        <span class="nav-badge">Radar</span>
+      </a>
+      <a href="/stocks" class="nav-link active">
+        <span>US Stock TradFi ML</span>
+        <span class="nav-badge">90+ Stocks</span>
+      </a>
+    </nav>
+    
+    <div class="header-status">
+      <!-- Back to Scanners Button -->
+      <a href="/stocks" class="header-btn" style="text-decoration: none; display: inline-flex; align-items: center; gap: 6px; background: rgba(0, 242, 254, 0.12); border-color: rgba(0, 242, 254, 0.35); color: var(--accent-cyan);">
+        <span>Quay Lại Bảng Xếp Hạng</span>
+      </a>
+
+      <!-- Audio Alert Toggle Button -->
+      <button id="btn-audio-toggle" class="header-btn" onclick="toggleAudioAlert()" title="Bật/Tắt chuông cảnh báo khi phát hiện tín hiệu">
+        <span id="audio-icon"></span>
+        <span id="audio-status-text">Chuông: BẬT</span>
+      </button>
+
+      <!-- Session Indicator Pill -->
+      <div id="session-pill" class="status-pill session-overnight">
+        <div class="pulse-dot" style="background: var(--accent-cyan); box-shadow: 0 0 8px var(--accent-cyan);"></div>
+        <span id="session-status-text">New York: Đang Tải...</span>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Container -->
+  <main class="main-container">
+
+    <!-- Top Stock Overview Banner -->
+    <section class="card-panel" style="padding: 16px 20px; border-color: rgba(0, 242, 254, 0.35); background: linear-gradient(135deg, rgba(0, 242, 254, 0.08), rgba(18, 24, 36, 0.95));">
+      <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 16px;">
+        
+        <!-- Left: Ticker, Name, Sector & Rank -->
+        <div style="display: flex; align-items: center; gap: 14px;">
+          <div style="width: 46px; height: 46px; border-radius: 8px; background: rgba(0, 242, 254, 0.15); border: 1px solid rgba(0, 242, 254, 0.4); display: flex; align-items: center; justify-content: center; font-weight: 900; font-size: 1.2rem; color: var(--accent-cyan); font-family: var(--font-mono);">
+            {{ ticker[:3] }}
+          </div>
+          <div>
+            <div style="display: flex; align-items: center; gap: 10px;">
+              <h2 id="header-stock-symbol" style="font-size: 1.5rem; font-weight: 900; color: #fff; margin: 0; font-family: var(--font-mono);">{{ ticker }} / USD-M</h2>
+              <span id="header-global-rank" class="nav-badge" style="font-size: 0.76rem; padding: 3px 8px; background: rgba(0, 242, 254, 0.2); color: var(--accent-cyan);">Hạng Toàn Cục: Đang tải...</span>
+              <span id="header-stock-sector" class="sector-badge" style="font-size: 0.76rem; padding: 3px 8px;">{{ stock_info.sector_name if stock_info else 'TradFi Stock' }}</span>
+            </div>
+            <div id="header-stock-name" style="font-size: 0.85rem; color: var(--text-muted); margin-top: 2px;">
+              {{ stock_info.name if stock_info else 'US Stock Perpetual Futures Contract' }} &bull; Sàn Giao Dịch Mỹ (TradFi)
+            </div>
+          </div>
+        </div>
+
+        <!-- Center: Real-time Price & 24h Pct -->
+        <div style="display: flex; align-items: center; gap: 20px;">
+          <div style="text-align: right;">
+            <div id="header-stock-price" style="font-size: 1.6rem; font-weight: 900; font-family: var(--font-mono); color: #fff; line-height: 1.2;">
+              $0.00
+            </div>
+            <div id="header-stock-pct" style="font-size: 0.88rem; font-weight: 700; font-family: var(--font-mono);" class="trend-up">
+              +0.00%
+            </div>
+          </div>
+        </div>
+
+        <!-- Right: ML Composite Score & Signal Badge -->
+        <div style="display: flex; align-items: center; gap: 12px; background: rgba(0,0,0,0.3); padding: 8px 16px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.06);">
+          <div>
+            <div style="font-size: 0.68rem; color: var(--text-dim); text-transform: uppercase; font-weight: 700;">ĐIỂM MACHINE LEARNING</div>
+            <div id="header-ml-score-text" style="font-size: 1.35rem; font-weight: 900; font-family: var(--font-mono); color: var(--accent-cyan);">
+              0 / 100
+            </div>
+          </div>
+          <div style="border-left: 1px solid rgba(255,255,255,0.1); padding-left: 12px; text-align: center;">
+            <div style="font-size: 0.68rem; color: var(--text-dim); text-transform: uppercase; font-weight: 700;">TÍN HIỆU VI MÔ</div>
+            <span id="header-signal-badge" class="signal-tag tradfi-signal-neutral" style="font-size: 0.75rem; padding: 4px 10px; margin-top: 2px;">
+              ĐANG TÍNH TOÁN
+            </span>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- Main Workspace Grid: Large Chart (Left) + Trade Setup (Right) -->
+    <div style="display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(360px, 420px); gap: 18px; align-items: start;">
+      
+      <!-- LEFT COLUMN: PRO TRADINGVIEW CHART & 5-FACTOR MATRIX -->
+      <div style="display: flex; flex-direction: column; gap: 16px;">
+        
+        <!-- PRO CHART CARD -->
+        <section class="card-panel" style="padding: 16px; border-color: rgba(0, 242, 254, 0.35);">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; flex-wrap: wrap; gap: 10px;">
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <span style="font-size: 0.95rem; font-weight: 800; color: #fff;">Biểu Đồ Kỹ Thuật Đa Khung Thời Gian</span>
+              <span style="font-size: 0.72rem; color: var(--text-dim);">Tích hợp đường VWAP &amp; Mốc Chốt Lời / Cắt Lỗ</span>
+            </div>
+            <!-- Timeframe Switcher -->
+            <div style="display: flex; gap: 4px;">
+              <button class="timeframe-btn" onclick="changeTradFiTimeframe('1m')">1M</button>
+              <button class="timeframe-btn" onclick="changeTradFiTimeframe('3m')">3M</button>
+              <button class="timeframe-btn active" onclick="changeTradFiTimeframe('5m')">5M</button>
+              <button class="timeframe-btn" onclick="changeTradFiTimeframe('15m')">15M</button>
+              <button class="timeframe-btn" onclick="changeTradFiTimeframe('30m')">30M</button>
+              <button class="timeframe-btn" onclick="changeTradFiTimeframe('1h')">1H</button>
+              <button class="timeframe-btn" onclick="changeTradFiTimeframe('4h')">4H</button>
+              <button class="timeframe-btn" onclick="changeTradFiTimeframe('1d')">1D</button>
+            </div>
+          </div>
+
+          <!-- Large TradingView Chart Canvas Container -->
+          <div id="pro-chart-container" style="height: 500px; width: 100%; border-radius: 8px; overflow: hidden; background: #0c1017; border: 1px solid rgba(255,255,255,0.06);"></div>
+
+          <!-- Chart Sub-Legend -->
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 10px; font-size: 0.72rem; font-family: var(--font-mono); color: var(--text-muted); flex-wrap: wrap; gap: 8px;">
+            <div style="display: flex; gap: 14px;">
+              <span><strong style="color: #00f2fe;">--- VWAP:</strong> Đường Giá Trung Bình Thể Chế</span>
+              <span><strong style="color: #ff3366;">... SL:</strong> Cắt Lỗ Động 1.5x ATR</span>
+              <span><strong style="color: #00e676;">... TP1:</strong> Chốt Lời +2.5%</span>
+              <span><strong style="color: #ffb300;">... TP2:</strong> Chốt Lời +5.0%</span>
+            </div>
+            <div id="chart-candle-count" style="color: var(--text-dim);">60 Nến Vi Mô</div>
+          </div>
+        </section>
+
+        <!-- 5-FACTOR ML DIAGNOSTIC MATRIX -->
+        <section class="card-panel" style="padding: 16px;">
+          <h3 style="font-size: 0.95rem; font-weight: 800; color: #fff; margin-bottom: 12px; display: flex; align-items: center; gap: 8px;">
+            Ma Trận Chẩn Đoán AI &amp; 5 Thành Phần Điểm Số Machine Learning
+          </h3>
+
+          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px;">
+            
+            <!-- Factor 1: Taker Buy Volume -->
+            <div style="background: rgba(255,255,255,0.02); padding: 12px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.05);">
+              <div style="font-size: 0.7rem; color: var(--text-dim); text-transform: uppercase;">1. LỰC MUA TAKER BUY (25%)</div>
+              <div id="factor-taker-buy-val" style="font-size: 1.15rem; font-weight: 800; font-family: var(--font-mono); color: var(--accent-green); margin: 2px 0;">50.0%</div>
+              <div style="font-size: 0.68rem; color: var(--text-muted);" id="factor-taker-buy-desc">Phe mua chủ động gom hàng</div>
+            </div>
+
+            <!-- Factor 2: Volume Spike -->
+            <div style="background: rgba(255,255,255,0.02); padding: 12px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.05);">
+              <div style="font-size: 0.7rem; color: var(--text-dim); text-transform: uppercase;">2. ĐỘT BIẾN VOLUME (20%)</div>
+              <div id="factor-vol-spike-val" style="font-size: 1.15rem; font-weight: 800; font-family: var(--font-mono); color: var(--accent-yellow); margin: 2px 0;">1.0x</div>
+              <div style="font-size: 0.68rem; color: var(--text-muted);" id="factor-vol-spike-desc">So với trung bình 20-EWMA</div>
+            </div>
+
+            <!-- Factor 3: VWAP Distance -->
+            <div style="background: rgba(255,255,255,0.02); padding: 12px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.05);">
+              <div style="font-size: 0.7rem; color: var(--text-dim); text-transform: uppercase;">3. KHOẢNG CÁCH VWAP (20%)</div>
+              <div id="factor-vwap-dist-val" style="font-size: 1.15rem; font-weight: 800; font-family: var(--font-mono); color: var(--accent-cyan); margin: 2px 0;">+0.00%</div>
+              <div style="font-size: 0.68rem; color: var(--text-muted);" id="factor-vwap-dist-desc">Đệm an toàn so với VWAP</div>
+            </div>
+
+            <!-- Factor 4: RSI Momentum -->
+            <div style="background: rgba(255,255,255,0.02); padding: 12px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.05);">
+              <div style="font-size: 0.7rem; color: var(--text-dim); text-transform: uppercase;">4. ĐIỂM NGỌT RSI (15%)</div>
+              <div id="factor-rsi-val" style="font-size: 1.15rem; font-weight: 800; font-family: var(--font-mono); color: #fff; margin: 2px 0;">50.0</div>
+              <div style="font-size: 0.68rem; color: var(--text-muted);">Vùng tăng tốc tối ưu (55 - 72)</div>
+            </div>
+
+            <!-- Factor 5: 5M Price Velocity -->
+            <div style="background: rgba(255,255,255,0.02); padding: 12px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.05);">
+              <div style="font-size: 0.7rem; color: var(--text-dim); text-transform: uppercase;">5. GIA TỐC 5 PHÚT (15%)</div>
+              <div id="factor-gap-val" style="font-size: 1.15rem; font-weight: 800; font-family: var(--font-mono); color: var(--accent-purple); margin: 2px 0;">0.00%</div>
+              <div style="font-size: 0.68rem; color: var(--text-muted);">Tốc độ mở rộng biên độ nến</div>
+            </div>
+
+          </div>
+        </section>
+
+        <!-- SECTOR PEERS CHIPS -->
+        <section class="card-panel" style="padding: 14px 16px;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+            <span style="font-size: 0.8rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase;">CÁC MÃ CÙNG PHÂN NGÀNH ĐANG THEO DÕI</span>
+            <span style="font-size: 0.72rem; color: var(--text-dim);">Bấm vào mã để soi nến nhanh</span>
+          </div>
+          <div id="sector-peers-container" style="display: flex; gap: 8px; flex-wrap: wrap;">
+            <!-- Loaded dynamically via JS -->
+            <span style="font-size: 0.75rem; color: var(--text-dim);">Đang tải danh sách cùng ngành...</span>
+          </div>
+        </section>
+
+      </div>
+
+      <!-- RIGHT COLUMN: INSTITUTIONAL TRADE PLAN & AI COMMENTARY -->
+      <aside style="display: flex; flex-direction: column; gap: 16px;">
+        
+        <!-- INSTITUTIONAL TRADE PLAN CARD -->
+        <section class="card-panel" style="padding: 18px; border-color: rgba(0, 230, 118, 0.35); background: linear-gradient(135deg, rgba(0, 230, 118, 0.06), rgba(18, 24, 36, 0.95));">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+            <h3 style="font-size: 1.05rem; font-weight: 800; color: var(--accent-green); margin: 0; display: flex; align-items: center; gap: 6px;">
+              Kế Hoạch Giao Dịch Thể Chế
+            </h3>
+            <span class="nav-badge" style="background: rgba(0, 230, 118, 0.2); color: var(--accent-green); font-size: 0.7rem;">Risk:Reward 1:2.0+</span>
+          </div>
+
+          <div style="display: flex; flex-direction: column; gap: 10px; font-size: 0.85rem;">
+            
+            <div style="display: flex; justify-content: space-between; border-bottom: 1px dashed rgba(255,255,255,0.08); padding-bottom: 6px;">
+              <span style="color: var(--text-dim);">Vùng Vào Lệnh (Entry Zone):</span>
+              <strong id="plan-entry-price" style="color: #fff; font-family: var(--font-mono); font-size: 0.95rem;">$0.00</strong>
+            </div>
+
+            <div style="display: flex; justify-content: space-between; border-bottom: 1px dashed rgba(255,255,255,0.08); padding-bottom: 6px;">
+              <span style="color: var(--accent-red);">Cắt Lỗ Động (1.5x ATR Stop Loss):</span>
+              <strong id="plan-sl-price" style="color: var(--accent-red); font-family: var(--font-mono); font-size: 0.95rem;">$0.00</strong>
+            </div>
+
+            <div style="display: flex; justify-content: space-between; border-bottom: 1px dashed rgba(255,255,255,0.08); padding-bottom: 6px;">
+              <span style="color: var(--accent-green);">Chốt Lời TP1 (+2.5% Target):</span>
+              <strong id="plan-tp1-price" style="color: var(--accent-green); font-family: var(--font-mono); font-size: 0.95rem;">$0.00</strong>
+            </div>
+
+            <div style="display: flex; justify-content: space-between; border-bottom: 1px dashed rgba(255,255,255,0.08); padding-bottom: 6px;">
+              <span style="color: var(--accent-yellow);">Chốt Lời TP2 (+5.0% Target):</span>
+              <strong id="plan-tp2-price" style="color: var(--accent-yellow); font-family: var(--font-mono); font-size: 0.95rem;">$0.00</strong>
+            </div>
+
+            <div style="display: flex; justify-content: space-between; padding-bottom: 2px;">
+              <span style="color: var(--accent-cyan);">Chốt Lời TP3 (+10.0% Runner):</span>
+              <strong id="plan-tp3-price" style="color: var(--accent-cyan); font-family: var(--font-mono); font-size: 0.95rem;">$0.00</strong>
+            </div>
+
+          </div>
+
+          <!-- Quick Risk Metrics Table -->
+          <div style="background: rgba(0,0,0,0.25); border-radius: 6px; padding: 10px; margin-top: 12px; display: grid; grid-template-columns: 1fr 1fr; gap: 8px; font-size: 0.75rem;">
+            <div>
+              <span style="color: var(--text-dim);">Đòn Bẩy Khuyến Nghị:</span>
+              <div style="font-weight: 700; color: #fff; font-family: var(--font-mono);">3x - 10x Max</div>
+            </div>
+            <div>
+              <span style="color: var(--text-dim);">Quy Mô Vị Thế:</span>
+              <div style="font-weight: 700; color: #fff; font-family: var(--font-mono);">1% - 2% Tài Khoản</div>
+            </div>
+          </div>
+        </section>
+
+        <!-- AI COMMENTARY & REASONING CARD -->
+        <section class="card-panel" style="padding: 16px;">
+          <h3 style="font-size: 0.95rem; font-weight: 800; color: #fff; margin-bottom: 10px; display: flex; align-items: center; gap: 6px;">
+            Nhận Định Độc Quyền Của Động Cơ AI
+          </h3>
+          <ul id="plan-ml-reasons" style="margin: 0; padding-left: 18px; font-size: 0.8rem; color: var(--text-muted); line-height: 1.6;">
+            <li>Đang phân tích cấu trúc sổ lệnh và dòng tiền vi mô...</li>
+          </ul>
+        </section>
+
+        <!-- MICROSTRUCTURE METRICS CARD -->
+        <section class="card-panel" style="padding: 16px;">
+          <h3 style="font-size: 0.9rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; margin-bottom: 10px;">
+            Thông Số Vi Mô Sổ Lệnh
+          </h3>
+          <div style="display: flex; flex-direction: column; gap: 8px; font-size: 0.8rem; font-family: var(--font-mono);">
+            <div style="display: flex; justify-content: space-between;">
+              <span style="color: var(--text-dim);">Đường Thể Chế VWAP:</span>
+              <strong id="micro-vwap-val" style="color: var(--accent-cyan);">$0.00</strong>
+            </div>
+            <div style="display: flex; justify-content: space-between;">
+              <span style="color: var(--text-dim);">Khoảng Cách VWAP:</span>
+              <strong id="micro-vwap-dist" style="color: var(--accent-green);">+0.00%</strong>
+            </div>
+            <div style="display: flex; justify-content: space-between;">
+              <span style="color: var(--text-dim);">Biến Động Thực Tế (HV):</span>
+              <strong id="micro-hv-val" style="color: var(--accent-yellow);">0.0%</strong>
+            </div>
+            <div style="display: flex; justify-content: space-between;">
+              <span style="color: var(--text-dim);">Chỉ Số RSI (14):</span>
+              <strong id="micro-rsi-val" style="color: #fff;">50.0</strong>
+            </div>
+            <div style="display: flex; justify-content: space-between;">
+              <span style="color: var(--text-dim);">Biên Độ Biến Động ATR:</span>
+              <strong id="micro-atr-val" style="color: #fff;">$0.00</strong>
+            </div>
+          </div>
+        </section>
+
+      </aside>
+
+    </div>
+
+  </main>
+
+  <script>
+    const CURRENT_SYMBOL = "{{ symbol }}";
+    const CURRENT_TICKER = "{{ ticker }}";
+  </script>
+  <!-- Stock Detail Logic Script -->
+  <script src="/static/js/stock_detail.js?v=1.0"></script>
+</body>
+</html>

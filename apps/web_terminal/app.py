@@ -239,6 +239,25 @@ def page_stocks():
     return render_template("stocks.html", active_page="stocks")
 
 
+@app.route("/stock/<symbol>")
+@app.route("/stocks/<symbol>")
+def page_stock_detail(symbol):
+    sym = symbol.strip().upper()
+    if not sym.endswith("USDT"):
+        sym += "USDT"
+    stock_info = get_tradfi_stock_info(sym)
+    session_info = get_us_market_session()
+    ticker = stock_info.ticker if stock_info else sym.replace("USDT", "")
+    return render_template(
+        "stock_detail.html",
+        symbol=sym,
+        ticker=ticker,
+        stock_info=stock_info,
+        session_info=session_info,
+        active_page="stocks",
+    )
+
+
 @app.route("/api/tradfi/sectors")
 def api_tradfi_sectors():
     return jsonify({
