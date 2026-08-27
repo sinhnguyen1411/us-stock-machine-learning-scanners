@@ -297,16 +297,20 @@ def build_us_stock_presentation(output_path="final_project_us_stock_30_slides.pp
     # SLIDE 8: CRISP-DM Phase 2
     s8 = prs.slides.add_slide(blank_layout)
     set_slide_background(s8)
-    add_slide_header(s8, 8, total_slides, "Chương 2: Phương Pháp Luận Chu Trình CRISP-DM", "CRISP-DM Phase 2: Thấu Hiểu Dữ Liệu Sổ Lệnh & Order Flow", "Phân tích bản chất các trường dữ liệu cấp sàn Binance Matching Engine")
-    add_card(s8, Inches(0.8), Inches(1.7), Inches(11.7), Inches(5.2), "CÁC TRƯỜNG DỮ LIỆU CỐT LÕI TỪ API FLASK / BINANCE MATCHING ENGINE", CYAN)
-    add_bullets(s8, Inches(1.1), Inches(2.3), Inches(11.1), Inches(4.4), [
-        ("1. Open, High, Low, Close (OHLC):", "Mức giá mở, cao nhất, thấp nhất và đóng cửa trong chu kỳ nến (1M, 5M, 15M, 1H, 1D)."),
-        ("2. Total Volume & Quote Volume:", "Tổng khối lượng giao dịch tính theo số lượng cổ phiếu và giá trị danh nghĩa USD."),
-        ("3. Taker Buy Base Asset Volume (Trường độc quyền):", "Khối lượng chính xác do người mua chủ động quét thẳng vào giá Ask (Lực gom thể chế)."),
-        ("4. Taker Buy Quote Asset Volume:", "Giá trị USD chính xác của các lệnh mua chủ động khớp trực tiếp."),
-        ("5. Number of Trades:", "Tổng số lượng giao dịch riêng lẻ phát sinh trong cây nến (đo lường mật độ tham gia thị trường)."),
-        ("6. Funding Rate & Premium Index:", "Tỷ lệ phí cấp vốn giữa phe Long và Short, phản ánh mức độ lệch giá phái sinh so với giá Spot cơ sở.")
-    ], font_size=13)
+    add_slide_header(s8, 8, total_slides, "Chương 2: Phương Pháp Luận Chu Trình CRISP-DM", "CRISP-DM Phase 2: Thấu Hiểu & Nạp Dữ Liệu Sổ Lệnh / CSV Dataset", "Minh họa cấu trúc bảng dữ liệu nến 5M và các đặc trưng vi mô được nạp vào hệ thống")
+    
+    img_path_csv = "assets/slides/csv_dataset_sample.png"
+    if os.path.exists(img_path_csv):
+        add_card(s8, Inches(0.8), Inches(1.65), Inches(7.6), Inches(5.3), "", CYAN)
+        s8.shapes.add_picture(img_path_csv, Inches(0.9), Inches(1.75), width=Inches(7.4))
+    
+    add_card(s8, Inches(8.6), Inches(1.65), Inches(3.9), Inches(5.3), "CẤU TRÚC DỮ LIỆU ĐẦU VÀO", CYAN)
+    add_bullets(s8, Inches(8.75), Inches(2.25), Inches(3.6), Inches(4.5), [
+        ("Nguồn cấp sàn Binance:", "288 nến 5M/ngày chứa đầy đủ OHLCV và Taker Buy/Sell."),
+        ("Trường vi mô độc quyền:", "taker_buy_base, taker_buy_quote, buy_ratio (Order Flow Imbalance)."),
+        ("Chỉ số định lượng:", "volume_ratio (so với 20-EWMA), rsi_14, atr_14, pct_change."),
+        ("Gán nhãn học máy có giám sát:", "Cột is_pump_target (1 = Pump, 0 = Thường) dùng để huấn luyện và backtest mô hình.")
+    ], font_size=11)
 
     # SLIDE 9: CRISP-DM Phase 3
     s9 = prs.slides.add_slide(blank_layout)

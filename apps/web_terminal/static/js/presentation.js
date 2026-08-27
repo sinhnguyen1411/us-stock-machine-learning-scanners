@@ -229,19 +229,22 @@ const SLIDES_DATA = [
   },
   {
     chapter: "Chương 2: Phương Pháp Luận Chu Trình CRISP-DM",
-    title: "CRISP-DM Phase 2: Thấu Hiểu Dữ Liệu Sổ Lệnh & Order Flow",
-    subtitle: "Phân tích bản chất các trường dữ liệu cấp sàn Binance Matching Engine",
+    title: "CRISP-DM Phase 2: Thấu Hiểu & Nạp Dữ Liệu Sổ Lệnh / CSV Dataset",
+    subtitle: "Minh họa cấu trúc bảng dữ liệu nến 5M và các đặc trưng vi mô được nạp vào hệ thống",
     html: `
-      <div class="slide-box">
-        <div class="slide-box-title" style="color: var(--slide-cyan);">CÁC TRƯỜNG DỮ LIỆU CỐT LÕI TỪ API FLASK / BINANCE MATCHING ENGINE</div>
-        <ul class="slide-bullets">
-          <li><strong>1. Open, High, Low, Close (OHLC):</strong> Mức giá mở, cao nhất, thấp nhất và đóng cửa trong chu kỳ nến (1M, 5M, 15M, 1H, 1D).</li>
-          <li><strong>2. Total Volume & Quote Volume:</strong> Tổng khối lượng giao dịch tính theo số lượng cổ phiếu và giá trị danh nghĩa USD.</li>
-          <li><strong>3. Taker Buy Base Asset Volume (Trường độc quyền):</strong> Khối lượng chính xác do người mua chủ động quét thẳng vào giá Ask (Lực gom thể chế).</li>
-          <li><strong>4. Taker Buy Quote Asset Volume:</strong> Giá trị USD chính xác của các lệnh mua chủ động khớp trực tiếp.</li>
-          <li><strong>5. Number of Trades:</strong> Tổng số lượng giao dịch riêng lẻ phát sinh trong cây nến (đo lường mật độ tham gia thị trường).</li>
-          <li><strong>6. Funding Rate & Premium Index:</strong> Tỷ lệ phí cấp vốn giữa phe Long và Short, phản ánh mức độ lệch giá phái sinh so với Spot.</li>
-        </ul>
+      <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 20px; align-items: start;">
+        <div class="slide-img-frame">
+          <img src="/static/img/slides/csv_dataset_sample.png" onerror="this.src='/static/img/placeholder.png'" alt="Mẫu Dữ Liệu Nạp Vào Hệ Thống (CSV Dataset)">
+        </div>
+        <div class="slide-box">
+          <div class="slide-box-title" style="color: var(--slide-cyan);">CẤU TRÚC DỮ LIỆU ĐẦU VÀO</div>
+          <ul class="slide-bullets">
+            <li><strong>Nguồn cấp sàn Binance:</strong> 288 nến 5M/ngày chứa đầy đủ OHLCV và Taker Buy/Sell.</li>
+            <li><strong>Trường vi mô độc quyền:</strong> <code>taker_buy_base</code>, <code>taker_buy_quote</code>, <code>buy_ratio</code> (Order Flow Imbalance).</li>
+            <li><strong>Chỉ số định lượng:</strong> <code>volume_ratio</code> (so với 20-EWMA), <code>rsi_14</code>, <code>atr_14</code>, <code>pct_change</code>.</li>
+            <li><strong>Gán nhãn học máy có giám sát:</strong> Cột <code>is_pump_target</code> (1 = Pump, 0 = Thường) dùng để huấn luyện và backtest mô hình.</li>
+          </ul>
+        </div>
       </div>
     `
   },
