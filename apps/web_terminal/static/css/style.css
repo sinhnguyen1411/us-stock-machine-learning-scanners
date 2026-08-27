@@ -1259,23 +1259,23 @@ body {
 .data-table {
   width: 100%;
   border-collapse: collapse;
-  font-size: 0.82rem;
+  font-size: 0.8rem;
 }
 
 .data-table th {
-  padding: 8px 10px;
-  font-size: 0.7rem;
+  padding: 8px 7px;
+  font-size: 0.68rem;
   font-weight: 700;
   color: var(--text-dim);
   text-transform: uppercase;
-  letter-spacing: 0.5px;
+  letter-spacing: 0.4px;
   border-bottom: 1px solid var(--border-color);
   background: rgba(11, 14, 20, 0.6);
   white-space: nowrap;
 }
 
 .data-table td {
-  padding: 8px 10px;
+  padding: 7px 7px;
   border-bottom: 1px solid rgba(255, 255, 255, 0.04);
   vertical-align: middle;
   white-space: nowrap;
@@ -1290,14 +1290,15 @@ body {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  padding: 4px 10px;
+  padding: 3px 8px;
   border-radius: 4px;
-  font-size: 0.74rem;
+  font-size: 0.72rem;
   font-weight: 700;
   cursor: pointer;
   background: rgba(0, 242, 254, 0.12);
   border: 1px solid rgba(0, 242, 254, 0.35);
   color: var(--accent-cyan);
+  min-width: 58px;
   transition: all 0.15s ease;
 }
 
