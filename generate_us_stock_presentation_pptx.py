@@ -257,23 +257,20 @@ def build_us_stock_presentation(output_path="final_project_us_stock_30_slides.pp
     # SLIDE 6: CRISP-DM Overview
     s6 = prs.slides.add_slide(blank_layout)
     set_slide_background(s6)
-    add_slide_header(s6, 6, total_slides, "Chương 2: Phương Pháp Luận Chu Trình CRISP-DM", "Khung Quy Trình Chuẩn Công Nghiệp CRISP-DM 6 Giai Đoạn", "Vòng lặp khép kín từ thấu hiểu bài toán nghiệp vụ đến vận hành giám sát liên tục")
+    add_slide_header(s6, 6, total_slides, "Chương 2: Phương Pháp Luận Chu Trình CRISP-DM", "Khung Quy Trình Chuẩn Công Nghiệp CRISP-DM 6 Giai Đoạn", "Chu trình lặp 2 chiều liên tục từ thấu hiểu nghiệp vụ đến tối ưu hóa mô hình thực chiến")
     
-    crisp_steps = [
-        ("PHASE 1: THẤU HIỂU NGHIỆP VỤ", "Xác định mục tiêu bắt trọn dòng tiền thể chế và phân loại 4 phiên giao dịch New York.", CYAN),
-        ("PHASE 2: THẤU HIỂU DỮ LIỆU", "Thu thập luồng nến vi mô OHLCV, Taker Buy/Sell, Volume từ Binance Futures API.", GREEN),
-        ("PHASE 3: TIỀN XỬ LÝ DỮ LIỆU", "Làm sạch dữ liệu, xử lý Zero Division, vector hóa các đặc trưng VWAP, RSI, ATR.", YELLOW),
-        ("PHASE 4: XÂY DỰNG MÔ HÌNH", "Thiết kế thuật toán Ensemble ML Score (0 - 100) và 5 trạng thái tín hiệu phân loại.", PURPLE),
-        ("PHASE 5: ĐÁNH GIÁ THỰC NGHIỆM", "Backtest trên tập dữ liệu lịch sử, đánh giá Win-Rate, Sharpe Ratio và Max Drawdown.", CYAN),
-        ("PHASE 6: TRIỂN KHAI & GIÁM SÁT", "Vận hành Web Terminal thời gian thực 3.5s, trang soi nến `/stock/<symbol>` và Circuit Breaker.", GREEN)
-    ]
-    for i, (title, desc, col) in enumerate(crisp_steps):
-        col_idx = i % 2
-        row_idx = i // 2
-        left = Inches(0.8 + col_idx * 5.9)
-        top = Inches(1.7 + row_idx * 1.75)
-        add_card(s6, left, top, Inches(5.7), Inches(1.6), title, col)
-        add_bullets(s6, left + Inches(0.2), top + Inches(0.6), Inches(5.3), Inches(0.9), [desc], font_size=11, text_color=TEXT_MUTED)
+    img_path_crisp = "assets/slides/crisp_dm_cycle_diagram.png"
+    if os.path.exists(img_path_crisp):
+        add_card(s6, Inches(0.8), Inches(1.65), Inches(8.2), Inches(5.3), "", CYAN)
+        s6.shapes.add_picture(img_path_crisp, Inches(0.9), Inches(1.75), width=Inches(8.0))
+    
+    add_card(s6, Inches(9.2), Inches(1.65), Inches(3.3), Inches(5.3), "4 VÒNG LẶP PHẢN HỒI", CYAN)
+    add_bullets(s6, Inches(9.35), Inches(2.25), Inches(3.0), Inches(4.5), [
+        ("1. Nghiệp Vụ ⇄ Dữ Liệu:", "Dữ liệu thực tế liên tục hiệu chỉnh mục tiêu nghiệp vụ."),
+        ("2. Tiền Xử Lý ⇄ Mô Hình:", "Thử nghiệm mô hình đòi hỏi trích xuất thêm đặc trưng vi mô mới."),
+        ("3. Đánh Giá ⇄ Nghiệp Vụ:", "Nếu Backtest chưa đạt KPI Win-Rate -> Tinh chỉnh lại logic."),
+        ("4. Triển Khai ⇄ Thu Thập:", "Giám sát Market Drift và nạp dữ liệu mới để tái huấn luyện.")
+    ], font_size=11)
 
     # SLIDE 7: CRISP-DM Phase 1
     s7 = prs.slides.add_slide(blank_layout)

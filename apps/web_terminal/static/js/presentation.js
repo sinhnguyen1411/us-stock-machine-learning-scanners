@@ -171,32 +171,20 @@ const SLIDES_DATA = [
   {
     chapter: "Chương 2: Phương Pháp Luận Chu Trình CRISP-DM",
     title: "Khung Quy Trình Chuẩn Công Nghiệp CRISP-DM 6 Giai Đoạn",
-    subtitle: "Vòng lặp khép kín từ thấu hiểu bài toán nghiệp vụ đến vận hành giám sát liên tục",
+    subtitle: "Chu trình lặp 2 chiều liên tục từ thấu hiểu nghiệp vụ đến tối ưu hóa mô hình thực chiến",
     html: `
-      <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px;">
-        <div class="slide-box" style="border-top: 3px solid var(--slide-cyan);">
-          <div style="font-weight: 800; font-size: 0.95rem; color: var(--slide-cyan); margin-bottom: 6px;">PHASE 1: NGHIỆP VỤ</div>
-          <div style="font-size: 0.82rem; color: #cbd5e1;">Xác định mục tiêu bắt dòng tiền thể chế và phân loại 4 phiên New York.</div>
+      <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 20px; align-items: start;">
+        <div class="slide-img-frame">
+          <img src="/static/img/slides/crisp_dm_cycle_diagram.png" onerror="this.src='/static/img/placeholder.png'" alt="Chu Trình CRISP-DM Với Vòng Lặp Phản Hồi 2 Chiều">
         </div>
-        <div class="slide-box" style="border-top: 3px solid var(--slide-green);">
-          <div style="font-weight: 800; font-size: 0.95rem; color: var(--slide-green); margin-bottom: 6px;">PHASE 2: DỮ LIỆU</div>
-          <div style="font-size: 0.82rem; color: #cbd5e1;">Thu thập luồng nến vi mô OHLCV, Taker Buy/Sell, Volume từ Binance Futures API.</div>
-        </div>
-        <div class="slide-box" style="border-top: 3px solid var(--slide-yellow);">
-          <div style="font-weight: 800; font-size: 0.95rem; color: var(--slide-yellow); margin-bottom: 6px;">PHASE 3: TIỀN XỬ LÝ</div>
-          <div style="font-size: 0.82rem; color: #cbd5e1;">Làm sạch dữ liệu, xử lý Zero Division, vector hóa các đặc trưng VWAP, RSI, ATR.</div>
-        </div>
-        <div class="slide-box" style="border-top: 3px solid var(--slide-purple);">
-          <div style="font-weight: 800; font-size: 0.95rem; color: var(--slide-purple); margin-bottom: 6px;">PHASE 4: MÔ HÌNH</div>
-          <div style="font-size: 0.82rem; color: #cbd5e1;">Thiết kế thuật toán Ensemble ML Score (0 - 100) và 5 trạng thái tín hiệu phân loại.</div>
-        </div>
-        <div class="slide-box" style="border-top: 3px solid var(--slide-cyan);">
-          <div style="font-weight: 800; font-size: 0.95rem; color: var(--slide-cyan); margin-bottom: 6px;">PHASE 5: ĐÁNH GIÁ</div>
-          <div style="font-size: 0.82rem; color: #cbd5e1;">Backtest trên tập dữ liệu lịch sử, đánh giá Win-Rate, Sharpe Ratio và Max Drawdown.</div>
-        </div>
-        <div class="slide-box" style="border-top: 3px solid var(--slide-green);">
-          <div style="font-weight: 800; font-size: 0.95rem; color: var(--slide-green); margin-bottom: 6px;">PHASE 6: TRIỂN KHAI</div>
-          <div style="font-size: 0.82rem; color: #cbd5e1;">Vận hành Web Terminal 3.5s, trang soi nến <code>/stock/&lt;symbol&gt;</code> và Circuit Breaker.</div>
+        <div class="slide-box">
+          <div class="slide-box-title" style="color: var(--slide-cyan);">4 VÒNG LẶP PHẢN HỒI</div>
+          <ul class="slide-bullets">
+            <li><strong>1. Nghiệp Vụ ⇄ Dữ Liệu:</strong> Dữ liệu sổ lệnh thực tế liên tục hiệu chỉnh và tái định hình bài toán nghiệp vụ.</li>
+            <li><strong>2. Tiền Xử Lý ⇄ Mô Hình:</strong> Quá trình thử nghiệm mô hình đòi hỏi liên tục trích xuất thêm các đặc trưng vi mô mới.</li>
+            <li><strong>3. Đánh Giá ⇄ Nghiệp Vụ:</strong> Nếu kết quả Backtest chưa đạt KPI (Win-Rate, Sharpe) &rarr; quay lại tinh chỉnh logic.</li>
+            <li><strong>4. Triển Khai ⇄ Thu Thập:</strong> Giám sát hiện tượng lệch phân phối (Market Drift) và nạp dữ liệu mới để tái huấn luyện.</li>
+          </ul>
         </div>
       </div>
     `
