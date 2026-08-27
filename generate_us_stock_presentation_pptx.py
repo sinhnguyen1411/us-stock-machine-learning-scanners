@@ -259,7 +259,7 @@ def build_us_stock_presentation(output_path="final_project_us_stock_30_slides.pp
     set_slide_background(s6)
     add_slide_header(s6, 6, total_slides, "Chương 2: Phương Pháp Luận Chu Trình CRISP-DM", "Khung Quy Trình Chuẩn Công Nghiệp CRISP-DM 6 Giai Đoạn", "Chu trình lặp 2 chiều liên tục từ thấu hiểu nghiệp vụ đến tối ưu hóa mô hình thực chiến")
     
-    img_path_crisp = "assets/slides/crisp_dm_cycle_diagram.png"
+    img_path_crisp = "assets/slides/crisp_dm_cycle_diagram_v3.png"
     if os.path.exists(img_path_crisp):
         add_card(s6, Inches(0.8), Inches(1.65), Inches(8.2), Inches(5.3), "", CYAN)
         s6.shapes.add_picture(img_path_crisp, Inches(0.9), Inches(1.75), width=Inches(8.0))

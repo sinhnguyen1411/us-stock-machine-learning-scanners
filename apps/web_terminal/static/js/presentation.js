@@ -175,7 +175,7 @@ const SLIDES_DATA = [
     html: `
       <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 20px; align-items: start;">
         <div class="slide-img-frame">
-          <img src="/static/img/slides/crisp_dm_cycle_diagram.png" onerror="this.src='/static/img/placeholder.png'" alt="Chu Trình CRISP-DM Với Vòng Lặp Phản Hồi 2 Chiều">
+          <img src="/static/img/slides/crisp_dm_cycle_diagram_v3.png" onerror="this.src='/static/img/placeholder.png'" alt="Chu Trình CRISP-DM Với Vòng Lặp Phản Hồi 2 Chiều">
         </div>
         <div class="slide-box">
           <div class="slide-box-title" style="color: var(--slide-cyan);">4 VÒNG LẶP PHẢN HỒI</div>
