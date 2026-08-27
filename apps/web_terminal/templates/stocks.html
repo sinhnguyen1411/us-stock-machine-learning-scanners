@@ -43,7 +43,7 @@
       </a>
       <a href="/stocks" class="nav-link active">
         <span>US Stock TradFi ML</span>
-        <span class="nav-badge" style="background: rgba(0, 242, 254, 0.2); color: var(--accent-cyan);">90+ Stocks</span>
+        <span class="nav-badge">90+ Stocks</span>
       </a>
     </nav>
     
@@ -55,14 +55,14 @@
       </button>
 
       <!-- Session Indicator Pill -->
-      <div id="session-pill" class="status-pill" style="border-color: rgba(0, 242, 254, 0.4); color: var(--accent-cyan); background: rgba(0, 242, 254, 0.1);">
+      <div id="session-pill" class="status-pill session-overnight">
         <div class="pulse-dot" style="background: var(--accent-cyan); box-shadow: 0 0 8px var(--accent-cyan);"></div>
         <span id="session-status-text">New York: Đang Tải...</span>
       </div>
 
       <div class="status-pill">
         <div class="pulse-dot"></div>
-        <span id="market-status-text">90+ Hợp Đồng Phái Sinh Mỹ</span>
+        <span id="market-status-text">90+ Futures Live</span>
       </div>
     </div>
   </header>
@@ -71,44 +71,44 @@
   <main class="main-container">
 
     <!-- Market Session & Hero Info Banner -->
-    <section class="pre-pump-hero" style="padding: 14px 20px; margin-bottom: 18px; border-color: rgba(0, 242, 254, 0.3); background: linear-gradient(135deg, rgba(0, 242, 254, 0.08), rgba(18, 24, 36, 0.95));">
+    <section class="pre-pump-hero" style="border-color: rgba(0, 242, 254, 0.25); background: linear-gradient(135deg, rgba(0, 242, 254, 0.06), rgba(18, 24, 36, 0.9));">
       <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
         <div>
-          <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 4px;">
-            <span class="nav-badge" style="background: rgba(0, 242, 254, 0.2); color: var(--accent-cyan); padding: 3px 8px; font-size: 0.75rem;">TRADFI MACHINE LEARNING DERIVATIVES SCANNER</span>
-            <h2 style="font-size: 1.15rem; font-weight: 800; color: #fff; margin: 0;">
+          <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 2px;">
+            <span class="nav-badge" style="background: rgba(0, 242, 254, 0.15); color: var(--accent-cyan); padding: 2px 7px;">TRADFI ML SCANNER</span>
+            <h2 style="font-size: 1.05rem; font-weight: 800; color: #fff; margin: 0;">
               Giám Sát Vi Mô Thể Chế, VWAP &amp; Dòng Tiền Phái Sinh Cổ Phiếu Mỹ (USD-M)
             </h2>
           </div>
-          <div style="font-size: 0.8rem; color: var(--text-muted);">
-            Tự động theo dõi 90+ hợp đồng tương lai cổ phiếu Mỹ: Mega Tech (<strong style="color: var(--accent-cyan);">NVDA, AAPL, TSLA, PLTR, MSTR</strong>), Bán Dẫn (<strong style="color: var(--accent-yellow);">AMD, ASML, SOXL</strong>), Index/ETF (<strong style="color: var(--accent-green);">SPY, QQQ, TQQQ</strong>) &amp; Pre-IPO (<strong style="color: var(--accent-purple);">OPENAI, ANTHROPIC, SPACEX</strong>).
+          <div style="font-size: 0.76rem; color: var(--text-muted);">
+            Tự động theo dõi 90+ hợp đồng tương lai: Mega Tech (<strong style="color: var(--accent-cyan);">NVDA, AAPL, TSLA, PLTR, MSTR</strong>), Bán Dẫn (<strong style="color: var(--accent-yellow);">AMD, ASML, SOXL</strong>), Index/ETF (<strong style="color: var(--accent-green);">SPY, QQQ, TQQQ</strong>) &amp; Pre-IPO (<strong style="color: var(--accent-purple);">OPENAI, ANTHROPIC, SPACEX</strong>).
           </div>
         </div>
-        <div id="ny-session-banner-box" style="font-family: var(--font-mono); font-size: 0.8rem; color: var(--accent-cyan); background: rgba(0, 229, 255, 0.1); border: 1px solid rgba(0, 229, 255, 0.3); padding: 6px 14px; border-radius: 8px; text-align: right;">
+        <div id="ny-session-banner-box" style="font-family: var(--font-mono); font-size: 0.76rem; color: var(--accent-cyan); background: rgba(0, 229, 255, 0.08); border: 1px solid rgba(0, 229, 255, 0.25); padding: 4px 10px; border-radius: 6px; text-align: right; white-space: nowrap;">
           <div id="ny-session-time" style="font-weight: 700;">NY Time: --:-- EST</div>
-          <div id="ny-session-state" style="font-size: 0.72rem; color: var(--text-dim);">Phiên Giao Dịch</div>
+          <div id="ny-session-state" style="font-size: 0.68rem; color: var(--text-dim);">Phiên Giao Dịch</div>
         </div>
       </div>
     </section>
 
     <!-- Stat Summary Cards -->
     <div class="stat-grid-4">
-      <div class="stat-card high" style="border-color: rgba(0, 242, 254, 0.4); background: linear-gradient(135deg, rgba(0, 242, 254, 0.12), rgba(18, 24, 36, 0.85));">
+      <div class="stat-card high" style="border-color: rgba(0, 242, 254, 0.35);">
         <span class="stat-card-label" style="color: var(--accent-cyan);">TOP 1 ML SCORE CAO NHẤT</span>
         <div id="stat-top-stock-symbol" class="stat-card-val" style="color: var(--accent-cyan);">---</div>
         <span id="stat-top-stock-score" class="stat-card-sub">Điểm tiềm năng: 0/100</span>
       </div>
 
-      <div class="stat-card watch" style="border-color: rgba(0, 230, 118, 0.4); background: linear-gradient(135deg, rgba(0, 230, 118, 0.12), rgba(18, 24, 36, 0.85));">
-        <span class="stat-card-label" style="color: var(--accent-green);">ĐỘT PHÁ MUA MẠNH (BUY BREAKOUT)</span>
+      <div class="stat-card watch" style="border-color: rgba(0, 230, 118, 0.35);">
+        <span class="stat-card-label" style="color: var(--accent-green);">ĐỘT PHÁ MUA (BUY BREAKOUT)</span>
         <div id="stat-breakout-stock-count" class="stat-card-val" style="color: var(--accent-green);">0</div>
-        <span class="stat-card-sub">Volume Spike ≥ 2.0x &bull; Nằm trên VWAP</span>
+        <span class="stat-card-sub">Vol Spike ≥ 2x &bull; Nằm trên VWAP</span>
       </div>
 
-      <div class="stat-card" style="border-color: rgba(255, 179, 0, 0.4); background: linear-gradient(135deg, rgba(255, 179, 0, 0.12), rgba(18, 24, 36, 0.85));">
+      <div class="stat-card" style="border-color: rgba(255, 179, 0, 0.35);">
         <span class="stat-card-label" style="color: var(--accent-yellow);">THỂ CHẾ GOM HÀNG (ACCUMULATION)</span>
         <div id="stat-accum-stock-count" class="stat-card-val" style="color: var(--accent-yellow);">0</div>
-        <span class="stat-card-sub">Taker Buy ≥ 65% quanh mốc VWAP</span>
+        <span class="stat-card-sub">Taker Buy ≥ 65% quanh VWAP</span>
       </div>
 
       <div class="stat-card">
@@ -119,8 +119,8 @@
     </div>
 
     <!-- SECTOR FILTER TABS & SEARCH BAR -->
-    <div class="filter-bar" style="margin-bottom: 15px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
-      <div class="filter-group" style="display: flex; gap: 6px; flex-wrap: wrap;">
+    <div class="filter-bar" style="margin-bottom: 12px;">
+      <div class="filter-group">
         <button class="filter-btn active" onclick="filterBySector('ALL')">Tất Cả</button>
         <button class="filter-btn" onclick="filterBySector('MEGA_TECH')">Mega Tech</button>
         <button class="filter-btn" onclick="filterBySector('SEMICONDUCTORS')">Bán Dẫn (Semi)</button>
@@ -131,22 +131,20 @@
         <button class="filter-btn" onclick="filterBySector('CONSUMER_AND_HEALTHCARE')">Tiêu Dùng</button>
       </div>
 
-      <div class="search-wrapper" style="max-width: 280px; margin: 0;">
-        <span class="search-icon"></span>
+      <div class="search-wrapper">
         <input 
           type="text" 
           id="stock-search" 
           class="search-input" 
           placeholder="Tìm mã (NVDA, TSLA, SPY, QQQ, AAPL)..." 
           autocomplete="off"
-          style="padding: 6px 12px 6px 14px; font-size: 0.85rem;"
           oninput="handleStockSearch(this.value)"
         >
       </div>
     </div>
 
     <!-- MAIN DASHBOARD CONTENT: 2-COLUMN LAYOUT -->
-    <div style="display: grid; grid-template-columns: 1fr 420px; gap: 18px;" class="tradfi-layout-grid">
+    <div class="tradfi-layout-grid">
 
       <!-- LEFT COLUMN: DATA TABLE -->
       <section class="card-panel" style="border-color: rgba(0, 242, 254, 0.3); box-shadow: 0 4px 25px rgba(0, 242, 254, 0.06);">

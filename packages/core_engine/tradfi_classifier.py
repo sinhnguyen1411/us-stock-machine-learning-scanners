@@ -172,27 +172,27 @@ def get_us_market_session(now_dt: Optional[datetime] = None) -> Dict[str, Any]:
 
     if is_weekend:
         session_code = "OVERNIGHT_24_7"
-        session_name = "24/7 Futures (Thị Trường Cơ Sở Đóng Cửa Cuối Tuần)"
+        session_name = "Cuối tuần (24/7 Futures)"
         session_badge = "session-weekend"
         is_cash_open = False
     elif 9.5 <= est_time_decimal < 16.0:
         session_code = "REGULAR_HOURS"
-        session_name = "PHIÊN CHÍNH WALL STREET (09:30 - 16:00 EST)"
+        session_name = "Phiên Chính (09:30 - 16:00 EST)"
         session_badge = "session-regular"
         is_cash_open = True
     elif 4.0 <= est_time_decimal < 9.5:
         session_code = "PRE_MARKET"
-        session_name = "PHIÊN TIỀN THỊ TRƯỜNG PRE-MARKET (04:00 - 09:30 EST)"
+        session_name = "Pre-Market (04:00 - 09:30 EST)"
         session_badge = "session-pre"
         is_cash_open = False
     elif 16.0 <= est_time_decimal < 20.0:
         session_code = "AFTER_HOURS"
-        session_name = "PHIÊN SAU GIỜ AFTER-HOURS (16:00 - 20:00 EST)"
+        session_name = "After-Hours (16:00 - 20:00 EST)"
         session_badge = "session-after"
         is_cash_open = False
     else:
         session_code = "OVERNIGHT_24_7"
-        session_name = "PHIÊN ĐÊM OVERNIGHT (20:00 - 04:00 EST / 24/7 Futures)"
+        session_name = "Overnight (20:00 - 04:00 EST)"
         session_badge = "session-overnight"
         is_cash_open = False
 

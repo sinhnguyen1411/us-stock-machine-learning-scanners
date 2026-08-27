@@ -147,7 +147,7 @@ def evaluate_tradfi_ml_metrics(
     reasons = []
     if ml_score >= 75.0 and vol_spike >= 2.0 and green_candles >= 2 and vwap_distance_pct >= 0:
         signal = "STRONG_BUY_BREAKOUT"
-        signal_tag = "MUA ĐỘT PHÁ MẠNH (ML BUY)"
+        signal_tag = "MUA BREAKOUT"
         signal_class = "tradfi-signal-buy"
         confidence = 88.0
         reasons.append(f"Volume bùng nổ {vol_spike}x với {green_candles} nến xanh liên tiếp")
@@ -155,26 +155,26 @@ def evaluate_tradfi_ml_metrics(
         reasons.append(f"Lực gom thể chế Taker Buy {taker_buy_ratio}%")
     elif taker_buy_ratio >= 65.0 and -0.5 <= vwap_distance_pct <= 1.5:
         signal = "INSTITUTIONAL_ACCUMULATION"
-        signal_tag = "THỂ CHẾ GOM HÀNG (ACCUMULATION)"
+        signal_tag = "GOM HÀNG"
         signal_class = "tradfi-signal-accum"
         confidence = 80.0
         reasons.append(f"Taker Buy mua chủ động đạt {taker_buy_ratio}% quanh mốc VWAP")
         reasons.append("Đang nén chặt chuẩn bị cho pha bùng nổ biên độ")
     elif price_change_5m >= 1.5 and rsi >= 60.0:
         signal = "MOMENTUM_SURGE"
-        signal_tag = "SÓNG TĂNG TỐC (MOMENTUM)"
+        signal_tag = "TĂNG TỐC"
         signal_class = "tradfi-signal-surge"
         confidence = 75.0
         reasons.append(f"Đà tăng 5M ({price_change_5m:+.2f}%) với RSI tích cực ({rsi})")
     elif rsi >= 82.0:
         signal = "OVERBOUGHT_EXHAUSTION"
-        signal_tag = "QUÁ MUA (EXHAUSTION)"
+        signal_tag = "QUÁ MUA"
         signal_class = "tradfi-signal-exhaust"
         confidence = 70.0
         reasons.append(f"RSI chạm vùng quá mua ({rsi}), rủi ro điều chỉnh ngắn hạn")
     else:
         signal = "NEUTRAL"
-        signal_tag = "BÌNH THƯỜNG / TÍCH LŨY"
+        signal_tag = "TÍCH LŨY"
         signal_class = "tradfi-signal-neutral"
         confidence = 50.0
         reasons.append("Biến động trong giới hạn dao động thông thường")

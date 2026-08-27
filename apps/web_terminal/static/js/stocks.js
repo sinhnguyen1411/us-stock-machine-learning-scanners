@@ -125,22 +125,22 @@ function updateTopStatCards() {
     topSymEl.innerText = top1.ticker || top1.symbol;
   }
   if (topScoreEl && top1) {
-    topScoreEl.innerText = `Điểm ML: ${top1.ml_score.toFixed(1)}/100 (${top1.signal_tag || "Mua đột phá"})`;
+    topScoreEl.innerText = `Điểm ML: ${top1.ml_score.toFixed(0)}/100 (${top1.signal_tag || "Gom hàng"})`;
   }
 
-  // 2. Buy Breakouts
-  const breakouts = allTradFiStocks.filter(s => s.signal === "STRONG_BUY_BREAKOUT").length;
+  // 2. Buy Breakouts count
+  const breakouts = allTradFiStocks.filter(s => s.signal === "STRONG_BUY_BREAKOUT" || s.ml_score >= 70.0).length;
   const brkEl = document.getElementById("stat-breakout-stock-count");
   if (brkEl) brkEl.innerText = breakouts;
 
-  // 3. Institutional Accumulation
-  const accum = allTradFiStocks.filter(s => s.signal === "INSTITUTIONAL_ACCUMULATION").length;
+  // 3. Accumulation count
+  const accums = allTradFiStocks.filter(s => s.signal === "INSTITUTIONAL_ACCUMULATION" || (s.taker_buy_ratio >= 60.0 && s.vwap_distance_pct >= -0.5)).length;
   const accEl = document.getElementById("stat-accum-stock-count");
-  if (accEl) accEl.innerText = accum;
+  if (accEl) accEl.innerText = accums;
 
-  // 4. Total count
+  // 4. Total Count
   const totEl = document.getElementById("stat-total-stock-count");
-  if (totEl) totEl.innerText = allTradFiStocks.length;
+  if (totEl) totEl.innerText = `${allTradFiStocks.length} mã`;
 
   const timeEl = document.getElementById("tradfi-updated-time");
   if (timeEl) {
@@ -216,11 +216,11 @@ function renderTradFiTable() {
       <tr ${rowClass} onclick="selectTradFiStock('${s.symbol}')" style="cursor: pointer;">
         <td style="${rankStyle} text-align: center; font-family: var(--font-mono);">${rankBadge}</td>
         <td>
-          <div style="font-weight: 800; color: #fff; font-size: 0.95rem;">${s.ticker || s.symbol}</div>
-          <div style="font-size: 0.72rem; color: var(--text-dim);">${s.name || "US Stock"}</div>
+          <div style="font-weight: 800; color: #fff; font-size: 0.92rem; line-height: 1.2;">${s.ticker || s.symbol}</div>
+          <div style="font-size: 0.68rem; color: var(--text-dim); line-height: 1.2; max-width: 140px; overflow: hidden; text-overflow: ellipsis;">${s.name || "US Stock"}</div>
         </td>
         <td>
-          <span class="sector-badge" style="background: rgba(255,255,255,0.06); padding: 3px 8px; border-radius: 4px; font-size: 0.72rem; color: #cbd5e1;">
+          <span class="sector-badge">
             ${s.sector_name || s.sector}
           </span>
         </td>
@@ -230,33 +230,33 @@ function renderTradFiTable() {
         <td style="text-align: right; font-family: var(--font-mono); font-weight: 700;" class="${chgClass}">
           ${chgSign}${(s.pct_24h || 0).toFixed(2)}%
         </td>
-        <td style="text-align: right; font-family: var(--font-mono); font-size: 0.8rem;">
-          <div style="color: #cbd5e1;">$${formatStockPrice(s.vwap)}</div>
-          <div style="font-size: 0.7rem; color: ${vwapDistColor};">${vwapDistSign}${vwapDist.toFixed(2)}%</div>
+        <td style="text-align: right; font-family: var(--font-mono);">
+          <div style="color: #cbd5e1; font-size: 0.78rem;">$${formatStockPrice(s.vwap)}</div>
+          <div style="font-size: 0.68rem; color: ${vwapDistColor}; font-weight: 700;">${vwapDistSign}${vwapDist.toFixed(2)}%</div>
         </td>
-        <td style="text-align: center; font-family: var(--font-mono); font-size: 0.85rem; color: ${s.vol_spike >= 2.0 ? 'var(--accent-yellow)' : 'var(--text-muted)'};">
+        <td style="text-align: center; font-family: var(--font-mono); font-size: 0.82rem; color: ${s.vol_spike >= 2.0 ? 'var(--accent-yellow)' : 'var(--text-muted)'}; font-weight: 700;">
           ${(s.vol_spike || 1.0).toFixed(1)}x
         </td>
-        <td style="text-align: center; font-family: var(--font-mono); font-size: 0.85rem; color: ${s.taker_buy_ratio >= 60 ? 'var(--accent-green)' : 'var(--text-muted)'};">
+        <td style="text-align: center; font-family: var(--font-mono); font-size: 0.82rem; color: ${s.taker_buy_ratio >= 60 ? 'var(--accent-green)' : 'var(--text-muted)'}; font-weight: 700;">
           ${(s.taker_buy_ratio || 50).toFixed(1)}%
         </td>
-        <td>
-          <div style="display: flex; align-items: center; gap: 8px;">
-            <div class="progress-bar-bg" style="flex: 1; height: 6px; background: rgba(255,255,255,0.08); border-radius: 3px; overflow: hidden;">
+        <td style="width: 130px;">
+          <div style="display: flex; align-items: center; gap: 6px;">
+            <div style="flex: 1; height: 5px; background: rgba(255,255,255,0.08); border-radius: 3px; overflow: hidden;">
               <div style="width: ${score}%; height: 100%; background: ${scoreColor}; border-radius: 3px;"></div>
             </div>
-            <span style="font-family: var(--font-mono); font-weight: 700; font-size: 0.85rem; width: 34px; text-align: right; color: #fff;">
+            <span style="font-family: var(--font-mono); font-weight: 700; font-size: 0.8rem; width: 24px; text-align: right; color: #fff;">
               ${score.toFixed(0)}
             </span>
           </div>
         </td>
         <td style="text-align: center;">
-          <span class="signal-tag ${s.signal_class || 'tradfi-signal-neutral'}" style="padding: 3px 8px; border-radius: 4px; font-size: 0.72rem; font-weight: 700;">
+          <span class="signal-tag ${s.signal_class || 'tradfi-signal-neutral'}">
             ${s.signal_tag || "TÍCH LŨY"}
           </span>
         </td>
         <td style="text-align: center;">
-          <button class="action-btn-mini" onclick="event.stopPropagation(); selectTradFiStock('${s.symbol}')" style="background: rgba(0, 242, 254, 0.15); border: 1px solid rgba(0, 242, 254, 0.3); color: var(--accent-cyan); padding: 4px 10px; border-radius: 4px; font-size: 0.75rem; cursor: pointer;">
+          <button class="action-btn-mini" onclick="event.stopPropagation(); selectTradFiStock('${s.symbol}')">
             Soi Nến
           </button>
         </td>
