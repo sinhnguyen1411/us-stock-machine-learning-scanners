@@ -173,18 +173,9 @@ const SLIDES_DATA = [
     title: "Khung Quy Trình Chuẩn Công Nghiệp CRISP-DM 6 Giai Đoạn",
     subtitle: "Chu trình lặp 2 chiều liên tục từ thấu hiểu nghiệp vụ đến tối ưu hóa mô hình thực chiến",
     html: `
-      <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 20px; align-items: start;">
-        <div class="slide-img-frame">
-          <img src="/static/img/slides/crisp_dm_cycle_diagram_v3.png" onerror="this.src='/static/img/placeholder.png'" alt="Chu Trình CRISP-DM Với Vòng Lặp Phản Hồi 2 Chiều">
-        </div>
-        <div class="slide-box">
-          <div class="slide-box-title" style="color: var(--slide-cyan);">4 VÒNG LẶP PHẢN HỒI</div>
-          <ul class="slide-bullets">
-            <li><strong>1. Nghiệp Vụ ⇄ Dữ Liệu:</strong> Dữ liệu sổ lệnh thực tế liên tục hiệu chỉnh và tái định hình bài toán nghiệp vụ.</li>
-            <li><strong>2. Tiền Xử Lý ⇄ Mô Hình:</strong> Quá trình thử nghiệm mô hình đòi hỏi liên tục trích xuất thêm các đặc trưng vi mô mới.</li>
-            <li><strong>3. Đánh Giá ⇄ Nghiệp Vụ:</strong> Nếu kết quả Backtest chưa đạt KPI (Win-Rate, Sharpe) &rarr; quay lại tinh chỉnh logic.</li>
-            <li><strong>4. Triển Khai ⇄ Thu Thập:</strong> Giám sát hiện tượng lệch phân phối (Market Drift) và nạp dữ liệu mới để tái huấn luyện.</li>
-          </ul>
+      <div style="display: flex; justify-content: center; align-items: center; width: 100%;">
+        <div class="slide-img-frame" style="width: 100%; max-width: 1100px; padding: 12px; background: #0B0F17; border: 1px solid rgba(0,242,254,0.3); border-radius: 12px; display: flex; justify-content: center;">
+          <img src="/static/img/slides/crisp_dm_cycle_diagram_v3.png?v=3.0" onerror="this.src='/static/img/placeholder.png'" style="max-height: 510px; width: 100%; object-fit: contain;" alt="Chu Trình CRISP-DM Với Vòng Lặp Phản Hồi 2 Chiều">
         </div>
       </div>
     `

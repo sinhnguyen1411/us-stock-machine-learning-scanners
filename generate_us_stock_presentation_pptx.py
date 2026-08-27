@@ -261,16 +261,8 @@ def build_us_stock_presentation(output_path="final_project_us_stock_30_slides.pp
     
     img_path_crisp = "assets/slides/crisp_dm_cycle_diagram_v3.png"
     if os.path.exists(img_path_crisp):
-        add_card(s6, Inches(0.8), Inches(1.65), Inches(8.2), Inches(5.3), "", CYAN)
-        s6.shapes.add_picture(img_path_crisp, Inches(0.9), Inches(1.75), width=Inches(8.0))
-    
-    add_card(s6, Inches(9.2), Inches(1.65), Inches(3.3), Inches(5.3), "4 VÒNG LẶP PHẢN HỒI", CYAN)
-    add_bullets(s6, Inches(9.35), Inches(2.25), Inches(3.0), Inches(4.5), [
-        ("1. Nghiệp Vụ ⇄ Dữ Liệu:", "Dữ liệu thực tế liên tục hiệu chỉnh mục tiêu nghiệp vụ."),
-        ("2. Tiền Xử Lý ⇄ Mô Hình:", "Thử nghiệm mô hình đòi hỏi trích xuất thêm đặc trưng vi mô mới."),
-        ("3. Đánh Giá ⇄ Nghiệp Vụ:", "Nếu Backtest chưa đạt KPI Win-Rate -> Tinh chỉnh lại logic."),
-        ("4. Triển Khai ⇄ Thu Thập:", "Giám sát Market Drift và nạp dữ liệu mới để tái huấn luyện.")
-    ], font_size=11)
+        add_card(s6, Inches(0.8), Inches(1.65), Inches(11.73), Inches(5.35), "", CYAN)
+        s6.shapes.add_picture(img_path_crisp, Inches(0.9), Inches(1.75), width=Inches(11.53))
 
     # SLIDE 7: CRISP-DM Phase 1
     s7 = prs.slides.add_slide(blank_layout)
