@@ -114,7 +114,7 @@ function renderPrePumpTable() {
   if (!list || list.length === 0) {
     tbody.innerHTML = `
       <tr>
-        <td colspan="11" style="text-align: center; color: var(--text-dim); padding: 35px;">
+        <td colspan="12" style="text-align: center; color: var(--text-dim); padding: 35px;">
           Chưa phát hiện cặp coin nào thuộc bộ lọc "${currentPrePumpPhase}". Đang quét vi mô 1H liên tục...
         </td>
       </tr>
@@ -161,6 +161,44 @@ function renderPrePumpTable() {
     const slFmt = tp.sl ? `$${tp.sl < 1 ? tp.sl.toFixed(4) : tp.sl.toFixed(2)}` : "--";
     const tp1Fmt = tp.tp1 ? `$${tp.tp1 < 1 ? tp.tp1.toFixed(4) : tp.tp1.toFixed(2)}` : "--";
 
+    // ML Pump Multiplier Prediction
+    const pm = c.pump_multiplier || {};
+    let multiplierHtml = '';
+    if (pct > 100 && pm.n_expected) {
+      const nExp = pm.n_expected;
+      const nLow = pm.n_low || (nExp * 0.6);
+      const nHigh = pm.n_high || (nExp * 1.8);
+      const tierLbl = pm.tier_code || '';
+      const conf = pm.confidence ? ` (Độ tin cậy: ${(pm.confidence * 100).toFixed(0)}%)` : '';
+      
+      let badgeStyle = "background: rgba(0, 240, 255, 0.15); color: var(--accent-cyan); border: 1px solid var(--accent-cyan);";
+      let icon = "🎯";
+      if (nExp >= 20) {
+        badgeStyle = "background: rgba(255, 59, 105, 0.2); color: var(--accent-red); border: 1px solid var(--accent-red); box-shadow: 0 0 10px rgba(255, 59, 105, 0.4); font-weight: 800;";
+        icon = "🔥";
+      } else if (nExp >= 10) {
+        badgeStyle = "background: rgba(255, 184, 0, 0.2); color: var(--accent-yellow); border: 1px solid var(--accent-yellow); font-weight: 700;";
+        icon = "⚡";
+      }
+
+      multiplierHtml = `
+        <div style="cursor: help;" title="Ước tính ML: ~${nExp.toFixed(1)}x&#10;Vùng biến động: [${nLow.toFixed(1)}x - ${nHigh.toFixed(1)}x]&#10;Phân tầng: ${tierLbl}${conf}">
+          <span style="display: inline-flex; align-items: center; gap: 4px; padding: 3px 8px; border-radius: 4px; font-size: 0.85rem; font-family: var(--font-mono); ${badgeStyle}">
+            ${icon} ~${nExp.toFixed(1)}x
+          </span>
+          <div style="font-size: 0.68rem; color: var(--text-dim); margin-top: 2px;">
+            [${nLow.toFixed(1)}x - ${nHigh.toFixed(1)}x]
+          </div>
+        </div>
+      `;
+    } else {
+      multiplierHtml = `
+        <div style="color: var(--text-dim); font-size: 0.72rem; font-family: var(--font-mono);" title="Tính năng kích hoạt khi biến động 24h > 100% (Đang bơm thực sự)">
+          <span style="opacity: 0.6;">-- (Chờ nổ &gt;100%)</span>
+        </div>
+      `;
+    }
+
     return `
       <tr>
         <td style="${rankStyle} font-family: var(--font-mono);">${rankBadge}</td>
@@ -203,6 +241,9 @@ function renderPrePumpTable() {
               <div class="pump-score-bar" style="width: ${pScore}%; background: ${barColor};"></div>
             </div>
           </div>
+        </td>
+        <td>
+          ${multiplierHtml}
         </td>
         <td>
           <div class="trade-plan-box">
@@ -296,3 +337,240 @@ function toggleAudioAlert() {
   if (txt) txt.innerText = isAudioAlertEnabled ? "Chuông: BẬT" : "Chuông: TẮT";
   if (ico) ico.innerText = "";
 }
+
+/* ─── ML Multiplier Research Modal & Interactive Scatter Plot ─── */
+let mlResearchData = null;
+
+function openMultiplierResearchModal() {
+  const modal = document.getElementById("multiplier-research-modal");
+  if (modal) {
+    modal.style.display = "flex";
+    fetchAndRenderMultiplierResearch();
+  }
+}
+
+function closeMultiplierResearchModal() {
+  const modal = document.getElementById("multiplier-research-modal");
+  if (modal) modal.style.display = "none";
+}
+
+async function fetchAndRenderMultiplierResearch() {
+  try {
+    const res = await fetch("/api/ml/pump_multiplier_research");
+    if (!res.ok) return;
+    const data = await res.json();
+    if (data.status !== "success") return;
+    mlResearchData = data;
+
+    const events = data.events || [];
+    const model = data.model_summary || {};
+
+    // Update Stats
+    const evCountEl = document.getElementById("ml-stat-events");
+    if (evCountEl) evCountEl.innerText = events.length;
+
+    const meanNEl = document.getElementById("ml-stat-mean-n");
+    if (meanNEl && events.length > 0) {
+      const sumN = events.reduce((acc, e) => acc + (e.n_actual || 0), 0);
+      meanNEl.innerText = `${(sumN / events.length).toFixed(1)}x`;
+    }
+
+    const maeEl = document.getElementById("ml-stat-mae");
+    if (maeEl && model.loo_mae_ridge !== undefined) {
+      const avgMae = ((model.loo_mae_ridge + model.loo_mae_rf) / 2).toFixed(3);
+      maeEl.innerText = avgMae;
+    }
+
+    // Render Table
+    const tbody = document.getElementById("ml-events-body");
+    if (tbody) {
+      tbody.innerHTML = events.map(e => {
+        const bottomFmt = e.pre_pump_price < 0.001 ? e.pre_pump_price.toFixed(8) : e.pre_pump_price < 1 ? e.pre_pump_price.toFixed(4) : e.pre_pump_price.toFixed(2);
+        const peakFmt = e.peak_price < 0.001 ? e.peak_price.toFixed(8) : e.peak_price < 1 ? e.peak_price.toFixed(4) : e.peak_price.toFixed(2);
+        
+        let nBadgeClass = "badge-cyan";
+        if (e.n_actual >= 20) nBadgeClass = "badge-red";
+        else if (e.n_actual >= 10) nBadgeClass = "badge-yellow";
+
+        return `
+          <tr>
+            <td style="font-weight: 700; color: #fff;">${e.symbol}</td>
+            <td><span class="phase-badge phase-normal" style="font-size: 0.72rem;">${e.tier_code}</span></td>
+            <td style="font-family: var(--font-mono); color: var(--accent-cyan);">$${bottomFmt}</td>
+            <td style="font-family: var(--font-mono); color: var(--accent-green);">$${peakFmt}</td>
+            <td><span class="${nBadgeClass}" style="font-weight: 800; font-family: var(--font-mono); font-size: 0.85rem;">${(e.n_actual || 0).toFixed(2)}x</span></td>
+            <td style="font-family: var(--font-mono); color: var(--text-muted);">${(e.vol_spike_ratio || 0).toFixed(1)}x</td>
+            <td style="font-size: 0.76rem; color: var(--text-dim);">${e.event_date || '--'}</td>
+          </tr>
+        `;
+      }).join("");
+    }
+
+    // Render Canvas Scatter Plot
+    drawMultiplierScatterPlot(events);
+
+  } catch (err) {
+    console.error("Error fetching ML research data:", err);
+  }
+}
+
+function drawMultiplierScatterPlot(events) {
+  const canvas = document.getElementById("ml-scatter-canvas");
+  if (!canvas || !events || events.length === 0) return;
+
+  const ctx = canvas.getContext("2d");
+  const rect = canvas.getBoundingClientRect();
+  const dpr = window.devicePixelRatio || 1;
+
+  canvas.width = rect.width * dpr;
+  canvas.height = rect.height * dpr;
+  ctx.scale(dpr, dpr);
+
+  const w = rect.width;
+  const h = rect.height;
+
+  // Margins
+  const mLeft = 65;
+  const mRight = 35;
+  const mTop = 30;
+  const mBottom = 45;
+
+  const pW = w - mLeft - mRight;
+  const pH = h - mTop - mBottom;
+
+  // Background
+  ctx.fillStyle = "#0B0F17";
+  ctx.fillRect(0, 0, w, h);
+
+  // Compute log ranges
+  const logPrices = events.map(e => Math.log10(Math.max(e.pre_pump_price, 1e-7)));
+  const logNs = events.map(e => Math.log10(Math.max(e.n_actual, 1.0)));
+
+  const minLogP = Math.floor(Math.min(...logPrices));
+  const maxLogP = Math.ceil(Math.max(...logNs, Math.max(...logPrices)));
+  const minLogN = 0; // log10(1) = 0
+  const maxLogN = Math.ceil(Math.max(...logNs) * 1.1);
+
+  const xRange = maxLogP - minLogP;
+  const yRange = maxLogN - minLogN;
+
+  function toX(lp) {
+    return mLeft + ((lp - minLogP) / xRange) * pW;
+  }
+
+  function toY(ln) {
+    return mTop + pH - ((ln - minLogN) / yRange) * pH;
+  }
+
+  // Draw Gridlines & Axis Labels
+  ctx.lineWidth = 1;
+  ctx.strokeStyle = "rgba(255, 255, 255, 0.07)";
+  ctx.fillStyle = "rgba(160, 175, 200, 0.6)";
+  ctx.font = "10px Inter, monospace";
+  ctx.textAlign = "center";
+
+  // X Axis Ticks (Price Powers of 10)
+  for (let lp = minLogP; lp <= maxLogP; lp++) {
+    const x = toX(lp);
+    ctx.beginPath();
+    ctx.moveTo(x, mTop);
+    ctx.lineTo(x, mTop + pH);
+    ctx.stroke();
+
+    let valStr = `$10^${lp}`;
+    if (lp === -5) valStr = "$0.00001";
+    else if (lp === -4) valStr = "$0.0001";
+    else if (lp === -3) valStr = "$0.001";
+    else if (lp === -2) valStr = "$0.01";
+    else if (lp === -1) valStr = "$0.1";
+    else if (lp === 0) valStr = "$1";
+    else if (lp === 1) valStr = "$10";
+    else if (lp === 2) valStr = "$100";
+
+    ctx.fillText(valStr, x, mTop + pH + 16);
+  }
+
+  // Y Axis Ticks (Multiplier n Powers of 10)
+  ctx.textAlign = "right";
+  for (let ln = minLogN; ln <= maxLogN; ln++) {
+    const y = toY(ln);
+    ctx.beginPath();
+    ctx.moveTo(mLeft, y);
+    ctx.lineTo(mLeft + pW, y);
+    ctx.stroke();
+
+    let nStr = `${Math.pow(10, ln)}x`;
+    ctx.fillText(nStr, mLeft - 8, y + 3);
+  }
+
+  // Axes Title
+  ctx.fillStyle = "rgba(0, 240, 255, 0.7)";
+  ctx.font = "11px Inter, sans-serif";
+  ctx.textAlign = "center";
+  ctx.fillText("← Giá Đáy Trước Pump (Log10 Price) →", mLeft + pW / 2, h - 8);
+
+  ctx.save();
+  ctx.translate(14, mTop + pH / 2);
+  ctx.rotate(-Math.PI / 2);
+  ctx.fillText("← Bội Số Pump n (Log10 Multiplier) →", 0, 0);
+  ctx.restore();
+
+  // Draw Trendline (Empirical fit)
+  ctx.beginPath();
+  ctx.strokeStyle = "rgba(0, 240, 255, 0.35)";
+  ctx.lineWidth = 2;
+  ctx.setLineDash([4, 4]);
+
+  const x1 = minLogP;
+  const y1 = toY(1.8 - 0.15 * (minLogP - (-5)));
+  const x2 = maxLogP;
+  const y2 = toY(0.45);
+
+  ctx.moveTo(toX(x1), y1);
+  ctx.lineTo(toX(x2), y2);
+  ctx.stroke();
+  ctx.setLineDash([]); // Reset line dash
+
+  // Draw Data Points
+  events.forEach(e => {
+    const lp = Math.log10(Math.max(e.pre_pump_price, 1e-7));
+    const ln = Math.log10(Math.max(e.n_actual, 1.0));
+
+    const cx = toX(lp);
+    const cy = toY(ln);
+
+    let color = "#00F0FF";
+    let r = 5;
+    if (e.n_actual >= 20) {
+      color = "#FF3366";
+      r = 7.5;
+    } else if (e.n_actual >= 10) {
+      color = "#FFB800";
+      r = 6;
+    }
+
+    // Outer Glow
+    ctx.beginPath();
+    ctx.arc(cx, cy, r + 3, 0, Math.PI * 2);
+    ctx.fillStyle = color.replace(")", ", 0.25)").replace("rgb", "rgba").replace("#FF3366", "rgba(255,51,102,0.25)").replace("#FFB800", "rgba(255,184,0,0.25)").replace("#00F0FF", "rgba(0,240,255,0.25)");
+    ctx.fill();
+
+    // Core Dot
+    ctx.beginPath();
+    ctx.arc(cx, cy, r, 0, Math.PI * 2);
+    ctx.fillStyle = color;
+    ctx.fill();
+    ctx.strokeStyle = "#FFFFFF";
+    ctx.lineWidth = 1.2;
+    ctx.stroke();
+
+    // Coin Label (for notable cases)
+    if (e.n_actual >= 20 || e.symbol === "DEXEUSDT" || e.symbol === "AKEUSDT" || e.symbol === "TUTUSDT" || e.symbol === "BANKUSDT" || e.symbol === "BEATUSDT" || e.symbol === "VELVETUSDT") {
+      ctx.font = "bold 9.5px Inter, sans-serif";
+      ctx.fillStyle = "#FFFFFF";
+      ctx.textAlign = "center";
+      ctx.fillText(`${e.symbol.replace("USDT", "")} (${e.n_actual.toFixed(0)}x)`, cx, cy - r - 4);
+    }
+  });
+}
+

@@ -359,6 +359,49 @@ def api_pre_pump_radar():
     })
 
 
+@app.route("/api/ml/pump_multiplier_research")
+def api_pump_multiplier_research():
+    try:
+        from core_engine.pump_multiplier_classifier import PumpDatasetBuilder, PRICE_TIERS
+        from core_engine.pump_multiplier_regressor import PumpMultiplierRegressor
+        
+        db = PumpDatasetBuilder()
+        events = db.load_all()
+        reg = PumpMultiplierRegressor(auto_train=False)
+        summary = reg.training_summary()
+        
+        events_data = [
+            {
+                "symbol": e.symbol,
+                "event_date": e.event_date,
+                "pre_pump_price": e.pre_pump_price,
+                "peak_price": e.peak_price,
+                "n_actual": e.n_actual,
+                "tier_code": e.price_tier_code,
+                "tier_index": e.price_tier_index,
+                "vol_spike_ratio": e.vol_spike_ratio,
+                "pre_pump_mcap_usd": e.pre_pump_mcap_usd,
+                "pre_pump_vol_24h": e.pre_pump_vol_24h,
+                "pump_duration_h": e.pump_duration_h,
+                "notes": e.notes,
+            }
+            for e in sorted(events, key=lambda x: x.pre_pump_price)
+        ]
+        
+        tiers_info = [t.to_dict() for t in PRICE_TIERS]
+        
+        return jsonify({
+            "status": "success",
+            "events_count": len(events_data),
+            "model_summary": summary,
+            "events": events_data,
+            "tiers": tiers_info,
+        })
+    except Exception as ex:
+        logger.error(f"Error in api_pump_multiplier_research: {ex}")
+        return jsonify({"status": "error", "message": str(ex)}), 500
+
+
 @app.route("/api/analyze/<symbol>")
 def api_analyze(symbol):
 

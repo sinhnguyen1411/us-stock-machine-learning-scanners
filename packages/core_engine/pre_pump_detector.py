@@ -6,6 +6,18 @@ open interest expansion, and Wyckoff sideways accumulation structure.
 
 from typing import Dict, Any, Optional
 
+_MULTIPLIER_REGRESSOR = None
+
+def _get_multiplier_regressor():
+    global _MULTIPLIER_REGRESSOR
+    if _MULTIPLIER_REGRESSOR is None:
+        try:
+            from packages.core_engine.pump_multiplier_regressor import PumpMultiplierRegressor
+            _MULTIPLIER_REGRESSOR = PumpMultiplierRegressor(auto_train=True)
+        except Exception:
+            _MULTIPLIER_REGRESSOR = None
+    return _MULTIPLIER_REGRESSOR
+
 
 def calculate_pre_pump_index(
     symbol: str,
@@ -263,6 +275,38 @@ def calculate_pre_pump_index(
     tp1 = current_price * 1.20  # +20%
     tp2 = current_price * 1.50  # +50%
 
+    # ML Pump Multiplier Prediction (n)
+    pump_multiplier_info = {
+        "n_expected": None,
+        "n_low": None,
+        "n_high": None,
+        "tier_code": "",
+        "tier_label": "",
+        "confidence": 0.0,
+        "model_available": False,
+    }
+    regressor = _get_multiplier_regressor()
+    if regressor is not None:
+        try:
+            pred = regressor.predict(
+                price=current_price,
+                mcap_usd=0.0,
+                vol_24h=quote_vol_24h,
+                vol_spike=vol_spike_1h,
+                pct_24h=pct_24h,
+            )
+            pump_multiplier_info = {
+                "n_expected": pred.get("n_expected"),
+                "n_low": pred.get("n_low"),
+                "n_high": pred.get("n_high"),
+                "tier_code": pred.get("tier_code", ""),
+                "tier_label": pred.get("tier_label", ""),
+                "confidence": pred.get("confidence", 0.0),
+                "model_available": pred.get("model_available", False),
+            }
+        except Exception:
+            pass
+
     return {
         "symbol": symbol,
         "price": current_price,
@@ -290,6 +334,7 @@ def calculate_pre_pump_index(
         "recommendation": recommendation,
         "breakdown": breakdown,
         "next_funding_time": next_funding_time,
+        "pump_multiplier": pump_multiplier_info,
         "trade_plan": {
             "entry": current_price,
             "sl": round(suggested_sl, 6),
@@ -298,3 +343,4 @@ def calculate_pre_pump_index(
             "trailing_stop_pct": 12.0,
         }
     }
+
