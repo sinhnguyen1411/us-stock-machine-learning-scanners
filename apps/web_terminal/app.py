@@ -229,6 +229,7 @@ def page_top():
 
 
 @app.route("/pre-pump")
+@app.route("/pre_pump")
 def page_pre_pump():
     return render_template("pre_pump.html", active_page="pre_pump")
 
@@ -399,6 +400,25 @@ def api_pump_multiplier_research():
         })
     except Exception as ex:
         logger.error(f"Error in api_pump_multiplier_research: {ex}")
+        return jsonify({"status": "error", "message": str(ex)}), 500
+
+
+@app.route("/api/ml/active_pump_campaigns")
+def api_active_pump_campaigns():
+    try:
+        from core_engine import get_pump_registry
+        registry = get_pump_registry()
+        active = registry.get_active_campaigns()
+        all_c = registry.get_all_campaigns()
+        return jsonify({
+            "status": "success",
+            "timestamp": datetime.now(timezone.utc).strftime("%H:%M:%S"),
+            "active_count": len(active),
+            "active_campaigns": [c.to_dict() for c in active],
+            "all_campaigns": [c.to_dict() for c in all_c],
+        })
+    except Exception as ex:
+        logger.error(f"Error in api_active_pump_campaigns: {ex}")
         return jsonify({"status": "error", "message": str(ex)}), 500
 
 
@@ -784,6 +804,13 @@ def _analyze_pre_pump_symbol(item_tuple):
         pct_3d             = pct_24h
         pct_7d             = pct_24h
         gain_from_base_pct = 0.0
+
+    # Sync with stateful pump lifecycle registry
+    try:
+        from core_engine import get_pump_registry
+        get_pump_registry().update_price_and_stage(sym, mark_p, fr, quote_vol)
+    except Exception:
+        pass
 
     return calculate_pre_pump_index(
         symbol=sym,

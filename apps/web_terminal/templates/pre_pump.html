@@ -117,6 +117,26 @@
       </div>
     </div>
 
+    <!-- STATEFUL MULTI-MONTH ACTIVE PUMP CAMPAIGNS PANEL -->
+    <section class="card-panel" style="border-color: rgba(0, 240, 255, 0.35); background: linear-gradient(180deg, rgba(0, 240, 255, 0.05) 0%, rgba(18, 24, 36, 0.6) 100%); margin-bottom: 24px;">
+      <div class="panel-header" style="margin-bottom: 12px;">
+        <div style="display: flex; align-items: center; gap: 10px;">
+          <span style="font-size: 1.3rem;">📡</span>
+          <div>
+            <h3 class="asset-title" style="font-size: 1.15rem; color: var(--accent-cyan);">CHIẾN DỊCH SIÊU SÓNG ĐANG THEO DÕI LIÊN TỤC (MULTI-MONTH TRACKER)</h3>
+            <div style="font-size: 0.76rem; color: var(--text-dim);">Theo dõi xuyên suốt từ đáy gốc đến khi dump (không bị giới hạn bởi khung 24h • Tự động cảnh báo thoát hàng khi gãy đỉnh)</div>
+          </div>
+        </div>
+        <div id="active-campaigns-badge" style="font-family: var(--font-mono); font-size: 0.78rem; color: var(--accent-yellow); background: rgba(255, 184, 0, 0.1); border: 1px solid rgba(255, 184, 0, 0.3); padding: 4px 10px; border-radius: 6px;">
+          Đang Theo Dõi: 5 Chiến Dịch
+        </div>
+      </div>
+
+      <div id="active-campaigns-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(290px, 1fr)); gap: 14px;">
+        <!-- Dynamically rendered via JS -->
+      </div>
+    </section>
+
     <!-- PRE-PUMP LEADING RADAR TABLE SECTION -->
     <section class="card-panel" style="border-color: rgba(255, 51, 102, 0.3); box-shadow: 0 4px 25px rgba(255, 51, 102, 0.08);">
       <div class="panel-header">

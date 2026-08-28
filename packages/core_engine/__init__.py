@@ -19,6 +19,13 @@ from .tradfi_ml_detector import (
     evaluate_tradfi_ml_metrics,
 )
 
+from .pump_lifecycle_tracker import (
+    PumpLifecycleRegistry,
+    PumpCampaign,
+    PumpStage,
+    get_pump_registry,
+)
+
 __all__ = [
     "classify_asset_tier",
     "CoinTier",
@@ -40,6 +47,10 @@ __all__ = [
     "calculate_vwap",
     "calculate_realized_volatility",
     "evaluate_tradfi_ml_metrics",
+    "PumpLifecycleRegistry",
+    "PumpCampaign",
+    "PumpStage",
+    "get_pump_registry",
 ]
 
 

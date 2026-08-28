@@ -9,8 +9,111 @@ let isAudioAlertEnabled = true;
 
 document.addEventListener("DOMContentLoaded", () => {
   fetchPrePumpRadar();
+  fetchActivePumpCampaigns();
   setInterval(fetchPrePumpRadar, 3000);
+  setInterval(fetchActivePumpCampaigns, 5000);
 });
+
+async function fetchActivePumpCampaigns() {
+  try {
+    const res = await fetch("/api/ml/active_pump_campaigns");
+    if (!res.ok) return;
+    const data = await res.json();
+    if (data.status !== "success") return;
+
+    const campaigns = data.active_campaigns || [];
+    const badgeEl = document.getElementById("active-campaigns-badge");
+    if (badgeEl) {
+      badgeEl.innerText = `Đang Theo Dõi: ${campaigns.length} Siêu Sóng`;
+    }
+
+    const grid = document.getElementById("active-campaigns-grid");
+    if (!grid) return;
+
+    if (campaigns.length === 0) {
+      grid.innerHTML = `
+        <div style="grid-column: 1/-1; text-align: center; color: var(--text-dim); padding: 20px;">
+          Chưa có chiến dịch siêu bơm đa tháng nào trong danh sách theo dõi.
+        </div>
+      `;
+      return;
+    }
+
+    grid.innerHTML = campaigns.map(c => {
+      const bottomFmt = c.origin_bottom_price < 0.001 ? c.origin_bottom_price.toFixed(8) : c.origin_bottom_price < 1 ? c.origin_bottom_price.toFixed(4) : c.origin_bottom_price.toFixed(2);
+      const peakFmt = c.highest_peak_price < 0.001 ? c.highest_peak_price.toFixed(8) : c.highest_peak_price < 1 ? c.highest_peak_price.toFixed(4) : c.highest_peak_price.toFixed(2);
+      const currFmt = c.current_price < 0.001 ? c.current_price.toFixed(8) : c.current_price < 1 ? c.current_price.toFixed(4) : c.current_price.toFixed(2);
+      const dumpFmt = c.dump_threshold_price < 0.001 ? c.dump_threshold_price.toFixed(8) : c.dump_threshold_price < 1 ? c.dump_threshold_price.toFixed(4) : c.dump_threshold_price.toFixed(2);
+
+      let stageColor = "var(--accent-cyan)";
+      let borderGlow = "border: 1px solid rgba(0, 240, 255, 0.3);";
+      if (c.stage === "ACTIVE_EXPANSION") {
+        stageColor = "var(--accent-yellow)";
+        borderGlow = "border: 1px solid rgba(255, 184, 0, 0.4); box-shadow: 0 0 15px rgba(255, 184, 0, 0.1);";
+      } else if (c.stage === "HIGH_CONSOLIDATION") {
+        stageColor = "var(--accent-green)";
+        borderGlow = "border: 1px solid rgba(0, 230, 118, 0.35);";
+      } else if (c.stage === "EXHAUSTION_WARNING") {
+        stageColor = "var(--accent-orange)";
+        borderGlow = "border: 1px solid rgba(255, 102, 0, 0.4);";
+      } else if (c.stage === "DUMP_CONFIRMED") {
+        stageColor = "var(--accent-red)";
+        borderGlow = "border: 1px solid rgba(255, 51, 102, 0.4);";
+      }
+
+      return `
+        <div style="background: rgba(11, 15, 23, 0.85); border-radius: 8px; padding: 14px; ${borderGlow} display: flex; flex-direction: column; justify-content: space-between;">
+          <div>
+            <!-- Header -->
+            <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 8px;">
+              <div>
+                <a href="/?symbol=${c.symbol}" style="font-size: 1.1rem; font-weight: 800; color: #fff; text-decoration: none;" title="Soi Nến ${c.symbol}">
+                  ${c.symbol}
+                </a>
+                <div style="font-size: 0.72rem; color: var(--text-dim);">Khởi phát: ${c.origin_date} (${c.pump_age_days || 1} ngày trước)</div>
+              </div>
+              <span style="font-size: 0.74rem; padding: 3px 8px; border-radius: 4px; background: rgba(255, 255, 255, 0.05); color: ${stageColor}; font-weight: 700; border: 1px solid ${stageColor};">
+                ${c.stage_label_vi || c.stage}
+              </span>
+            </div>
+
+            <!-- Multipliers Grid -->
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; background: rgba(0, 0, 0, 0.25); padding: 10px; border-radius: 6px; margin-bottom: 10px; font-family: var(--font-mono); font-size: 0.8rem;">
+              <div>
+                <span style="font-size: 0.68rem; color: var(--text-dim); display: block;">ĐÁY GỐC (BASE):</span>
+                <strong style="color: var(--accent-cyan);">$${bottomFmt}</strong>
+              </div>
+              <div>
+                <span style="font-size: 0.68rem; color: var(--text-dim); display: block;">ĐỈNH CAO NHẤT (PEAK):</span>
+                <strong style="color: var(--accent-yellow);">$${peakFmt} (${c.max_n}x)</strong>
+              </div>
+              <div>
+                <span style="font-size: 0.68rem; color: var(--text-dim); display: block;">GIÁ HIỆN TẠI:</span>
+                <strong style="color: #fff;">$${currFmt} (${c.current_n}x)</strong>
+              </div>
+              <div>
+                <span style="font-size: 0.68rem; color: var(--text-dim); display: block;">SỤT TỪ ĐỈNH:</span>
+                <strong style="color: ${c.drawdown_from_peak_pct >= 35 ? 'var(--accent-red)' : 'var(--accent-green)'};">-${c.drawdown_from_peak_pct}%</strong>
+              </div>
+            </div>
+          </div>
+
+          <!-- Bottom Warning / Trailing -->
+          <div style="font-size: 0.72rem; color: var(--text-muted); border-top: 1px solid rgba(255, 255, 255, 0.05); padding-top: 8px; display: flex; justify-content: space-between; align-items: center;">
+            <span>Ngưỡng Dump: <strong style="color: var(--accent-red);">$${dumpFmt}</strong></span>
+            <a href="/?symbol=${c.symbol}" class="btn-inspect" style="padding: 3px 8px; font-size: 0.72rem;" title="Mở biểu đồ">
+              Soi Nến ↗
+            </a>
+          </div>
+        </div>
+      `;
+    }).join("");
+
+  } catch (e) {
+    console.debug("Error fetching active pump campaigns:", e);
+  }
+}
+
 
 async function fetchPrePumpRadar() {
   try {
