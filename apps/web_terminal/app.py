@@ -742,6 +742,9 @@ def _analyze_pre_pump_symbol(item_tuple):
     drift_1d_pct = 0.0
     higher_low_quality = 1.0
     adr_contraction = 1.0
+    pct_3d = pct_24h
+    pct_7d = pct_24h
+    gain_from_base_pct = 0.0
 
     try:
         klines_1d = connector.get_klines(sym, interval="1d", limit=45)

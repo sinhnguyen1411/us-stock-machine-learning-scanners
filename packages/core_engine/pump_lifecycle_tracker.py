@@ -374,14 +374,17 @@ class PumpLifecycleRegistry:
             # Condition 2: Exhaustion Warning
             elif c.drawdown_from_peak_pct >= 28.0 or funding_rate >= 0.0010:
                 c.stage = PumpStage.EXHAUSTION_WARNING
+                c.is_active = True
             
             # Condition 3: High Altitude Consolidation (Holding well within 10-25% from peak)
             elif c.pump_age_days >= 7 and c.drawdown_from_peak_pct < 28.0:
                 c.stage = PumpStage.HIGH_CONSOLIDATION
+                c.is_active = True
             
             # Condition 4: Active Expansion
             elif c.drawdown_from_peak_pct < 12.0:
                 c.stage = PumpStage.ACTIVE_EXPANSION
+                c.is_active = True
 
         c.stage_label_vi = STAGE_LABELS_VI.get(c.stage, c.stage)
         self.save()
