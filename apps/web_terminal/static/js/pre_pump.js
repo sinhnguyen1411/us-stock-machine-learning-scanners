@@ -164,11 +164,12 @@ function renderPrePumpTable() {
     // ML Pump Multiplier Prediction
     const pm = c.pump_multiplier || {};
     let multiplierHtml = '';
-    if (pct > 100 && pm.n_expected) {
+    if (pm.n_expected) {
       const nExp = pm.n_expected;
       const nLow = pm.n_low || (nExp * 0.6);
       const nHigh = pm.n_high || (nExp * 1.8);
       const tierLbl = pm.tier_code || '';
+      const reason = pm.wave_reason || 'Đang trong sóng bơm';
       const conf = pm.confidence ? ` (Độ tin cậy: ${(pm.confidence * 100).toFixed(0)}%)` : '';
       
       let badgeStyle = "background: rgba(0, 240, 255, 0.15); color: var(--accent-cyan); border: 1px solid var(--accent-cyan);";
@@ -182,19 +183,19 @@ function renderPrePumpTable() {
       }
 
       multiplierHtml = `
-        <div style="cursor: help;" title="Ước tính ML: ~${nExp.toFixed(1)}x&#10;Vùng biến động: [${nLow.toFixed(1)}x - ${nHigh.toFixed(1)}x]&#10;Phân tầng: ${tierLbl}${conf}">
+        <div style="cursor: help;" title="Ước tính ML: ~${nExp.toFixed(1)}x&#10;Trạng thái: ${reason}&#10;Vùng biến động: [${nLow.toFixed(1)}x - ${nHigh.toFixed(1)}x]&#10;Phân tầng: ${tierLbl}${conf}">
           <span style="display: inline-flex; align-items: center; gap: 4px; padding: 3px 8px; border-radius: 4px; font-size: 0.85rem; font-family: var(--font-mono); ${badgeStyle}">
             ${icon} ~${nExp.toFixed(1)}x
           </span>
-          <div style="font-size: 0.68rem; color: var(--text-dim); margin-top: 2px;">
-            [${nLow.toFixed(1)}x - ${nHigh.toFixed(1)}x]
+          <div style="font-size: 0.68rem; color: var(--accent-cyan); margin-top: 2px; font-weight: 600;">
+            ${reason}
           </div>
         </div>
       `;
     } else {
       multiplierHtml = `
-        <div style="color: var(--text-dim); font-size: 0.72rem; font-family: var(--font-mono);" title="Tính năng kích hoạt khi biến động 24h > 100% (Đang bơm thực sự)">
-          <span style="opacity: 0.6;">-- (Chờ nổ &gt;100%)</span>
+        <div style="color: var(--text-dim); font-size: 0.72rem; font-family: var(--font-mono);" title="Tính năng tự kích hoạt khi biến động 24h > 50% hoặc sóng 3D/7D > 75%">
+          <span style="opacity: 0.6;">-- (Chờ nổ sóng)</span>
         </div>
       `;
     }

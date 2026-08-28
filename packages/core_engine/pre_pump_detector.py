@@ -34,10 +34,14 @@ def calculate_pre_pump_index(
     atr: float = 0.0,
     candle_1h_pct: float = 0.0,
     macro_cycle_pos: float = 50.0,
-    # â”€â”€ Pillar 5: Wyckoff Accumulation Quality â”€â”€
+    # ── Pillar 5: Wyckoff Accumulation Quality ──
     drift_1d_pct: float = 0.0,          # 14-day price drift % (0~+12% = sideways-to-up = best)
     higher_low_quality: float = 1.0,    # recent_low / prev_low ratio (>= 1.0 = higher low structure)
-    adr_contraction: float = 1.0,       # recent ADR / prev ADR (< 0.70 = tightening = nÃ©n Ä‘Ã¡y)
+    adr_contraction: float = 1.0,       # recent ADR / prev ADR (< 0.70 = tightening = nén đáy)
+    # ── Multi-Day Wave Metrics (Prevents 24h Rollover Blindspot) ──
+    pct_3d: float = 0.0,
+    pct_7d: float = 0.0,
+    gain_from_base_pct: float = 0.0,
 ) -> Dict[str, Any]:
     """
     Computes institutional Pre-Pump Squeeze Anomaly Score (0 to 100) across 5 Core Pillars:
@@ -284,6 +288,10 @@ def calculate_pre_pump_index(
         "tier_label": "",
         "confidence": 0.0,
         "model_available": False,
+        "in_pump_wave": False,
+        "wave_reason": "",
+        "gain_from_base_pct": round(gain_from_base_pct, 1),
+        "pct_3d": round(pct_3d, 1),
     }
     regressor = _get_multiplier_regressor()
     if regressor is not None:
@@ -294,6 +302,10 @@ def calculate_pre_pump_index(
                 vol_24h=quote_vol_24h,
                 vol_spike=vol_spike_1h,
                 pct_24h=pct_24h,
+                pct_3d=pct_3d,
+                pct_7d=pct_7d,
+                gain_from_base_pct=gain_from_base_pct,
+                is_active_pump=is_bullish_ignition and vol_spike_1h >= 2.5,
             )
             pump_multiplier_info = {
                 "n_expected": pred.get("n_expected"),
@@ -303,6 +315,10 @@ def calculate_pre_pump_index(
                 "tier_label": pred.get("tier_label", ""),
                 "confidence": pred.get("confidence", 0.0),
                 "model_available": pred.get("model_available", False),
+                "in_pump_wave": pred.get("in_pump_wave", False),
+                "wave_reason": pred.get("wave_reason", ""),
+                "gain_from_base_pct": pred.get("gain_from_base_pct", round(gain_from_base_pct, 1)),
+                "pct_3d": pred.get("pct_3d", round(pct_3d, 1)),
             }
         except Exception:
             pass

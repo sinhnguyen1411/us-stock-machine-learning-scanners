@@ -291,30 +291,64 @@ class PumpMultiplierRegressor:
 
     def predict(
         self,
-        price:      float,
-        mcap_usd:   float = 0.0,
-        vol_24h:    float = 0.0,
-        vol_spike:  float = 0.0,
-        pct_24h:    float = 0.0,
+        price:              float,
+        mcap_usd:           float = 0.0,
+        vol_24h:            float = 0.0,
+        vol_spike:          float = 0.0,
+        pct_24h:            float = 0.0,
+        pct_3d:             float = 0.0,
+        pct_7d:             float = 0.0,
+        gain_from_base_pct: float = 0.0,
+        is_active_pump:     bool = False,
     ) -> Dict:
         """
-        Predict n for a coin currently pumping.
-        Only shows result when pct_24h > 100% (actively pumping).
+        Predict n for a coin currently in an active pump cycle or consolidating before leg 2.
+        
+        Activation conditions (captures multi-day wave & pauses between pump legs):
+          1. 24h fast pump: pct_24h >= 50.0%
+          2. Multi-day pump wave: pct_3d >= 75.0% or pct_7d >= 100.0%
+          3. Base expansion: gain_from_base_pct >= 75.0% (holding high above accumulation floor)
+          4. Ignition trigger with high volume: is_active_pump == True or (vol_spike >= 3.0 and pct_24h >= 20.0)
         """
         clf  = PriceTierClassifier()
         tier = clf.classify(price)
 
+        # Multi-timeframe Pump Wave Detector
+        in_pump_wave = False
+        wave_reason = ""
+
+        if pct_24h >= 50.0:
+            in_pump_wave = True
+            wave_reason = f"Bơm Mạnh 24H (+{pct_24h:.1f}%)"
+        elif pct_3d >= 75.0:
+            in_pump_wave = True
+            wave_reason = f"Sóng Tăng 3D (+{pct_3d:.1f}%)"
+        elif pct_7d >= 100.0:
+            in_pump_wave = True
+            wave_reason = f"Sóng Tuần 7D (+{pct_7d:.1f}%)"
+        elif gain_from_base_pct >= 75.0:
+            in_pump_wave = True
+            wave_reason = f"Nén Tích Lũy Sóng 2 (Đáy +{gain_from_base_pct:.1f}%)"
+        elif is_active_pump or (vol_spike >= 3.0 and pct_24h >= 20.0):
+            in_pump_wave = True
+            wave_reason = f"Kích Hoạt Mồi Lửa (Vol {vol_spike:.1f}x)"
+
         base = {
-            "price":           price,
-            "tier_code":       tier.code,
-            "tier_label":      tier.label,
-            "tier_index":      tier.tier_index,
-            "model_available": self._bundle is not None,
+            "price":              price,
+            "tier_code":          tier.code,
+            "tier_label":         tier.label,
+            "tier_index":         tier.tier_index,
+            "model_available":    self._bundle is not None,
+            "in_pump_wave":       in_pump_wave,
+            "wave_reason":        wave_reason,
+            "gain_from_base_pct": round(gain_from_base_pct, 1),
+            "pct_3d":             round(pct_3d, 1),
         }
 
-        if pct_24h <= 100.0 and pct_24h != 0.0:
+        # If not in an active pump wave, hide prediction to prevent clutter
+        if not in_pump_wave:
             base["n_expected"] = None
-            base["note"]       = "Not shown: pct_24h={:.1f}% <= 100%".format(pct_24h)
+            base["note"]       = "Chưa kích hoạt sóng bơm (Chờ pct_24h > 50% hoặc sóng 3D/7D > 75%)"
             return base
 
         if self._bundle is not None and _SKLEARN_AVAILABLE:
@@ -327,6 +361,7 @@ class PumpMultiplierRegressor:
             mae = (self._bundle.loo_mae_ridge + self._bundle.loo_mae_rf) / 2.0
             n_low  = math.exp(log_n_hat - mae)
             n_high = math.exp(log_n_hat + mae)
+
 
             # Confidence degrades with missing features
             base_confidence = min(0.7, 0.3 + 0.015 * self._bundle.n_training)

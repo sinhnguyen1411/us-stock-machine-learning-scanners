@@ -761,11 +761,29 @@ def _analyze_pre_pump_symbol(item_tuple):
                 adr_prev = sum(ranges_prev) / len(ranges_prev)
                 adr_contraction = adr_7d / max(adr_prev, 0.001)
 
+            # Multi-day pump wave metrics (eliminates 24h rollover blindspot during consolidation pauses)
+            if len(d_closes) >= 4:
+                pct_3d = (mark_p - d_closes[-4]) / max(d_closes[-4], 1e-9) * 100.0
+            else:
+                pct_3d = pct_24h
+
+            if len(d_closes) >= 8:
+                pct_7d = (mark_p - d_closes[-8]) / max(d_closes[-8], 1e-9) * 100.0
+            else:
+                pct_7d = pct_3d
+
+            # Lowest low of last 7-14 days as base floor
+            recent_base_low = min(d_lows[-7:]) if len(d_lows) >= 7 else min(d_lows)
+            gain_from_base_pct = (mark_p - recent_base_low) / max(recent_base_low, 1e-9) * 100.0
+
     except Exception:
         macro_cycle_pos    = 50.0
         drift_1d_pct       = 0.0
         higher_low_quality = 1.0
         adr_contraction    = 1.0
+        pct_3d             = pct_24h
+        pct_7d             = pct_24h
+        gain_from_base_pct = 0.0
 
     return calculate_pre_pump_index(
         symbol=sym,
@@ -785,6 +803,9 @@ def _analyze_pre_pump_symbol(item_tuple):
         drift_1d_pct=drift_1d_pct,
         higher_low_quality=higher_low_quality,
         adr_contraction=adr_contraction,
+        pct_3d=pct_3d,
+        pct_7d=pct_7d,
+        gain_from_base_pct=gain_from_base_pct,
     )
 
 
