@@ -368,8 +368,9 @@ def api_pump_multiplier_research():
         
         db = PumpDatasetBuilder()
         events = db.load_all()
-        reg = PumpMultiplierRegressor(auto_train=False)
-        summary = reg.training_summary()
+        from core_engine.pump_multiplier_regressor import get_pump_multiplier_regressor
+        reg = get_pump_multiplier_regressor()
+        summary = reg.get_model_summary()
         
         events_data = [
             {
