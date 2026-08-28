@@ -127,8 +127,10 @@
             <div style="font-size: 0.76rem; color: var(--text-dim);">Theo dõi xuyên suốt từ đáy gốc đến khi dump (không bị giới hạn bởi khung 24h • Tự động cảnh báo thoát hàng khi gãy đỉnh)</div>
           </div>
         </div>
-        <div id="active-campaigns-badge" style="font-family: var(--font-mono); font-size: 0.78rem; color: var(--accent-yellow); background: rgba(255, 184, 0, 0.1); border: 1px solid rgba(255, 184, 0, 0.3); padding: 4px 10px; border-radius: 6px;">
-          Đang Theo Dõi: 5 Chiến Dịch
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <button id="campaign-filter-active" class="filter-btn active" style="font-size: 0.76rem; padding: 4px 10px;" onclick="setCampaignFilter('ACTIVE')">🟢 Đang Chạy (Active)</button>
+          <button id="campaign-filter-dumped" class="filter-btn" style="font-size: 0.76rem; padding: 4px 10px; border-color: rgba(255, 51, 102, 0.4); color: var(--accent-red);" onclick="setCampaignFilter('DUMPED')">🔴 Lịch Sử Đã Dump</button>
+          <button id="campaign-filter-all" class="filter-btn" style="font-size: 0.76rem; padding: 4px 10px;" onclick="setCampaignFilter('ALL')">Tất Cả</button>
         </div>
       </div>
 
