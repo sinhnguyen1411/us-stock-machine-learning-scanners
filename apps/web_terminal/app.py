@@ -259,6 +259,13 @@ def page_stock_detail(symbol):
     )
 
 
+@app.route("/lifecycle")
+@app.route("/ml-lifecycle")
+@app.route("/ml-pumps")
+def page_lifecycle():
+    return render_template("lifecycle.html", active_page="lifecycle")
+
+
 @app.route("/slides")
 @app.route("/presentation")
 def page_presentation():

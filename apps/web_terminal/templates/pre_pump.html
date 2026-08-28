@@ -38,6 +38,10 @@
         <span>Dự Báo Sớm (10x-40x)</span>
         <span class="nav-badge">Radar</span>
       </a>
+      <a href="/lifecycle" class="nav-link">
+        <span>Vòng Đời ML & Nghiên Cứu</span>
+        <span class="nav-badge" style="background: rgba(0, 240, 255, 0.2); color: var(--accent-cyan);">CRISP-DM</span>
+      </a>
       <a href="/stocks" class="nav-link">
         <span>US Stock TradFi ML</span>
         <span class="nav-badge">90+ Stocks</span>
@@ -117,28 +121,6 @@
       </div>
     </div>
 
-    <!-- STATEFUL MULTI-MONTH ACTIVE PUMP CAMPAIGNS PANEL -->
-    <section class="card-panel" style="border-color: rgba(0, 240, 255, 0.35); background: linear-gradient(180deg, rgba(0, 240, 255, 0.05) 0%, rgba(18, 24, 36, 0.6) 100%); margin-bottom: 24px;">
-      <div class="panel-header" style="margin-bottom: 12px;">
-        <div style="display: flex; align-items: center; gap: 10px;">
-          <span style="font-size: 1.3rem;">📡</span>
-          <div>
-            <h3 class="asset-title" style="font-size: 1.15rem; color: var(--accent-cyan);">CHIẾN DỊCH SIÊU SÓNG ĐANG THEO DÕI LIÊN TỤC (MULTI-MONTH TRACKER)</h3>
-            <div style="font-size: 0.76rem; color: var(--text-dim);">Theo dõi xuyên suốt từ đáy gốc đến khi dump (không bị giới hạn bởi khung 24h • Tự động cảnh báo thoát hàng khi gãy đỉnh)</div>
-          </div>
-        </div>
-        <div style="display: flex; align-items: center; gap: 8px;">
-          <button id="campaign-filter-active" class="filter-btn active" style="font-size: 0.76rem; padding: 4px 10px;" onclick="setCampaignFilter('ACTIVE')">🟢 Đang Chạy (Active)</button>
-          <button id="campaign-filter-dumped" class="filter-btn" style="font-size: 0.76rem; padding: 4px 10px; border-color: rgba(255, 51, 102, 0.4); color: var(--accent-red);" onclick="setCampaignFilter('DUMPED')">🔴 Lịch Sử Đã Dump</button>
-          <button id="campaign-filter-all" class="filter-btn" style="font-size: 0.76rem; padding: 4px 10px;" onclick="setCampaignFilter('ALL')">Tất Cả</button>
-        </div>
-      </div>
-
-      <div id="active-campaigns-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(290px, 1fr)); gap: 14px;">
-        <!-- Dynamically rendered via JS -->
-      </div>
-    </section>
-
     <!-- PRE-PUMP LEADING RADAR TABLE SECTION -->
     <section class="card-panel" style="border-color: rgba(255, 51, 102, 0.3); box-shadow: 0 4px 25px rgba(255, 51, 102, 0.08);">
       <div class="panel-header">
@@ -149,14 +131,13 @@
           </div>
         </div>
 
-        <!-- 4 Phase Filter Buttons + ML Research Button -->
+        <!-- 4 Phase Filter Buttons -->
         <div class="filter-group">
           <button class="filter-btn active" onclick="filterPrePumpPhase('ALL')">Tất Cả</button>
           <button class="filter-btn" onclick="filterPrePumpPhase('IGNITION')">Vừa Mồi Lửa (Ignition)</button>
           <button class="filter-btn" onclick="filterPrePumpPhase('COILING')">Đang Nén Đáy (Coiling)</button>
           <button class="filter-btn" onclick="filterPrePumpPhase('NEG_FUNDING')">Funding Âm Sâu</button>
           <button class="filter-btn" onclick="filterPrePumpPhase('EXPANSION')">Short Squeeze Đang Bay</button>
-          <button class="filter-btn" style="background: rgba(0, 229, 255, 0.12); border-color: var(--accent-cyan); color: var(--accent-cyan); font-weight: 700;" onclick="openMultiplierResearchModal()">🔬 Nghiên Cứu ML (Price &times; n)</button>
         </div>
       </div>
 
@@ -299,84 +280,7 @@
     </div>
   </div>
 
-  <!-- ML Multiplier Research Modal Dialog -->
-  <div id="multiplier-research-modal" class="modal-overlay" style="display: none;">
-    <div class="modal-card" style="max-width: 980px; width: 95%;">
-      <div class="modal-header">
-        <div style="display: flex; align-items: center; gap: 10px;">
-          <span style="font-size: 1.5rem;">🔬</span>
-          <div>
-            <h3 style="font-size: 1.25rem; font-weight: 800; color: var(--accent-cyan);">Báo Cáo Nghiên Cứu ML: Giá Đáy &times; Bội Số Pump (n) — CRISP-DM Tương Tác 2 Chiều</h3>
-            <div style="font-size: 0.76rem; color: var(--text-dim);">Dữ liệu thực nghiệm 100% độc quyền từ Binance USD-M Futures 2026 (5-Fold Stratified Cross-Validation &bull; Active Learning Loop)</div>
-          </div>
-        </div>
-        <button class="modal-close-btn" onclick="closeMultiplierResearchModal()">&times;</button>
-      </div>
-
-      <div class="modal-body" style="max-height: 80vh; overflow-y: auto;">
-        <!-- Metrics Row -->
-        <div class="bt-summary-grid" style="margin-bottom: 20px;">
-          <div class="bt-stat-box">
-            <span class="bt-stat-lbl">TỔNG EVENT USD-M 2026</span>
-            <strong id="ml-stat-events" class="bt-stat-val" style="color: var(--accent-cyan);">126</strong>
-            <span style="font-size: 0.75rem; color: var(--text-muted);">Đã xác minh đáy &amp; đỉnh</span>
-          </div>
-          <div class="bt-stat-box">
-            <span class="bt-stat-lbl">BỘI SỐ n TRUNG BÌNH</span>
-            <strong id="ml-stat-mean-n" class="bt-stat-val" style="color: var(--accent-yellow);">6.8x</strong>
-            <span style="font-size: 0.75rem; color: var(--text-muted);">Biên độ 2.05x &rarr; 94.27x</span>
-          </div>
-          <div class="bt-stat-box">
-            <span class="bt-stat-lbl">5-FOLD CV MAE (LOG)</span>
-            <strong id="ml-stat-mae" class="bt-stat-val" style="color: var(--accent-green);">0.456</strong>
-            <span style="font-size: 0.75rem; color: var(--text-muted);">Sai số ước tính ~1.58x</span>
-          </div>
-          <div class="bt-stat-box">
-            <span class="bt-stat-lbl">KIẾN TRÚC MÔ HÌNH</span>
-            <strong class="bt-stat-val" style="color: var(--accent-red); font-size: 1.0rem;">Tri-Ensemble v4</strong>
-            <span style="font-size: 0.75rem; color: var(--text-muted);">Ridge + RF + GradBoost + Prior</span>
-          </div>
-        </div>
-
-        <!-- Scatter Chart Canvas Container -->
-        <div style="background: rgba(11, 15, 23, 0.9); border: 1px solid rgba(0, 240, 255, 0.2); border-radius: 8px; padding: 16px; margin-bottom: 20px;">
-          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
-            <h4 style="font-size: 0.95rem; font-weight: 700; color: var(--accent-cyan);">
-              Biểu Đồ Phân Tán Thực Nghiệm: Giá Đáy (Log Scale) &harr; Bội Số Pump n (Log Scale)
-            </h4>
-            <span style="font-size: 0.72rem; color: var(--text-dim); font-family: var(--font-mono);">AKE (94x) &bull; BEAT (44x) &bull; TUT (38x) &bull; VELVET (38x) &bull; STO (38x) &bull; DEXE (29x)</span>
-          </div>
-          <div style="position: relative; width: 100%; height: 320px;">
-            <canvas id="ml-scatter-canvas" width="900" height="320" style="width: 100%; height: 100%; display: block;"></canvas>
-          </div>
-        </div>
-
-        <!-- Verified Events Table -->
-        <h4 style="font-size: 0.95rem; font-weight: 700; color: var(--text-main); margin-bottom: 10px;">
-          Danh Sách Sự Kiện Pump Thực Tế Được Dùng Để Huấn Luyện (Sorted by Bottom Price):
-        </h4>
-        <div style="max-height: 280px; overflow-y: auto; border: 1px solid var(--border-color); border-radius: 6px;">
-          <table class="styled-table" style="font-size: 0.8rem;">
-            <thead>
-              <tr>
-                <th>Mã Coin</th>
-                <th>Phân Tầng</th>
-                <th>Giá Đáy Thật</th>
-                <th>Giá Đỉnh Thật</th>
-                <th>Bội Số n Thực</th>
-                <th>Vol Spike</th>
-                <th>Ngày Khởi Phát</th>
-              </tr>
-            </thead>
-            <tbody id="ml-events-body"></tbody>
-          </table>
-        </div>
-
-      </div>
-    </div>
-  </div>
-
   <!-- Scripts -->
-  <script src="/static/js/pre_pump.js?v=2.4"></script>
+  <script src="/static/js/pre_pump.js?v=2.5"></script>
 </body>
 </html>
