@@ -25,6 +25,9 @@ from .pump_lifecycle_tracker import (
     PumpStage,
     get_pump_registry,
 )
+from .autonomous_super_pump_scanner import (
+    AutonomousSuperPumpScanner,
+)
 
 __all__ = [
     "classify_asset_tier",

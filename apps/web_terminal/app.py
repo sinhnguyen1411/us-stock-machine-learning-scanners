@@ -1031,10 +1031,30 @@ def radar_scanner_loop():
             time.sleep(5.0)
 
 
+def autonomous_cycle_scanner_loop():
+    """Autonomous background thread scanning the entire Binance USD-M contract universe for multi-month super pumps."""
+    logger.info("Autonomous Super-Pump Discovery Engine thread started.")
+    time.sleep(8.0)  # Initial startup delay
+    try:
+        from core_engine import AutonomousSuperPumpScanner
+        scanner = AutonomousSuperPumpScanner()
+        while True:
+            try:
+                scanner.scan_all_markets(max_symbols=120)
+            except Exception as ex:
+                logger.debug(f"Autonomous cycle scan error: {ex}")
+            time.sleep(600.0)  # Run every 10 minutes
+    except Exception as e:
+        logger.error(f"Error in autonomous cycle loop: {e}")
+
+
 if __name__ == "__main__":
     import threading
     radar_thread = threading.Thread(target=radar_scanner_loop, daemon=True)
     radar_thread.start()
+
+    cycle_thread = threading.Thread(target=autonomous_cycle_scanner_loop, daemon=True)
+    cycle_thread.start()
 
     port = int(os.getenv("PORT", 5050))
     print(f"""
