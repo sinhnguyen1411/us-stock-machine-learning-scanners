@@ -130,11 +130,13 @@ class PumpEvent:
     n_actual:           float = 0.0          # peak_price / pre_pump_price  (the "n")
     log_n:              float = field(init=False, default=0.0)  # log(n) — computed
 
-    # ── Derived Log-Scale Features ───────────────────────────
+    # ── Derived Log-Scale & Derivative Features ─────────────
     log_price:          float = field(init=False, default=0.0)
     log_mcap:           float = field(init=False, default=0.0)
     log_vol_pre:        float = field(init=False, default=0.0)
     log_vol_spike:      float = field(init=False, default=0.0)
+    elasticity:         float = field(init=False, default=0.0)
+    funding_pressure:   float = field(init=False, default=0.0)
 
     # ── Notes ────────────────────────────────────────────────
     notes:              str = ""
@@ -156,6 +158,8 @@ class PumpEvent:
         self.log_mcap     = math.log(max(self.pre_pump_mcap_usd, 1.0))
         self.log_vol_pre  = math.log(max(self.pre_pump_vol_24h, 1.0))
         self.log_vol_spike = math.log(max(self.vol_spike_ratio, 0.0001))
+        self.elasticity   = self.log_vol_spike / max(self.log_vol_pre - 5.0, 1.0)
+        self.funding_pressure = abs(min(self.pre_pump_funding, 0.0)) * max(self.vol_spike_ratio, 1.0)
 
         # Auto-classify tier if not already set
         if not self.price_tier_code and self.pre_pump_price > 0:
@@ -262,6 +266,20 @@ class PumpDatasetBuilder:
             added += 1
         self.save_all(events)
         return added
+
+    def upsert(self, event: PumpEvent) -> None:
+        """Insert or update a single event by (symbol, event_date)."""
+        events = self.load_all()
+        updated = False
+        target_key = (event.symbol.upper(), event.event_date)
+        for idx, e in enumerate(events):
+            if (e.symbol.upper(), e.event_date) == target_key:
+                events[idx] = event
+                updated = True
+                break
+        if not updated:
+            events.append(event)
+        self.save_all(events)
 
     # ── Filtering ────────────────────────────────────────────
 

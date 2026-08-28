@@ -218,6 +218,11 @@ class PumpMultiplierRegressor:
         log_n = 0.35 * p_r + 0.35 * p_rf + 0.30 * p_gb
         n_pred = math.exp(log_n)
 
+        # Dynamic Bayesian Squeeze Expansion for Micro-caps (Tiers 1-4)
+        if tier_idx <= 4 and vol_spike_ratio >= 10.0:
+            squeeze_multiplier = min(1.0 + 0.35 * math.log(vol_spike_ratio / 8.0), 3.5)
+            n_pred *= squeeze_multiplier
+
         # Theoretical Tier Cap
         n_cap = tier.n_expected_high * 1.35
         n_expected = round(min(max(n_pred, 1.2), n_cap), 2)

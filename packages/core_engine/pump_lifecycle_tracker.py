@@ -262,11 +262,34 @@ class PumpLifecycleRegistry:
         if c.stage != PumpStage.ARCHIVED:
             # Condition 1: Dump Confirmed
             if current_price < c.dump_threshold_price or c.drawdown_from_peak_pct >= 45.0:
+                was_active = c.is_active
                 c.stage = PumpStage.DUMP_CONFIRMED
                 c.is_active = False
                 if not c.dump_date:
                     c.dump_date = now_ts.strftime("%Y-%m-%d")
                 c.notes = f"ĐÃ XÁC NHẬN DUMP: Rơi -{c.drawdown_from_peak_pct:.1f}% từ đỉnh ${c.highest_peak_price:.6f}."
+
+                # ── CRISP-DM Active Learning Feedback Loop ──
+                # Auto-record confirmed dump event into ML training dataset
+                if was_active and c.max_n >= 2.0:
+                    try:
+                        from .pump_multiplier_classifier import PumpDatasetBuilder, PumpEvent
+                        db = PumpDatasetBuilder()
+                        ev = PumpEvent(
+                            symbol=c.symbol,
+                            event_date=c.origin_date,
+                            source="auto_lifecycle_tracker",
+                            pre_pump_price=c.origin_bottom_price,
+                            pre_pump_vol_24h=vol_24h,
+                            peak_price=c.highest_peak_price,
+                            pump_duration_h=float(c.pump_age_days * 24),
+                            vol_spike_ratio=max(1.0, c.max_n * 2.5),
+                            n_actual=c.max_n,
+                            notes=f"Active Learning Dump Confirmed: {c.notes}"
+                        )
+                        db.upsert(ev)
+                    except Exception:
+                        pass
             
             # Condition 2: Exhaustion Warning
             elif c.drawdown_from_peak_pct >= 28.0 or funding_rate >= 0.0010:
