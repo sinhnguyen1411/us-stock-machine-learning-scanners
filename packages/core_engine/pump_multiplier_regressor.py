@@ -275,10 +275,12 @@ class PumpMultiplierRegressor:
             vol_spike_ratio=vol_spike_ratio,
             pre_pump_vol_24h=pre_pump_vol_24h,
         )
+        tier = self.clf.classify(base_price)
 
-        n_expected = base_pred.n_expected
-        n_low = base_pred.n_low
-        n_high = base_pred.n_high
+        # Anchor in-flight prediction with Bayesian empirical price-tier distribution
+        n_expected = round(max(base_pred.n_expected, tier.n_median), 2)
+        n_low = round(min(base_pred.n_low, tier.n_expected_low), 2)
+        n_high = round(max(base_pred.n_high, tier.n_expected_high), 2)
 
         # Squeeze adjustment for negative funding pressure
         if funding_rate <= -0.005:
