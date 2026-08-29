@@ -293,7 +293,7 @@ class PumpMultiplierRegressor:
         target_price_low = round(base_price * n_low, 8)
         target_price_high = round(base_price * n_high, 8)
 
-        progress_pct = round(min(100.0, (curr_n / max(n_expected, 0.01)) * 100.0), 1)
+        progress_pct = round((curr_n / max(n_expected, 0.01)) * 100.0, 1)
         remaining_upside_pct = round(max(0.0, (target_peak_price - current_price) / max(current_price, 1e-12) * 100.0), 1)
 
         # Stage recommendation (Chuẩn Tiếng Việt có dấu, không emoji)

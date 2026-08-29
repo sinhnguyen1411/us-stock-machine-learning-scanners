@@ -264,8 +264,8 @@ function renderCampaignsView() {
               const priceLowFmt = priceLow < 0.0001 ? priceLow.toFixed(8) : priceLow < 0.01 ? priceLow.toFixed(6) : priceLow < 1 ? priceLow.toFixed(4) : priceLow.toFixed(2);
               const priceHighFmt = priceHigh < 0.0001 ? priceHigh.toFixed(8) : priceHigh < 0.01 ? priceHigh.toFixed(6) : priceHigh < 1 ? priceHigh.toFixed(4) : priceHigh.toFixed(2);
               const priceExpFmt = priceExp < 0.0001 ? priceExp.toFixed(8) : priceExp < 0.01 ? priceExp.toFixed(6) : priceExp < 1 ? priceExp.toFixed(4) : priceExp.toFixed(2);
-
-              const progressPct = mlPred.progress_pct || Math.min(100, Math.round(((c.is_active ? c.current_n : c.max_n) / nExp) * 100));
+              const actualProgressPct = Math.round(((c.is_active ? c.current_n : c.max_n) / nExp) * 100);
+              const isExceeded = actualProgressPct > 100;
               const upsidePct = mlPred.remaining_upside_pct !== undefined ? mlPred.remaining_upside_pct : Math.max(0, Math.round(((priceExp - c.current_price) / c.current_price) * 100));
 
               const rowId = `camp-row-${idx}`;
@@ -329,8 +329,8 @@ function renderCampaignsView() {
                     <div style="color: var(--accent-yellow); font-weight: 700; font-size: 0.88rem;">
                       ${nLow.toFixed(1)}x &rarr; ${nHigh.toFixed(1)}x
                     </div>
-                    <div style="font-size: 0.72rem; color: #fff; font-weight: 600;">
-                      Đích 100%: <strong style="color: var(--accent-cyan); font-size: 0.78rem;">$${priceExpFmt}</strong> <span style="color: var(--text-dim);">(${nExp.toFixed(1)}x)</span>
+                    <div style="font-size: 0.72rem; color: ${isExceeded ? '#ff007a' : '#fff'}; font-weight: 600;">
+                      ${isExceeded ? 'Đích Gốc:' : 'Đích 100%:'} <strong style="color: ${isExceeded ? '#ffb800' : 'var(--accent-cyan)'}; font-size: 0.78rem;">$${priceExpFmt}</strong> <span style="color: var(--text-dim);">(${nExp.toFixed(1)}x)</span>
                     </div>
                     <div style="font-size: 0.68rem; color: var(--text-dim);">
                       Dải: $${priceLowFmt} &rarr; $${priceHighFmt}
@@ -338,22 +338,29 @@ function renderCampaignsView() {
                   </td>
 
                   <!-- ML Progress Bar & 100% Target Price -->
-                  <td style="padding: 11px 14px; min-width: 215px;">
+                  <td style="padding: 11px 14px; min-width: 220px;">
                     <div style="display: flex; justify-content: space-between; font-size: 0.73rem; margin-bottom: 3px; font-family: var(--font-mono);">
-                      <span style="color: #fff; font-weight: 700;">
-                        ${progressPct}% <span style="color: var(--text-dim); font-weight: normal;">(${c.is_active ? c.current_n : c.max_n}x / ${nExp.toFixed(1)}x)</span>
+                      <span style="color: ${isExceeded ? '#ff007a' : '#fff'}; font-weight: 700;">
+                        ${actualProgressPct}% ${isExceeded ? `<span style="font-size: 0.68rem; color: #ff007a;">(VƯỢT ĐÍCH ${nExp.toFixed(1)}x)</span>` : `<span style="color: var(--text-dim); font-weight: normal;">(${c.is_active ? c.current_n : c.max_n}x / ${nExp.toFixed(1)}x)</span>`}
                       </span>
-                      <span style="color: ${c.is_active ? (upsidePct > 0 ? 'var(--accent-green)' : 'var(--accent-red)') : (progressPct >= 100 ? 'var(--accent-green)' : 'var(--accent-yellow)')}; font-weight: 700;">
-                        ${c.is_active ? (upsidePct > 0 ? `+${upsidePct}%` : 'Chạm đỉnh') : (progressPct >= 100 ? 'Đạt Target' : 'Hoàn tất')}
+                      <span style="color: ${isExceeded ? '#ff007a' : (c.is_active ? (upsidePct > 0 ? 'var(--accent-green)' : 'var(--accent-red)') : (actualProgressPct >= 100 ? 'var(--accent-green)' : 'var(--accent-yellow)'))}; font-weight: 700;">
+                        ${isExceeded ? `+${actualProgressPct - 100}% Vượt Đích` : (c.is_active ? (upsidePct > 0 ? `+${upsidePct}%` : 'Chạm đỉnh') : (actualProgressPct >= 100 ? 'Đạt Target' : 'Hoàn tất'))}
                       </span>
                     </div>
                     <div style="width: 100%; height: 5px; background: rgba(255,255,255,0.08); border-radius: 3px; overflow: hidden; margin-bottom: 4px;">
-                      <div style="width: ${Math.min(100, progressPct)}%; height: 100%; background: ${progressPct >= 100 ? 'linear-gradient(90deg, #00e676 0%, #00f0ff 100%)' : 'linear-gradient(90deg, #00e676 0%, #00f0ff 70%, #ffb800 100%)'}; border-radius: 3px;"></div>
+                      <div style="width: ${Math.min(100, actualProgressPct)}%; height: 100%; background: ${isExceeded ? 'linear-gradient(90deg, #00e676 0%, #00f0ff 40%, #ff007a 100%)' : (actualProgressPct >= 100 ? 'linear-gradient(90deg, #00e676 0%, #00f0ff 100%)' : 'linear-gradient(90deg, #00e676 0%, #00f0ff 70%, #ffb800 100%)')}; border-radius: 3px;"></div>
                     </div>
-                    <div style="display: flex; justify-content: space-between; align-items: center; font-size: 0.72rem; font-family: var(--font-mono); background: rgba(0,0,0,0.3); padding: 2px 6px; border-radius: 4px; border: 1px solid rgba(255, 184, 0, 0.2);">
-                      <span style="color: var(--text-dim);">🎯 Giá Khi Đầy 100%:</span>
-                      <strong style="color: var(--accent-yellow); font-size: 0.82rem;">$${priceExpFmt}</strong>
-                    </div>
+                    ${isExceeded ? `
+                      <div style="display: flex; justify-content: space-between; align-items: center; font-size: 0.70rem; font-family: var(--font-mono); background: rgba(255, 0, 122, 0.12); padding: 2px 6px; border-radius: 4px; border: 1px solid rgba(255, 0, 122, 0.35);">
+                        <span style="color: #ffb800;">🎯 Đích Gốc (${nExp.toFixed(1)}x): <strong>$${priceExpFmt}</strong></span>
+                        <strong style="color: #ff007a; font-size: 0.72rem;">ĐÃ VƯỢT (${c.is_active ? c.current_n : c.max_n}x)</strong>
+                      </div>
+                    ` : `
+                      <div style="display: flex; justify-content: space-between; align-items: center; font-size: 0.72rem; font-family: var(--font-mono); background: rgba(0,0,0,0.3); padding: 2px 6px; border-radius: 4px; border: 1px solid rgba(255, 184, 0, 0.2);">
+                        <span style="color: var(--text-dim);">🎯 Giá Khi Đầy 100%:</span>
+                        <strong style="color: var(--accent-yellow); font-size: 0.82rem;">$${priceExpFmt}</strong>
+                      </div>
+                    `}
                   </td>
 
                   <!-- Dump Stop Price -->
@@ -434,7 +441,8 @@ function renderCampaignsView() {
         const priceHighFmt = priceHigh < 0.0001 ? priceHigh.toFixed(8) : priceHigh < 0.01 ? priceHigh.toFixed(6) : priceHigh < 1 ? priceHigh.toFixed(4) : priceHigh.toFixed(2);
         const priceExpFmt = priceExp < 0.0001 ? priceExp.toFixed(8) : priceExp < 0.01 ? priceExp.toFixed(6) : priceExp < 1 ? priceExp.toFixed(4) : priceExp.toFixed(2);
 
-        const progressPct = mlPred.progress_pct || Math.min(100, Math.round((c.current_n / nExp) * 100));
+        const actualProgressPct = Math.round(((c.is_active ? c.current_n : c.max_n) / nExp) * 100);
+        const isExceeded = actualProgressPct > 100;
         const upsidePct = mlPred.remaining_upside_pct !== undefined ? mlPred.remaining_upside_pct : Math.max(0, Math.round(((priceExp - c.current_price) / c.current_price) * 100));
 
         return `
@@ -490,23 +498,31 @@ function renderCampaignsView() {
                 <div style="display: flex; justify-content: space-between; font-size: 0.73rem; margin-bottom: 4px;">
                   <span style="color: var(--text-muted);">
                     ${c.is_active ? 'Tiến Độ Đạt Mục Tiêu ML:' : 'Đỉnh Thực Tế Đạt:'} 
-                    <strong style="color: var(--accent-cyan); font-family: var(--font-mono); font-size: 0.85rem;">${progressPct}%</strong>
+                    <strong style="color: ${isExceeded ? '#ff007a' : 'var(--accent-cyan)'}; font-family: var(--font-mono); font-size: 0.85rem;">${actualProgressPct}%</strong>
                     <span style="color: var(--text-dim); font-size: 0.7rem;">(${c.is_active ? c.current_n : c.max_n}x / ${nExp.toFixed(1)}x)</span>
                   </span>
-                  <span style="color: ${c.is_active ? (upsidePct > 0 ? 'var(--accent-green)' : 'var(--accent-red)') : (progressPct >= 100 ? 'var(--accent-green)' : 'var(--accent-yellow)')}; font-weight: 700; font-family: var(--font-mono);">
-                    ${c.is_active ? (upsidePct > 0 ? '+' + upsidePct + '% Dư Địa Đến Đỉnh' : 'Đã Chạm Vùng Đỉnh ML') : (progressPct >= 100 ? 'ĐẠT VƯỢT MỤC TIÊU' : 'HOÀN TẤT CHU KỲ')}
+                  <span style="color: ${isExceeded ? '#ff007a' : (c.is_active ? (upsidePct > 0 ? 'var(--accent-green)' : 'var(--accent-red)') : (actualProgressPct >= 100 ? 'var(--accent-green)' : 'var(--accent-yellow)'))}; font-weight: 700; font-family: var(--font-mono);">
+                    ${isExceeded ? `+${actualProgressPct - 100}% VƯỢT ĐÍCH KỲ VỌNG` : (c.is_active ? (upsidePct > 0 ? '+' + upsidePct + '% Dư Địa Đến Đỉnh' : 'Đã Chạm Vùng Đỉnh ML') : (actualProgressPct >= 100 ? 'ĐẠT VƯỢT MỤC TIÊU' : 'HOÀN TẤT CHU KỲ'))}
                   </span>
                 </div>
                 <div style="width: 100%; height: 6px; background: rgba(255,255,255,0.08); border-radius: 3px; overflow: hidden; margin-bottom: 8px;">
-                  <div style="width: ${Math.min(100, progressPct)}%; height: 100%; background: ${progressPct >= 100 ? 'linear-gradient(90deg, #00e676 0%, #00f0ff 100%)' : 'linear-gradient(90deg, #00e676 0%, #00f0ff 70%, #ffb800 100%)'}; border-radius: 3px;"></div>
+                  <div style="width: ${Math.min(100, actualProgressPct)}%; height: 100%; background: ${isExceeded ? 'linear-gradient(90deg, #00e676 0%, #00f0ff 40%, #ff007a 100%)' : (actualProgressPct >= 100 ? 'linear-gradient(90deg, #00e676 0%, #00f0ff 100%)' : 'linear-gradient(90deg, #00e676 0%, #00f0ff 70%, #ffb800 100%)')}; border-radius: 3px;"></div>
                 </div>
 
                 <!-- Explicit 100% Target Price Row in Cards -->
-                <div style="display: flex; justify-content: space-between; align-items: center; padding: 4px 8px; background: rgba(0,0,0,0.3); border-radius: 4px; border: 1px solid rgba(255, 184, 0, 0.25);">
-                  <span style="color: var(--text-dim); font-size: 0.72rem;">🎯 Giá Khi Đầy 100% (Med):</span>
-                  <strong style="color: var(--accent-yellow); font-family: var(--font-mono); font-size: 0.88rem;">$${priceExpFmt}</strong>
-                </div>
+                ${isExceeded ? `
+                  <div style="display: flex; justify-content: space-between; align-items: center; padding: 4px 8px; background: rgba(255, 0, 122, 0.12); border-radius: 4px; border: 1px solid rgba(255, 0, 122, 0.35);">
+                    <span style="color: #ffb800; font-size: 0.72rem;">🎯 Đích Gốc (${nExp.toFixed(1)}x): <strong>$${priceExpFmt}</strong></span>
+                    <strong style="color: #ff007a; font-family: var(--font-mono); font-size: 0.84rem;">ĐÃ VƯỢT (${c.is_active ? c.current_n : c.max_n}x)</strong>
+                  </div>
+                ` : `
+                  <div style="display: flex; justify-content: space-between; align-items: center; padding: 4px 8px; background: rgba(0,0,0,0.3); border-radius: 4px; border: 1px solid rgba(255, 184, 0, 0.25);">
+                    <span style="color: var(--text-dim); font-size: 0.72rem;">🎯 Giá Khi Đầy 100% (Med):</span>
+                    <strong style="color: var(--accent-yellow); font-family: var(--font-mono); font-size: 0.88rem;">$${priceExpFmt}</strong>
+                  </div>
+                `}
               </div>
+
 
               <div style="font-size: 0.76rem; color: var(--text-dim); line-height: 1.4; margin-bottom: 10px;">
                 ${c.notes || ''}
