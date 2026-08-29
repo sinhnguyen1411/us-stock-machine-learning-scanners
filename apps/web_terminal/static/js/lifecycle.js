@@ -366,24 +366,32 @@ async function fetchResearchData() {
   }
 }
 
+let scatterPoints = [];
+let isScatterHoverAttached = false;
+
 function renderScatterCanvas(events) {
   const canvas = document.getElementById("ml-scatter-canvas");
   if (!canvas) return;
 
+  const rect = canvas.getBoundingClientRect();
+  const dpr = window.devicePixelRatio || 2;
+  canvas.width = (rect.width || 1100) * dpr;
+  canvas.height = (rect.height || 480) * dpr;
+
   const ctx = canvas.getContext("2d");
-  const W = canvas.width;
-  const H = canvas.height;
+  ctx.scale(dpr, dpr);
 
-  ctx.clearRect(0, 0, W, H);
+  const W = rect.width || 1100;
+  const H = rect.height || 480;
 
-  // Background Grid
-  ctx.fillStyle = "#0a0e17";
+  // High contrast background
+  ctx.fillStyle = "#0a0f1d";
   ctx.fillRect(0, 0, W, H);
 
-  const padLeft = 70;
-  const padRight = 30;
-  const padTop = 30;
-  const padBottom = 40;
+  const padLeft = 80;
+  const padRight = 40;
+  const padTop = 35;
+  const padBottom = 45;
 
   const plotW = W - padLeft - padRight;
   const plotH = H - padTop - padBottom;
@@ -407,10 +415,9 @@ function renderScatterCanvas(events) {
   }
 
   // Draw Grid Lines & Axis Labels
-  ctx.strokeStyle = "rgba(255, 255, 255, 0.07)";
+  ctx.strokeStyle = "rgba(255, 255, 255, 0.12)";
   ctx.lineWidth = 1;
-  ctx.fillStyle = "rgba(255, 255, 255, 0.4)";
-  ctx.font = "10px JetBrains Mono";
+  ctx.font = "bold 12px 'JetBrains Mono', monospace";
 
   // Y-axis grid: 2x, 5x, 10x, 20x, 50x, 100x
   const yTicks = [2, 5, 10, 20, 50, 100];
@@ -420,7 +427,9 @@ function renderScatterCanvas(events) {
     ctx.moveTo(padLeft, y);
     ctx.lineTo(W - padRight, y);
     ctx.stroke();
-    ctx.fillText(`${nVal}x`, 25, y + 4);
+
+    ctx.fillStyle = nVal >= 30 ? "#ff0055" : nVal >= 10 ? "#ffb800" : "#94a3b8";
+    ctx.fillText(`${nVal}x`, 22, y + 4);
   });
 
   // X-axis grid: $0.0001, $0.001, $0.01, $0.1, $1, $10, $100
@@ -439,12 +448,16 @@ function renderScatterCanvas(events) {
     ctx.moveTo(x, padTop);
     ctx.lineTo(x, padTop + plotH);
     ctx.stroke();
-    ctx.fillText(t.lbl, x - 15, H - 15);
+
+    ctx.fillStyle = "#cbd5e1";
+    ctx.fillText(t.lbl, x - 22, H - 15);
   });
 
   // Draw Regression Power Law Curve
-  ctx.strokeStyle = "rgba(0, 240, 255, 0.7)";
-  ctx.lineWidth = 2.5;
+  ctx.strokeStyle = "rgba(0, 240, 255, 0.9)";
+  ctx.lineWidth = 3;
+  ctx.shadowColor = "rgba(0, 240, 255, 0.4)";
+  ctx.shadowBlur = 8;
   ctx.beginPath();
   let firstPt = true;
   for (let step = 0; step <= 100; step++) {
@@ -460,28 +473,126 @@ function renderScatterCanvas(events) {
     }
   }
   ctx.stroke();
+  ctx.shadowBlur = 0;
+
+  // Store screen coordinates for hover interaction
+  scatterPoints = [];
 
   // Draw Data Points
   events.forEach(e => {
     const x = toScreenX(e.pre_pump_price);
     const y = toScreenY(e.n_actual);
 
+    scatterPoints.push({
+      x, y,
+      event: e,
+      radius: e.n_actual >= 30 ? 7 : 5,
+    });
+
     // Glowing Dot
     ctx.beginPath();
-    ctx.arc(x, y, e.n_actual >= 30 ? 6 : 4, 0, 2 * Math.PI);
-    ctx.fillStyle = e.n_actual >= 40 ? "#ff0055" : e.n_actual >= 20 ? "#ffb800" : "#00f0ff";
+    ctx.arc(x, y, e.n_actual >= 30 ? 7 : e.n_actual >= 10 ? 5.5 : 4.5, 0, 2 * Math.PI);
+    ctx.fillStyle = e.n_actual >= 30 ? "#ff0055" : e.n_actual >= 10 ? "#ffb800" : "#00f0ff";
     ctx.fill();
-    ctx.strokeStyle = "#fff";
-    ctx.lineWidth = 1;
+    ctx.strokeStyle = "#ffffff";
+    ctx.lineWidth = 1.5;
     ctx.stroke();
+  });
 
-    // Label landmark coins
-    if (["AKEUSDT", "BEATUSDT", "TUTUSDT", "VELVETUSDT", "DEXEUSDT", "BANKUSDT", "SYNUSDT"].includes(e.symbol)) {
-      ctx.fillStyle = "#ffffff";
+  // Smart Non-Overlapping Badges for Landmark Coins
+  const landmarkPositions = {
+    "AKEUSDT":    { dx: 10,  dy: -10, align: "left" },
+    "BEATUSDT":   { dx: 10,  dy: -10, align: "left" },
+    "VELVETUSDT": { dx: 12,  dy: -8,  align: "left" },
+    "TUTUSDT":    { dx: -12, dy: -8,  align: "right" },
+    "DEXEUSDT":   { dx: 12,  dy: -6,  align: "left" },
+    "BANKUSDT":   { dx: -12, dy: 14,  align: "right" },
+    "SYNUSDT":    { dx: 12,  dy: 14,  align: "left" },
+    "BTRUSDT":    { dx: 12,  dy: -8,  align: "left" },
+    "BULLAUSDT":  { dx: 10,  dy: -8,  align: "left" },
+    "PUMPUSDT":   { dx: 10,  dy: 12,  align: "left" },
+    "HEMIUSDT":   { dx: 10,  dy: -8,  align: "left" },
+    "SNXXUSDT":   { dx: 10,  dy: -8,  align: "left" },
+  };
+
+  events.forEach(e => {
+    const pos = landmarkPositions[e.symbol];
+    if (pos) {
+      const x = toScreenX(e.pre_pump_price);
+      const y = toScreenY(e.n_actual);
+
+      const labelText = `${e.symbol.replace("USDT", "")} (${e.n_actual.toFixed(0)}x)`;
       ctx.font = "bold 11px Inter, sans-serif";
-      ctx.fillText(`${e.symbol.replace("USDT", "")} (${e.n_actual.toFixed(0)}x)`, x + 8, y - 6);
+      const textMetrics = ctx.measureText(labelText);
+      const textW = textMetrics.width;
+      const textH = 14;
+
+      const lx = pos.align === "right" ? x + pos.dx - textW - 4 : x + pos.dx;
+      const ly = y + pos.dy - 10;
+
+      // Draw pill badge
+      ctx.fillStyle = "rgba(10, 15, 29, 0.9)";
+      ctx.strokeStyle = e.n_actual >= 30 ? "#ff0055" : e.n_actual >= 10 ? "#ffb800" : "#00f0ff";
+      ctx.lineWidth = 1.2;
+      ctx.beginPath();
+      ctx.roundRect(lx - 4, ly - 2, textW + 8, textH + 4, 4);
+      ctx.fill();
+      ctx.stroke();
+
+      // Draw text
+      ctx.fillStyle = "#ffffff";
+      ctx.fillText(labelText, lx, ly + 10);
     }
   });
+
+  // Attach hover interaction once
+  if (!isScatterHoverAttached) {
+    isScatterHoverAttached = true;
+    const tooltip = document.getElementById("ml-scatter-tooltip");
+
+    canvas.addEventListener("mousemove", (evt) => {
+      const cRect = canvas.getBoundingClientRect();
+      const mouseX = evt.clientX - cRect.left;
+      const mouseY = evt.clientY - cRect.top;
+
+      let found = null;
+      for (const pt of scatterPoints) {
+        const dist = Math.hypot(pt.x - mouseX, pt.y - mouseY);
+        if (dist <= pt.radius + 6) {
+          found = pt;
+          break;
+        }
+      }
+
+      if (found && tooltip) {
+        const ev = found.event;
+        const baseFmt = ev.pre_pump_price < 0.001 ? ev.pre_pump_price.toFixed(8) : ev.pre_pump_price < 1 ? ev.pre_pump_price.toFixed(5) : ev.pre_pump_price.toFixed(2);
+        const peakFmt = ev.peak_price < 0.001 ? ev.peak_price.toFixed(8) : ev.peak_price < 1 ? ev.peak_price.toFixed(5) : ev.peak_price.toFixed(2);
+
+        tooltip.innerHTML = `
+          <div style="font-weight: 800; font-size: 0.92rem; color: var(--accent-cyan); margin-bottom: 4px;">${ev.symbol}</div>
+          <div style="font-family: var(--font-mono); font-size: 0.76rem; color: #fff; margin-bottom: 3px;">
+            Giá Đáy Gốc: <strong style="color: var(--accent-cyan);">$${baseFmt}</strong>
+          </div>
+          <div style="font-family: var(--font-mono); font-size: 0.76rem; color: #fff; margin-bottom: 3px;">
+            Đỉnh Cao Nhất: <strong style="color: var(--accent-yellow);">$${peakFmt} (${ev.n_actual.toFixed(2)}x)</strong>
+          </div>
+          <div style="font-size: 0.72rem; color: var(--text-dim); margin-top: 4px;">
+            Phân Khúc: ${ev.tier_code} • Ngày Đáy: ${ev.event_date}
+          </div>
+        `;
+        tooltip.style.left = `${Math.min(cRect.width - 220, Math.max(10, mouseX + 15))}px`;
+        tooltip.style.top = `${Math.max(10, mouseY - 70)}px`;
+        tooltip.style.display = "block";
+      } else if (tooltip) {
+        tooltip.style.display = "none";
+      }
+    });
+
+    canvas.addEventListener("mouseleave", () => {
+      if (tooltip) tooltip.style.display = "none";
+    });
+  }
 }
 
 function renderTiersGrid(tiers) {
