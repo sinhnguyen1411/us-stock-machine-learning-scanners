@@ -12,6 +12,7 @@ document.addEventListener("DOMContentLoaded", () => {
   fetchCampaignsData();
   fetchResearchData();
   fetchBenchmarkLedger();
+  predictInFlight(); // Immediately fetch live Binance Futures metrics on load
   setInterval(fetchCampaignsData, 5000);
   setInterval(fetchBenchmarkLedger, 10000);
 });
