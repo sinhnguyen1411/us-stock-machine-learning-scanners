@@ -140,22 +140,27 @@ class TestTemplateZeroMockLeak(unittest.TestCase):
 
 
 class TestBenchmarkLedgerFidelity(unittest.TestCase):
-    """Test 128-event ground-truth empirical dataset integrity."""
+    """Test 250+ multi-year ground-truth empirical dataset integrity (2025 + 2026)."""
 
     def test_events_db_completeness(self):
         db = PumpDatasetBuilder()
         events = db.load_all()
 
-        self.assertGreaterEqual(len(events), 120, "Empirical database must contain >= 120 verified USD-M pump events")
+        self.assertGreaterEqual(len(events), 240, "Empirical database must contain >= 240 verified multi-year pump events")
         
         symbols_dates = set()
+        years_found = set()
         for e in events:
             key = (e.symbol, e.event_date)
             self.assertNotIn(key, symbols_dates, f"Duplicate event found: {key}")
             symbols_dates.add(key)
+            years_found.add(e.event_date[:4])
             self.assertGreater(e.pre_pump_price, 0, f"Invalid pre-pump price for {e.symbol}")
             self.assertGreater(e.peak_price, 0, f"Invalid peak price for {e.symbol}")
             self.assertGreaterEqual(e.n_actual, 1.0, f"Invalid n_actual for {e.symbol}")
+
+        self.assertIn("2025", years_found, "Dataset must include historical 2025 events")
+        self.assertIn("2026", years_found, "Dataset must include 2026 events")
 
 
 class TestFlaskAPIContracts(unittest.TestCase):
@@ -180,7 +185,7 @@ class TestFlaskAPIContracts(unittest.TestCase):
         data = json.loads(res.data.decode())
         self.assertEqual(data["status"], "success")
         report = data["report"]
-        self.assertGreaterEqual(report["total_events"], 120)
+        self.assertGreaterEqual(report["total_events"], 240)
         self.assertGreater(report["hit_rate_pct"], 0.0)
         self.assertGreater(report["avg_ape_pct"], 0.0)
 
