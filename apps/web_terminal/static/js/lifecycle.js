@@ -101,11 +101,20 @@ function renderCampaignsGrid() {
     }
 
     const mlPred = c.ml_prediction || {};
-    const mlTargetN = mlPred.n_expected || c.expected_n_ml || c.max_n || 5.0;
-    const mlTargetPrice = mlPred.target_peak_price || (c.origin_bottom_price * mlTargetN);
-    const targetPriceFmt = mlTargetPrice < 0.001 ? mlTargetPrice.toFixed(8) : mlTargetPrice < 1 ? mlTargetPrice.toFixed(4) : mlTargetPrice.toFixed(2);
-    const progressPct = mlPred.progress_pct || Math.min(100, Math.round((c.current_n / mlTargetN) * 100));
-    const upsidePct = mlPred.remaining_upside_pct !== undefined ? mlPred.remaining_upside_pct : Math.max(0, Math.round(((mlTargetPrice - c.current_price) / c.current_price) * 100));
+    const nLow = mlPred.n_low || c.expected_n_low || 5.0;
+    const nHigh = mlPred.n_high || c.expected_n_high || 20.0;
+    const nExp = mlPred.n_expected || c.expected_n_ml || ((nLow + nHigh) / 2);
+
+    const priceLow = mlPred.target_price_low || (c.origin_bottom_price * nLow);
+    const priceHigh = mlPred.target_price_high || (c.origin_bottom_price * nHigh);
+    const priceExp = mlPred.target_peak_price || (c.origin_bottom_price * nExp);
+
+    const priceLowFmt = priceLow < 0.001 ? priceLow.toFixed(8) : priceLow < 1 ? priceLow.toFixed(5) : priceLow.toFixed(2);
+    const priceHighFmt = priceHigh < 0.001 ? priceHigh.toFixed(8) : priceHigh < 1 ? priceHigh.toFixed(5) : priceHigh.toFixed(2);
+    const priceExpFmt = priceExp < 0.001 ? priceExp.toFixed(8) : priceExp < 1 ? priceExp.toFixed(5) : priceExp.toFixed(2);
+
+    const progressPct = mlPred.progress_pct || Math.min(100, Math.round((c.current_n / nExp) * 100));
+    const upsidePct = mlPred.remaining_upside_pct !== undefined ? mlPred.remaining_upside_pct : Math.max(0, Math.round(((priceExp - c.current_price) / c.current_price) * 100));
 
     return `
       <div style="background: rgba(11, 15, 23, 0.85); border-radius: 8px; padding: 16px; ${borderGlow} display: flex; flex-direction: column; justify-content: space-between;">
@@ -143,15 +152,29 @@ function renderCampaignsGrid() {
             </div>
           </div>
 
-          <!-- ML Target & Progress Row -->
+          <!-- ML Training Target Range & Progress Row -->
           ${c.is_active ? `
-          <div style="background: rgba(0, 240, 255, 0.05); border: 1px dashed rgba(0, 240, 255, 0.3); padding: 10px; border-radius: 6px; margin-bottom: 10px; font-size: 0.78rem;">
-            <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
-              <span style="color: var(--text-dim);">🤖 ML Target Peak: <strong style="color: var(--accent-yellow); font-family: var(--font-mono);">${mlTargetN}x ($${targetPriceFmt})</strong></span>
-              <span style="color: ${upsidePct > 0 ? 'var(--accent-green)' : 'var(--text-dim)'}; font-weight: 700; font-family: var(--font-mono);">${upsidePct > 0 ? '+' + upsidePct + '% Upside' : 'Đã Đạt Mục Tiêu'}</span>
+          <div style="background: rgba(0, 240, 255, 0.04); border: 1px dashed rgba(0, 240, 255, 0.35); padding: 12px; border-radius: 6px; margin-bottom: 12px; font-size: 0.78rem;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+              <div>
+                <span style="color: var(--text-dim); display: block; font-size: 0.68rem;">🤖 DẢI ĐỈNH KỲ VỌNG ML (90% CI):</span>
+                <strong style="color: var(--accent-yellow); font-family: var(--font-mono); font-size: 0.92rem;">${nLow.toFixed(1)}x &rarr; ${nHigh.toFixed(1)}x</strong>
+                <span style="color: var(--accent-cyan); font-size: 0.72rem; font-family: var(--font-mono); margin-left: 4px;">(Med: ${nExp.toFixed(1)}x)</span>
+              </div>
+              <div style="text-align: right;">
+                <span style="color: var(--text-dim); display: block; font-size: 0.68rem;">VÙNG GIÁ MỤC TIÊU:</span>
+                <strong style="color: #fff; font-family: var(--font-mono); font-size: 0.82rem;">$${priceLowFmt} &rarr; $${priceHighFmt}</strong>
+              </div>
+            </div>
+
+            <div style="display: flex; justify-content: space-between; font-size: 0.73rem; margin-bottom: 4px;">
+              <span style="color: var(--text-muted);">Tiến Độ Đạt Mục Tiêu ML: <strong style="color: var(--accent-cyan); font-family: var(--font-mono);">${progressPct}%</strong></span>
+              <span style="color: ${upsidePct > 0 ? 'var(--accent-green)' : 'var(--accent-red)'}; font-weight: 700; font-family: var(--font-mono);">
+                ${upsidePct > 0 ? '+' + upsidePct + '% Dư Địa Đến Đỉnh' : 'Đã Chạm Vùng Đỉnh ML'}
+              </span>
             </div>
             <div style="width: 100%; height: 6px; background: rgba(255,255,255,0.08); border-radius: 3px; overflow: hidden;">
-              <div style="width: ${progressPct}%; height: 100%; background: linear-gradient(90deg, #00e676, #00f0ff); border-radius: 3px;"></div>
+              <div style="width: ${progressPct}%; height: 100%; background: linear-gradient(90deg, #00e676 0%, #00f0ff 70%, #ffb800 100%); border-radius: 3px;"></div>
             </div>
           </div>
           ` : ''}

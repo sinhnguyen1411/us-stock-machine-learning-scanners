@@ -134,6 +134,7 @@ class PumpLifecycleRegistry:
         """Seed verified multi-month 2026 pump campaigns with exact lifecycle states."""
         seeds = [
             # AKE: Multi-month super pump (ignited July 10, 2026 at $0.0001729, hit $0.0163, currently still active at $0.0107, -34.4% from peak)
+            # AKE: Micro-cap ($0.0001 - $0.001) -> ML Model Training Range: [30x - 150x], Median: 67x
             PumpCampaign(
                 symbol="AKEUSDT",
                 origin_date="2026-07-10",
@@ -143,9 +144,9 @@ class PumpLifecycleRegistry:
                 current_price=0.01069942,
                 current_n=61.88,
                 max_n=94.27,
-                expected_n_ml=94.27,
-                expected_n_low=35.0,
-                expected_n_high=120.0,
+                expected_n_ml=67.00,
+                expected_n_low=30.0,
+                expected_n_high=150.0,
                 drawdown_from_peak_pct=34.4,
                 pump_age_days=50,
                 stage=PumpStage.HIGH_CONSOLIDATION,
@@ -153,9 +154,9 @@ class PumpLifecycleRegistry:
                 is_active=True,
                 dump_threshold_price=0.008965,
                 dump_date=None,
-                notes="Siêu sóng Micro-cap kỷ lục 2026: Đáy $0.0001729 -> Đỉnh $0.01630 (94.27x), chưa gãy ngưỡng dump $0.008965.",
+                notes="Siêu sóng Micro-cap: Đáy $0.0001729 -> Đã chạm đỉnh 94.27x ($0.01630) nằm trong dải ML [30x - 150x]. Đang neo đỉnh tích lũy.",
             ),
-            # BTR: Massive active expansion super pump
+            # BTR: Small tier ($0.01 - $0.1) -> ML Model Training Range: [8.0x - 40.0x], Median: 18x
             PumpCampaign(
                 symbol="BTRUSDT",
                 origin_date="2026-07-18",
@@ -165,9 +166,9 @@ class PumpLifecycleRegistry:
                 current_price=0.15663000,
                 current_n=9.87,
                 max_n=11.32,
-                expected_n_ml=11.32,
-                expected_n_low=6.0,
-                expected_n_high=16.0,
+                expected_n_ml=18.00,
+                expected_n_low=8.0,
+                expected_n_high=40.0,
                 drawdown_from_peak_pct=12.8,
                 pump_age_days=42,
                 stage=PumpStage.ACTIVE_EXPANSION,
@@ -175,9 +176,9 @@ class PumpLifecycleRegistry:
                 is_active=True,
                 dump_threshold_price=0.0988,
                 dump_date=None,
-                notes="Siêu sóng lớn 2026: Đáy $0.01587 -> Đỉnh $0.17963 (11.32x), đang duy trì đà tăng chỉ sụt -12.8% từ đỉnh.",
+                notes="Sóng đẩy Small-tier: Đáy $0.01587 -> Dải đỉnh kỳ vọng ML [8x - 40x] ($0.127 - $0.635). Đã đạt 11.32x và đang mở rộng.",
             ),
-            # BULLA: Active super pump
+            # BULLA: Nano tier ($0.001 - $0.01) -> ML Model Training Range: [15.0x - 80.0x], Median: 35x
             PumpCampaign(
                 symbol="BULLAUSDT",
                 origin_date="2026-06-12",
@@ -187,9 +188,9 @@ class PumpLifecycleRegistry:
                 current_price=0.01663500,
                 current_n=4.35,
                 max_n=5.62,
-                expected_n_ml=5.62,
-                expected_n_low=3.0,
-                expected_n_high=8.0,
+                expected_n_ml=35.00,
+                expected_n_low=15.0,
+                expected_n_high=80.0,
                 drawdown_from_peak_pct=22.6,
                 pump_age_days=78,
                 stage=PumpStage.HIGH_CONSOLIDATION,
@@ -197,9 +198,9 @@ class PumpLifecycleRegistry:
                 is_active=True,
                 dump_threshold_price=0.0118,
                 dump_date=None,
-                notes="Sóng Micro-cap: 5.62x từ đáy $0.003824, đang tích lũy vùng đỉnh $0.0166.",
+                notes="Sóng Nano-tier: Đáy $0.003824 -> Dải đỉnh kỳ vọng ML [15x - 80x] ($0.057 - $0.306). Đang tích lũy tại $0.0166.",
             ),
-            # PUMP: Active super pump
+            # PUMP: Nano tier ($0.001 - $0.01) -> ML Model Training Range: [15.0x - 80.0x], Median: 35x
             PumpCampaign(
                 symbol="PUMPUSDT",
                 origin_date="2026-06-25",
@@ -209,9 +210,9 @@ class PumpLifecycleRegistry:
                 current_price=0.00456000,
                 current_n=3.97,
                 max_n=4.75,
-                expected_n_ml=4.75,
-                expected_n_low=2.5,
-                expected_n_high=7.0,
+                expected_n_ml=35.00,
+                expected_n_low=15.0,
+                expected_n_high=80.0,
                 drawdown_from_peak_pct=16.5,
                 pump_age_days=65,
                 stage=PumpStage.ACTIVE_EXPANSION,
@@ -219,9 +220,9 @@ class PumpLifecycleRegistry:
                 is_active=True,
                 dump_threshold_price=0.0030,
                 dump_date=None,
-                notes="Sóng Memecoin Squeeze: 4.75x từ đáy, đang neo giữ -16.5% từ đỉnh.",
+                notes="Sóng Memecoin: Đáy $0.001149 -> Dải đỉnh kỳ vọng ML [15x - 80x] ($0.017 - $0.092). Hiện đạt 3.97x, đang tích lũy.",
             ),
-            # HEMI: Active super pump
+            # HEMI: Nano tier ($0.001 - $0.01) -> ML Model Training Range: [15.0x - 80.0x], Median: 35x
             PumpCampaign(
                 symbol="HEMIUSDT",
                 origin_date="2026-07-14",
@@ -231,9 +232,9 @@ class PumpLifecycleRegistry:
                 current_price=0.01152400,
                 current_n=2.81,
                 max_n=3.90,
-                expected_n_ml=3.90,
-                expected_n_low=2.2,
-                expected_n_high=6.0,
+                expected_n_ml=35.00,
+                expected_n_low=15.0,
+                expected_n_high=80.0,
                 drawdown_from_peak_pct=28.0,
                 pump_age_days=46,
                 stage=PumpStage.HIGH_CONSOLIDATION,
@@ -241,9 +242,9 @@ class PumpLifecycleRegistry:
                 is_active=True,
                 dump_threshold_price=0.0088,
                 dump_date=None,
-                notes="Chiến dịch L2/EVM: 3.90x từ đáy, đang tích lũy vùng $0.0115.",
+                notes="Chiến dịch L2: Đáy $0.004101 -> Dải đỉnh kỳ vọng ML [15x - 80x] ($0.061 - $0.328). Hiện đạt 2.81x.",
             ),
-            # SNXX: Active large tier pump
+            # SNXX: Large tier ($1.0 - $10.0) -> ML Model Training Range: [2.0x - 10.0x], Median: 4.5x
             PumpCampaign(
                 symbol="SNXXUSDT",
                 origin_date="2026-07-29",
@@ -253,9 +254,9 @@ class PumpLifecycleRegistry:
                 current_price=12.77000000,
                 current_n=2.06,
                 max_n=3.21,
-                expected_n_ml=3.21,
+                expected_n_ml=4.50,
                 expected_n_low=2.0,
-                expected_n_high=5.0,
+                expected_n_high=10.0,
                 drawdown_from_peak_pct=35.8,
                 pump_age_days=31,
                 stage=PumpStage.HIGH_CONSOLIDATION,
@@ -263,7 +264,7 @@ class PumpLifecycleRegistry:
                 is_active=True,
                 dump_threshold_price=10.94,
                 dump_date=None,
-                notes="Large Tier Asset: 3.21x từ đáy $6.20 lên $19.90, đang tích lũy trên $12.50.",
+                notes="Large Tier Asset: Đáy $6.20 -> Dải đỉnh kỳ vọng ML [2x - 10x] ($12.40 - $62.00). Hiện đạt 2.06x.",
             ),
             # VELVET: Completed Dump (-91.7% off peak)
             PumpCampaign(
