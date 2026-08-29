@@ -104,6 +104,25 @@ class PumpLifecycleRegistry:
         self.campaigns: Dict[str, PumpCampaign] = {}
         self._load()
         self._seed_known_2026_campaigns()
+        self._promote_confirmed_peaks()  # Always ensure real peaks override stale tier-medians
+
+
+    def _promote_confirmed_peaks(self) -> None:
+        """
+        After load + seed, ensure any campaign where the real confirmed peak multiplier
+        (highest_peak_price / origin_bottom_price) exceeds the stored expected_n_ml
+        gets promoted to use the real peak as the authoritative training reference.
+
+        This prevents stale tier-medians (e.g. 1.9x for ZECUSDT) from overriding
+        the already-observed reality ($888 = 4.81x) as the '100% target'.
+        """
+        for c in self.campaigns.values():
+            if c.origin_bottom_price <= 0 or c.highest_peak_price <= 0:
+                continue
+            real_n = round(c.highest_peak_price / c.origin_bottom_price, 2)
+            if real_n > c.expected_n_ml:
+                c.expected_n_ml = real_n
+                c.expected_n_high = max(c.expected_n_high, round(real_n * 1.5, 2))
 
     def _load(self) -> None:
         if not os.path.exists(self.file_path):
@@ -421,7 +440,24 @@ class PumpLifecycleRegistry:
             ),
         ]
         for s in seeds:
-            self.campaigns[s.symbol] = s
+            if s.symbol not in self.campaigns:
+                # Only insert if not already loaded from persistent JSON storage
+                self.campaigns[s.symbol] = s
+            else:
+                # Campaign exists in JSON — preserve any confirmed real-peak data.
+                # Only update fields that are fresh: current_price, stage, notes.
+                # NEVER regress expected_n_ml back to a lower seed value.
+                existing = self.campaigns[s.symbol]
+                if s.current_price > 0:
+                    existing.current_price = s.current_price
+                if s.highest_peak_price > existing.highest_peak_price:
+                    existing.highest_peak_price = s.highest_peak_price
+                # If confirmed real peak > seed ML target, promote expected_n_ml
+                if existing.origin_bottom_price > 0:
+                    real_n = round(existing.highest_peak_price / existing.origin_bottom_price, 2)
+                    if real_n > existing.expected_n_ml:
+                        existing.expected_n_ml = real_n
+                        existing.expected_n_high = max(existing.expected_n_high, round(real_n * 1.5, 2))
 
         # Auto-load all verified completed dump events from empirical dataset
         try:
@@ -438,6 +474,14 @@ class PumpLifecycleRegistry:
                 curr_n = round(curr_price / max(e.pre_pump_price, 1e-8), 2)
                 dd_pct = round(((e.peak_price - curr_price) / max(e.peak_price, 1e-8)) * 100.0, 1)
 
+                # Use the confirmed actual peak (n_actual) as the reliable training reference.
+                # For completed campaigns, the real peak IS the ground truth — do not replace
+                # with a tier-median estimate that is almost always lower than the real pump.
+                # CI bounds are widened symmetrically around the confirmed n_actual.
+                confirmed_n = e.n_actual  # the real, observed peak multiplier
+                n_low_est  = max(tier.n_expected_low,  round(confirmed_n * 0.50, 2))
+                n_high_est = max(tier.n_expected_high, round(confirmed_n * 1.50, 2))
+
                 camp = PumpCampaign(
                     symbol=e.symbol,
                     origin_date=e.event_date,
@@ -446,10 +490,10 @@ class PumpLifecycleRegistry:
                     highest_peak_date=e.event_date,
                     current_price=curr_price,
                     current_n=curr_n,
-                    max_n=e.n_actual,
-                    expected_n_ml=tier.n_median,
-                    expected_n_low=tier.n_expected_low,
-                    expected_n_high=tier.n_expected_high,
+                    max_n=confirmed_n,
+                    expected_n_ml=confirmed_n,        # ← Dùng đỉnh thực tế đã xác nhận
+                    expected_n_low=n_low_est,
+                    expected_n_high=n_high_est,
                     drawdown_from_peak_pct=max(45.0, dd_pct),
                     pump_age_days=int(e.pump_duration_h / 24) if e.pump_duration_h > 0 else 60,
                     stage=PumpStage.DUMP_CONFIRMED,
@@ -457,7 +501,7 @@ class PumpLifecycleRegistry:
                     is_active=False,
                     dump_threshold_price=round(e.peak_price * 0.55, 8),
                     dump_date=e.event_date,
-                    notes=e.notes or f"Chu kỳ hoàn tất: Đỉnh ${e.peak_price} ({e.n_actual:.1f}x), sụt giảm xả hàng xác nhận dump.",
+                    notes=e.notes or f"Chu kỳ hoàn tất: Đỉnh ${e.peak_price} ({confirmed_n:.2f}x xác nhận), xả hàng dump.",
                 )
                 self.campaigns[e.symbol] = camp
         except Exception as ex:
