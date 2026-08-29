@@ -23,13 +23,37 @@ let ledgerPageSize = 20;
 let cachedLedgerRecords = [];
 
 document.addEventListener("DOMContentLoaded", () => {
+  fetchGapFillStatus();
   fetchCampaignsData();
   fetchResearchData();
   fetchBenchmarkLedger();
   runInteractiveMLPrediction(); // Immediately fetch live Binance Futures metrics on load
   setInterval(fetchCampaignsData, 5000);
   setInterval(fetchBenchmarkLedger, 10000);
+  setInterval(fetchGapFillStatus, 15000);
 });
+
+async function fetchGapFillStatus() {
+  try {
+    const res = await fetch("/api/ml/gap_fill_status");
+    if (!res.ok) return;
+    const data = await res.json();
+    if (data.status !== "success") return;
+
+    const badgeText = document.getElementById("offline-sync-text");
+    if (badgeText) {
+      const summary = data.latest_sync_summary || {};
+      if (summary.gap_fill_triggered && summary.downtime_hours > 0) {
+        badgeText.innerText = `🟢 Đã bù ${summary.downtime_hours}h máy tắt (${summary.total_klines_analyzed || 0} nến klines)`;
+      } else {
+        badgeText.innerText = "🟢 Dữ Liệu Xuyên Suốt (Bù Klines Tự Động)";
+      }
+    }
+  } catch (e) {
+    console.debug("Error fetching gap fill status:", e);
+  }
+}
+
 
 function predictInFlight() {
   return runInteractiveMLPrediction();

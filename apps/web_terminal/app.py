@@ -499,7 +499,35 @@ def api_active_pump_campaigns():
         return jsonify({"status": "error", "message": str(ex)}), 500
 
 
+@app.route("/api/ml/gap_fill_status")
+def api_gap_fill_status():
+    try:
+        from core_engine import get_pump_registry
+        from core_engine.smart_gap_filler import get_gap_filler
+        from core_engine.db_storage import get_db_storage
+        
+        registry = get_pump_registry()
+        gap_filler = get_gap_filler()
+        db = get_db_storage()
+        
+        summary = getattr(registry, "latest_gap_fill_summary", None) or db.get_latest_gap_fill_summary() or {}
+        downtime_sec = gap_filler.get_downtime_seconds()
+        
+        return jsonify({
+            "status": "success",
+            "downtime_seconds": downtime_sec,
+            "downtime_hours": round(downtime_sec / 3600.0, 2),
+            "latest_sync_summary": summary,
+            "last_heartbeat_utc": gap_filler._last_sync_utc.isoformat() if gap_filler._last_sync_utc else None,
+            "active_campaigns_count": len(registry.get_active_campaigns()),
+        })
+    except Exception as ex:
+        logger.error(f"Error in api_gap_fill_status: {ex}")
+        return jsonify({"status": "error", "message": str(ex)}), 500
+
+
 @app.route("/api/ml/benchmark_ledger")
+
 def api_benchmark_ledger():
     try:
         from core_engine.self_learning_engine import get_self_learning_engine

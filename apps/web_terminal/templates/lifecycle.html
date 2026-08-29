@@ -52,13 +52,18 @@
       </a>
     </nav>
     
-    <div class="header-status">
+    <div class="header-status" style="display: flex; gap: 12px; align-items: center;">
+      <div id="offline-sync-badge" class="status-indicator" style="background: rgba(0, 230, 118, 0.12); border: 1px solid rgba(0, 230, 118, 0.35); padding: 4px 12px; border-radius: 20px;">
+        <span class="pulse-dot" style="background: #00e676; box-shadow: 0 0 10px #00e676;"></span>
+        <span id="offline-sync-text" style="font-size: 0.76rem; color: #00e676; font-weight: 700;">🟢 Dữ Liệu Xuyên Suốt (Bù Klines Tự Động)</span>
+      </div>
       <div class="status-indicator">
         <span class="pulse-dot" style="background: var(--accent-cyan); box-shadow: 0 0 10px var(--accent-cyan);"></span>
         <span>Mô Hình: Tri-Ensemble v4 Live</span>
       </div>
     </div>
   </header>
+
 
   <!-- Main Container -->
   <main class="dashboard-container" style="padding-bottom: 60px;">

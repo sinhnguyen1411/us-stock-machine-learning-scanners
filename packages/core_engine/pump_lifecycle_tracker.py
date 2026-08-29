@@ -104,10 +104,12 @@ class PumpLifecycleRegistry:
     def __init__(self, file_path: Optional[str] = None):
         self.file_path = file_path or _REGISTRY_PATH
         self.campaigns: Dict[str, PumpCampaign] = {}
+        self.latest_gap_fill_summary: Optional[Dict[str, Any]] = None
         self._load()
         self._seed_known_2026_campaigns()
         self._mark_known_delisted()       # Remove coins no longer on Binance Futures
         self._promote_confirmed_peaks()   # Ensure real peaks override stale tier-medians (active only)
+        self._trigger_smart_gap_fill()    # Auto-backfill downtime gap seamlessly on startup
 
 
     # Coins confirmed NOT on Binance Futures as of 2026-08-29 (verified by API scan)
@@ -219,7 +221,20 @@ class PumpLifecycleRegistry:
         except Exception:
             pass
 
-    def save(self) -> None:
+    def _trigger_smart_gap_fill(self) -> None:
+        """Autonomous Startup Hook: Syncs historical gaps across machine downtimes."""
+        try:
+            from .smart_gap_filler import get_gap_filler
+            from .db_storage import get_db_storage
+            gap_filler = get_gap_filler()
+            summary = gap_filler.sync_on_startup(self)
+            self.latest_gap_fill_summary = summary
+            get_db_storage().log_gap_fill_result(summary)
+            get_db_storage().log_checkpoint("STARTUP_SYNC", details=summary, downtime_sec=summary.get("downtime_seconds", 0.0))
+        except Exception as e:
+            logger.debug(f"[LifecycleRegistry] Error in startup smart gap fill: {e}")
+
+    def save(self, update_heartbeat: bool = True) -> None:
         try:
             payload = {
                 "version": "1.0",
@@ -229,8 +244,18 @@ class PumpLifecycleRegistry:
             }
             with open(self.file_path, "w", encoding="utf-8") as f:
                 json.dump(payload, f, indent=2, ensure_ascii=False)
+            
+            # Save heartbeat & DB checkpoint if requested
+            if update_heartbeat:
+                try:
+                    from .smart_gap_filler import get_gap_filler
+                    get_gap_filler().save_heartbeat()
+                except Exception:
+                    pass
         except Exception:
             pass
+
+
 
     def _seed_known_2026_campaigns(self) -> None:
         """Seed verified multi-month 2026 pump campaigns with exact lifecycle states."""
@@ -613,7 +638,7 @@ class PumpLifecycleRegistry:
         except Exception as ex:
             logger.debug(f"Error auto-populating dump dataset into campaigns: {ex}")
 
-        self.save()
+        self.save(update_heartbeat=False)
 
     def update_price_and_stage(
         self,
