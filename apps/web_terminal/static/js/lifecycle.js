@@ -227,8 +227,12 @@ async function fetchCampaignsData() {
     cachedCampaignsData = data;
     
     // Update KPI counters
+    const activeCount = data.active_count || (data.active_campaigns ? data.active_campaigns.length : 0);
     const activeEl = document.getElementById("stat-active-count");
-    if (activeEl) activeEl.innerText = data.active_count || 0;
+    if (activeEl) activeEl.innerText = activeCount;
+
+    const scatterActiveEl = document.getElementById("scatter-active-count");
+    if (scatterActiveEl) scatterActiveEl.innerText = activeCount;
 
     const all = data.all_campaigns || [];
     const dumpedCount = all.filter(c => !c.is_active || c.stage === "DUMP_CONFIRMED").length;
@@ -242,6 +246,7 @@ async function fetchCampaignsData() {
       renderScatterCanvas(cachedResearchData.events);
     }
   } catch (e) {
+
 
     console.debug("Error fetching campaigns data:", e);
   }

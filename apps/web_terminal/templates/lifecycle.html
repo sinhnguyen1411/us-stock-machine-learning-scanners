@@ -317,10 +317,11 @@
           </div>
           <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
             <button class="filter-btn active" id="scatter-filter-all" onclick="setScatterFilter('ALL')" style="font-size: 0.72rem; padding: 4px 10px;">Tất Cả (<span id="scatter-count-all">388</span>)</button>
-            <button class="filter-btn" id="scatter-filter-active" onclick="setScatterFilter('ACTIVE')" style="font-size: 0.72rem; padding: 4px 10px; border-color: rgba(0, 230, 118, 0.4); color: #00e676;">🔥 Đang Chạy (22)</button>
+            <button class="filter-btn" id="scatter-filter-active" onclick="setScatterFilter('ACTIVE')" style="font-size: 0.72rem; padding: 4px 10px; border-color: rgba(0, 230, 118, 0.4); color: #00e676;">🔥 Đang Chạy (<span id="scatter-active-count">17</span>)</button>
             <button class="filter-btn" id="scatter-filter-outlier" onclick="setScatterFilter('OUTLIER')" style="font-size: 0.72rem; padding: 4px 10px; border-color: rgba(255, 0, 85, 0.4); color: #ff0055;">🔴 n &ge; 30x</button>
             <button class="filter-btn" id="scatter-filter-mid" onclick="setScatterFilter('MID')" style="font-size: 0.72rem; padding: 4px 10px; border-color: rgba(255, 184, 0, 0.4); color: #ffb800;">🟡 10x &le; n &lt; 30x</button>
             <button class="filter-btn" id="scatter-filter-base" onclick="setScatterFilter('BASE')" style="font-size: 0.72rem; padding: 4px 10px; border-color: rgba(0, 240, 255, 0.4); color: #00f0ff;">🔵 n &lt; 10x</button>
+
           </div>
         </div>
         <div style="position: relative; width: 100%; height: 520px;">
