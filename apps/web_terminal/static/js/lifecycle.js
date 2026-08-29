@@ -10,6 +10,18 @@ let currentCampaignSearchQuery = "";
 let cachedCampaignsData = null;
 let cachedResearchData = null;
 
+// ─── PAGINATION STATE ────────────────────────────────────────────────────────
+let campaignCurrentPage = 1;
+let campaignPageSize = 20; // 20 items per page by default (options: 10, 20, 50, 100, 0=all)
+
+let datasetCurrentPage = 1;
+let datasetPageSize = 25;
+let cachedDatasetEvents = [];
+
+let ledgerCurrentPage = 1;
+let ledgerPageSize = 20;
+let cachedLedgerRecords = [];
+
 document.addEventListener("DOMContentLoaded", () => {
   fetchCampaignsData();
   fetchResearchData();
@@ -21,6 +33,121 @@ document.addEventListener("DOMContentLoaded", () => {
 
 function predictInFlight() {
   return runInteractiveMLPrediction();
+}
+
+function setCampaignPage(page) {
+  campaignCurrentPage = page;
+  renderCampaignsView();
+  const el = document.getElementById("campaigns-container");
+  if (el) {
+    el.scrollIntoView({ behavior: "smooth", block: "nearest" });
+  }
+}
+
+function setCampaignPageSize(size) {
+  campaignPageSize = Number(size);
+  campaignCurrentPage = 1;
+  renderCampaignsView();
+}
+
+function setDatasetPage(page) {
+  datasetCurrentPage = page;
+  renderDatasetTable(cachedDatasetEvents);
+}
+
+function setDatasetPageSize(size) {
+  datasetPageSize = Number(size);
+  datasetCurrentPage = 1;
+  renderDatasetTable(cachedDatasetEvents);
+}
+
+function setLedgerPage(page) {
+  ledgerCurrentPage = page;
+  renderBenchmarkLedgerTable(cachedLedgerRecords);
+}
+
+function setLedgerPageSize(size) {
+  ledgerPageSize = Number(size);
+  ledgerCurrentPage = 1;
+  renderBenchmarkLedgerTable(cachedLedgerRecords);
+}
+
+/**
+ * Reusable Modern Neon Pagination Generator
+ */
+function buildPaginationHtml(totalItems, currentPage, pageSize, setPageFnName, setSizeFnName, sizeOptions = [10, 20, 50, 100, 0]) {
+  if (totalItems === 0) return "";
+  const totalPages = pageSize > 0 ? Math.ceil(totalItems / pageSize) : 1;
+  const startIndex = pageSize > 0 ? (currentPage - 1) * pageSize + 1 : 1;
+  const endIndex = pageSize > 0 ? Math.min(currentPage * pageSize, totalItems) : totalItems;
+
+  let pageButtonsHtml = "";
+  if (totalPages > 1) {
+    // First & Prev buttons
+    pageButtonsHtml += `
+      <button class="page-btn" ${currentPage <= 1 ? "disabled" : ""} onclick="${setPageFnName}(1)" title="Trang đầu">⏮</button>
+      <button class="page-btn" ${currentPage <= 1 ? "disabled" : ""} onclick="${setPageFnName}(${currentPage - 1})" title="Trang trước">◀ Trước</button>
+    `;
+
+    // Smart sliding window for page numbers (max 7 numbers)
+    let startPage = Math.max(1, currentPage - 2);
+    let endPage = Math.min(totalPages, currentPage + 2);
+
+    if (currentPage <= 3) {
+      endPage = Math.min(5, totalPages);
+    }
+    if (currentPage >= totalPages - 2) {
+      startPage = Math.max(1, totalPages - 4);
+    }
+
+    if (startPage > 1) {
+      pageButtonsHtml += `<button class="page-btn" onclick="${setPageFnName}(1)">1</button>`;
+      if (startPage > 2) {
+        pageButtonsHtml += `<span style="color: var(--text-dim); padding: 0 4px; font-family: var(--font-mono);">…</span>`;
+      }
+    }
+
+    for (let p = startPage; p <= endPage; p++) {
+      pageButtonsHtml += `
+        <button class="page-btn ${p === currentPage ? "active" : ""}" onclick="${setPageFnName}(${p})">${p}</button>
+      `;
+    }
+
+    if (endPage < totalPages) {
+      if (endPage < totalPages - 1) {
+        pageButtonsHtml += `<span style="color: var(--text-dim); padding: 0 4px; font-family: var(--font-mono);">…</span>`;
+      }
+      pageButtonsHtml += `<button class="page-btn" onclick="${setPageFnName}(${totalPages})">${totalPages}</button>`;
+    }
+
+    // Next & Last buttons
+    pageButtonsHtml += `
+      <button class="page-btn" ${currentPage >= totalPages ? "disabled" : ""} onclick="${setPageFnName}(${currentPage + 1})" title="Trang tiếp">Tiếp ▶</button>
+      <button class="page-btn" ${currentPage >= totalPages ? "disabled" : ""} onclick="${setPageFnName}(${totalPages})" title="Trang cuối">⏭</button>
+    `;
+  }
+
+  const sizeOptionsHtml = sizeOptions.map(s => `
+    <option value="${s}" ${pageSize === s ? "selected" : ""}>${s === 0 ? "Tất cả" : s}</option>
+  `).join("");
+
+  return `
+    <div class="pagination-wrapper">
+      <div class="pagination-info">
+        Hiển thị <strong>${startIndex} - ${endIndex}</strong> trong <strong>${totalItems}</strong> &bull; Trang <strong>${currentPage} / ${totalPages}</strong>
+      </div>
+      
+      ${totalPages > 1 ? `<div class="pagination-nav">${pageButtonsHtml}</div>` : ""}
+
+      <div class="page-size-wrapper">
+        <span>Hiển thị:</span>
+        <select class="page-size-select" onchange="${setSizeFnName}(Number(this.value))">
+          ${sizeOptionsHtml}
+        </select>
+        <span>dòng/trang</span>
+      </div>
+    </div>
+  `;
 }
 
 function setCampaignViewMode(mode) {
@@ -41,11 +168,13 @@ function setCampaignViewMode(mode) {
 
 function setCampaignSearch(query) {
   currentCampaignSearchQuery = (query || "").trim().toUpperCase();
+  campaignCurrentPage = 1; // Reset to page 1 on search
   renderCampaignsView();
 }
 
 function setCampaignFilter(filter) {
   currentCampaignFilter = filter;
+  campaignCurrentPage = 1; // Reset to page 1 on filter switch
   ["active", "dumped", "all"].forEach(t => {
     const btn = document.getElementById(`campaign-filter-${t}`);
     if (btn) {
@@ -61,6 +190,7 @@ function setCampaignFilter(filter) {
 
 function setCampaignSort(sortBy) {
   currentCampaignSort = sortBy;
+  campaignCurrentPage = 1; // Reset to page 1 on sort switch
   const sel = document.getElementById("campaign-sort-select");
   if (sel && sel.value !== sortBy) {
     for (let opt of sel.options) {
@@ -85,6 +215,7 @@ function toggleCampaignDetails(rowId) {
     if (icon) icon.innerText = "▼";
   }
 }
+
 
 async function fetchCampaignsData() {
   try {
@@ -209,10 +340,19 @@ function renderCampaignsView() {
     return;
   }
 
+  // ── PAGINATION CALCULATION ──────────────────────────────────────────
+  const totalCampaigns = displayCampaigns.length;
+  const totalPages = campaignPageSize > 0 ? Math.ceil(totalCampaigns / campaignPageSize) : 1;
+  if (campaignCurrentPage > totalPages) campaignCurrentPage = Math.max(1, totalPages);
+  const startIndex = campaignPageSize > 0 ? (campaignCurrentPage - 1) * campaignPageSize : 0;
+  const endIndex = campaignPageSize > 0 ? Math.min(startIndex + campaignPageSize, totalCampaigns) : totalCampaigns;
+  const paginatedCampaigns = campaignPageSize > 0 ? displayCampaigns.slice(startIndex, endIndex) : displayCampaigns;
+  const paginationHtml = buildPaginationHtml(totalCampaigns, campaignCurrentPage, campaignPageSize, 'setCampaignPage', 'setCampaignPageSize');
+
   // ── RENDER DENSE LIST VIEW (DEFAULT) ─────────────────────────────────
   if (currentCampaignViewMode === "LIST") {
     container.innerHTML = `
-      <div style="overflow-x: auto; border-radius: 8px; border: 1px solid rgba(0, 240, 255, 0.25); background: rgba(11, 15, 23, 0.9); box-shadow: 0 4px 20px rgba(0,0,0,0.4);">
+      <div style="overflow-x: auto; border-radius: 8px 8px 0 0; border: 1px solid rgba(0, 240, 255, 0.25); border-bottom: none; background: rgba(11, 15, 23, 0.9); box-shadow: 0 4px 20px rgba(0,0,0,0.4);">
         <table class="styled-table" style="width: 100%; border-collapse: collapse; min-width: 1100px; font-size: 0.84rem;">
           <thead>
             <tr style="background: linear-gradient(90deg, rgba(0, 240, 255, 0.12) 0%, rgba(18, 24, 36, 0.8) 100%); border-bottom: 2px solid rgba(0, 240, 255, 0.35);">
@@ -230,7 +370,7 @@ function renderCampaignsView() {
             </tr>
           </thead>
           <tbody>
-            ${displayCampaigns.map((c, idx) => {
+            ${paginatedCampaigns.map((c, idx) => {
               const bottomFmt = c.origin_bottom_price < 0.001 ? c.origin_bottom_price.toFixed(8) : c.origin_bottom_price < 1 ? c.origin_bottom_price.toFixed(5) : c.origin_bottom_price.toFixed(2);
               const peakFmt = c.highest_peak_price < 0.001 ? c.highest_peak_price.toFixed(8) : c.highest_peak_price < 1 ? c.highest_peak_price.toFixed(5) : c.highest_peak_price.toFixed(2);
               const currFmt = c.current_price < 0.001 ? c.current_price.toFixed(8) : c.current_price < 1 ? c.current_price.toFixed(5) : c.current_price.toFixed(2);
@@ -250,6 +390,9 @@ function renderCampaignsView() {
               } else if (c.stage === "DUMP_CONFIRMED") {
                 stageColor = "var(--accent-red)";
                 stageBg = "rgba(255, 51, 102, 0.12)";
+              } else if (c.stage === "DELISTED") {
+                stageColor = "var(--text-muted)";
+                stageBg = "rgba(255, 255, 255, 0.05)";
               }
 
               const mlPred = c.ml_prediction || {};
@@ -268,7 +411,8 @@ function renderCampaignsView() {
               const isExceeded = actualProgressPct > 100;
               const upsidePct = mlPred.remaining_upside_pct !== undefined ? mlPred.remaining_upside_pct : Math.max(0, Math.round(((priceExp - c.current_price) / c.current_price) * 100));
 
-              const rowId = `camp-row-${idx}`;
+              const rowNumber = startIndex + idx + 1;
+              const rowId = `camp-row-${rowNumber}`;
               const isEven = idx % 2 === 0;
 
               return `
@@ -277,7 +421,7 @@ function renderCampaignsView() {
                     onmouseout="this.style.background='${isEven ? 'rgba(255,255,255,0.015)' : 'transparent'}'">
                   <!-- Index -->
                   <td style="padding: 11px 12px; text-align: center; color: var(--text-dim); font-family: var(--font-mono); font-size: 0.78rem;">
-                    ${idx + 1}
+                    ${rowNumber}
                   </td>
 
                   <!-- Symbol & Launch Date -->
@@ -399,14 +543,15 @@ function renderCampaignsView() {
           </tbody>
         </table>
       </div>
+      ${paginationHtml}
     `;
     return;
   }
 
   // ── RENDER CARD GRID VIEW (ALTERNATIVE) ──────────────────────────────
   container.innerHTML = `
-    <div id="campaigns-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 16px;">
-      ${displayCampaigns.map(c => {
+    <div id="campaigns-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 16px; margin-bottom: 16px;">
+      ${paginatedCampaigns.map(c => {
         const bottomFmt = c.origin_bottom_price < 0.001 ? c.origin_bottom_price.toFixed(8) : c.origin_bottom_price < 1 ? c.origin_bottom_price.toFixed(4) : c.origin_bottom_price.toFixed(2);
         const peakFmt = c.highest_peak_price < 0.001 ? c.highest_peak_price.toFixed(8) : c.highest_peak_price < 1 ? c.highest_peak_price.toFixed(4) : c.highest_peak_price.toFixed(2);
         const currFmt = c.current_price < 0.001 ? c.current_price.toFixed(8) : c.current_price < 1 ? c.current_price.toFixed(4) : c.current_price.toFixed(2);
@@ -426,6 +571,9 @@ function renderCampaignsView() {
         } else if (c.stage === "DUMP_CONFIRMED") {
           stageColor = "var(--accent-red)";
           borderGlow = "border: 1px solid rgba(255, 51, 102, 0.4); background: rgba(255, 51, 102, 0.02);";
+        } else if (c.stage === "DELISTED") {
+          stageColor = "var(--text-muted)";
+          borderGlow = "border: 1px solid rgba(255, 255, 255, 0.1);";
         }
 
         const mlPred = c.ml_prediction || {};
@@ -468,12 +616,12 @@ function renderCampaignsView() {
                   <strong style="color: var(--accent-cyan); font-size: 0.9rem;">$${bottomFmt}</strong>
                 </div>
                 <div>
-                  <span style="font-size: 0.68rem; color: var(--text-dim); display: block;">ĐỈNH CAO NHẤT (PEAK):</span>
-                  <strong style="color: var(--accent-yellow); font-size: 0.9rem;">$${peakFmt} (${c.max_n}x)</strong>
+                  <span style="font-size: 0.68rem; color: var(--text-dim); display: block;">ĐỈNH CAO (PEAK):</span>
+                  <strong style="color: var(--accent-yellow); font-size: 0.9rem;">$${peakFmt} <span style="font-size: 0.74rem;">(${c.max_n}x)</span></strong>
                 </div>
                 <div>
                   <span style="font-size: 0.68rem; color: var(--text-dim); display: block;">GIÁ HIỆN TẠI:</span>
-                  <strong style="color: #fff; font-size: 0.9rem;">$${currFmt} (${c.current_n}x)</strong>
+                  <strong style="color: #fff; font-size: 0.9rem;">$${currFmt} <span style="font-size: 0.74rem; color: var(--accent-cyan);">(${c.current_n}x)</span></strong>
                 </div>
                 <div>
                   <span style="font-size: 0.68rem; color: var(--text-dim); display: block;">SỤT TỪ ĐỈNH:</span>
@@ -481,31 +629,26 @@ function renderCampaignsView() {
                 </div>
               </div>
 
-              <!-- ML Training Target Range & Progress Row -->
-              <div style="background: rgba(0, 240, 255, 0.04); border: 1px dashed ${c.is_active ? 'rgba(0, 240, 255, 0.35)' : 'rgba(255, 255, 255, 0.15)'}; padding: 12px; border-radius: 6px; margin-bottom: 12px; font-size: 0.78rem;">
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
-                  <div>
-                    <span style="color: var(--text-dim); display: block; font-size: 0.68rem;">DẢI ĐỈNH KỲ VỌNG ML (90% CI):</span>
-                    <strong style="color: var(--accent-yellow); font-family: var(--font-mono); font-size: 0.92rem;">${nLow.toFixed(1)}x &rarr; ${nHigh.toFixed(1)}x</strong>
-                    <span style="color: var(--accent-cyan); font-size: 0.72rem; font-family: var(--font-mono); margin-left: 4px;">(Med: ${nExp.toFixed(1)}x)</span>
-                  </div>
-                  <div style="text-align: right;">
-                    <span style="color: var(--text-dim); display: block; font-size: 0.68rem;">VÙNG GIÁ MỤC TIÊU:</span>
-                    <strong style="color: #fff; font-family: var(--font-mono); font-size: 0.82rem;">$${priceLowFmt} &rarr; $${priceHighFmt}</strong>
-                  </div>
+              <!-- ML Multiplier Targets Box -->
+              <div style="background: rgba(0, 240, 255, 0.05); border: 1px solid rgba(0, 240, 255, 0.2); border-radius: 6px; padding: 10px 12px; margin-bottom: 10px;">
+                <div style="display: flex; justify-content: space-between; font-size: 0.76rem; margin-bottom: 4px;">
+                  <span style="color: var(--accent-cyan); font-weight: 700;">DỰ BÁO ML (90% CI):</span>
+                  <strong style="color: var(--accent-yellow); font-family: var(--font-mono);">${nLow.toFixed(1)}x &rarr; ${nHigh.toFixed(1)}x</strong>
+                </div>
+                <div style="font-size: 0.74rem; color: var(--text-dim); margin-bottom: 6px;">
+                  Mục Tiêu: <strong style="color: #fff;">$${priceLowFmt} &rarr; $${priceHighFmt}</strong>
                 </div>
 
-                <div style="display: flex; justify-content: space-between; font-size: 0.73rem; margin-bottom: 4px;">
-                  <span style="color: var(--text-muted);">
-                    ${c.is_active ? 'Tiến Độ Đạt Mục Tiêu ML:' : 'Đỉnh Thực Tế Đạt:'} 
-                    <strong style="color: ${isExceeded ? '#ff007a' : 'var(--accent-cyan)'}; font-family: var(--font-mono); font-size: 0.85rem;">${actualProgressPct}%</strong>
-                    <span style="color: var(--text-dim); font-size: 0.7rem;">(${c.is_active ? c.current_n : c.max_n}x / ${nExp.toFixed(1)}x)</span>
+                <!-- Progress Bar -->
+                <div style="display: flex; justify-content: space-between; font-size: 0.72rem; margin-bottom: 2px;">
+                  <span style="color: ${isExceeded ? '#ff007a' : 'var(--text-dim)'}; font-weight: ${isExceeded ? '700' : 'normal'};">
+                    ${actualProgressPct}% ${isExceeded ? `(VƯỢT ĐÍCH ${nExp.toFixed(1)}x)` : 'Tiến độ'}
                   </span>
-                  <span style="color: ${isExceeded ? '#ff007a' : (c.is_active ? (upsidePct > 0 ? 'var(--accent-green)' : 'var(--accent-red)') : (actualProgressPct >= 100 ? 'var(--accent-green)' : 'var(--accent-yellow)'))}; font-weight: 700; font-family: var(--font-mono);">
-                    ${isExceeded ? `+${actualProgressPct - 100}% VƯỢT ĐÍCH KỲ VỌNG` : (c.is_active ? (upsidePct > 0 ? '+' + upsidePct + '% Dư Địa Đến Đỉnh' : 'Đã Chạm Vùng Đỉnh ML') : (actualProgressPct >= 100 ? 'ĐẠT VƯỢT MỤC TIÊU' : 'HOÀN TẤT CHU KỲ'))}
+                  <span style="color: ${isExceeded ? '#ff007a' : (c.is_active ? (upsidePct > 0 ? 'var(--accent-green)' : 'var(--accent-red)') : (actualProgressPct >= 100 ? 'var(--accent-green)' : 'var(--accent-yellow)'))}; font-weight: 700;">
+                    ${isExceeded ? `+${actualProgressPct - 100}% Vượt Đích` : (c.is_active ? (upsidePct > 0 ? `+${upsidePct}% Dư Địa` : 'Chạm Target') : (actualProgressPct >= 100 ? 'Đạt Target' : 'Hoàn tất'))}
                   </span>
                 </div>
-                <div style="width: 100%; height: 6px; background: rgba(255,255,255,0.08); border-radius: 3px; overflow: hidden; margin-bottom: 8px;">
+                <div style="width: 100%; height: 5px; background: rgba(255,255,255,0.08); border-radius: 3px; overflow: hidden; margin-bottom: 6px;">
                   <div style="width: ${Math.min(100, actualProgressPct)}%; height: 100%; background: ${isExceeded ? 'linear-gradient(90deg, #00e676 0%, #00f0ff 40%, #ff007a 100%)' : (actualProgressPct >= 100 ? 'linear-gradient(90deg, #00e676 0%, #00f0ff 100%)' : 'linear-gradient(90deg, #00e676 0%, #00f0ff 70%, #ffb800 100%)')}; border-radius: 3px;"></div>
                 </div>
 
@@ -523,7 +666,6 @@ function renderCampaignsView() {
                 `}
               </div>
 
-
               <div style="font-size: 0.76rem; color: var(--text-dim); line-height: 1.4; margin-bottom: 10px;">
                 ${c.notes || ''}
               </div>
@@ -540,6 +682,7 @@ function renderCampaignsView() {
         `;
       }).join("")}
     </div>
+    ${paginationHtml}
   `;
 }
 
@@ -552,6 +695,7 @@ function onMLSelectCampaign(symbol) {
   if (customBox) customBox.style.display = "none";
   runInteractiveMLPrediction();
 }
+
 
 async function runInteractiveMLPrediction() {
   try {
@@ -982,14 +1126,25 @@ function renderTiersGrid(tiers) {
 
 function renderDatasetTable(events) {
   const tbody = document.getElementById("dataset-tbody");
+  const paginationContainer = document.getElementById("dataset-pagination-container");
   if (!tbody) return;
 
-  if (events.length === 0) {
+  cachedDatasetEvents = events || [];
+  const totalEvents = cachedDatasetEvents.length;
+
+  if (totalEvents === 0) {
     tbody.innerHTML = `<tr><td colspan="9" style="text-align: center; color: var(--text-dim); padding: 20px;">Chưa có sự kiện nào.</td></tr>`;
+    if (paginationContainer) paginationContainer.innerHTML = "";
     return;
   }
 
-  tbody.innerHTML = events.map(e => `
+  const totalPages = datasetPageSize > 0 ? Math.ceil(totalEvents / datasetPageSize) : 1;
+  if (datasetCurrentPage > totalPages) datasetCurrentPage = Math.max(1, totalPages);
+  const startIndex = datasetPageSize > 0 ? (datasetCurrentPage - 1) * datasetPageSize : 0;
+  const endIndex = datasetPageSize > 0 ? Math.min(startIndex + datasetPageSize, totalEvents) : totalEvents;
+  const paginatedEvents = datasetPageSize > 0 ? cachedDatasetEvents.slice(startIndex, endIndex) : cachedDatasetEvents;
+
+  tbody.innerHTML = paginatedEvents.map(e => `
     <tr>
       <td style="font-weight: 700;">
         <a href="/?symbol=${e.symbol}" style="color: var(--accent-cyan); text-decoration: none;">${e.symbol}</a>
@@ -1008,6 +1163,10 @@ function renderDatasetTable(events) {
       </td>
     </tr>
   `).join("");
+
+  if (paginationContainer) {
+    paginationContainer.innerHTML = buildPaginationHtml(totalEvents, datasetCurrentPage, datasetPageSize, 'setDatasetPage', 'setDatasetPageSize', [15, 25, 50, 100, 0]);
+  }
 }
 
 async function fetchBenchmarkLedger() {
@@ -1042,14 +1201,25 @@ async function fetchBenchmarkLedger() {
 
 function renderBenchmarkLedgerTable(records) {
   const tbody = document.getElementById("ledger-tbody");
+  const paginationContainer = document.getElementById("ledger-pagination-container");
   if (!tbody) return;
 
-  if (records.length === 0) {
+  cachedLedgerRecords = records || [];
+  const totalRecords = cachedLedgerRecords.length;
+
+  if (totalRecords === 0) {
     tbody.innerHTML = `<tr><td colspan="11" style="text-align: center; color: var(--text-dim); padding: 25px;">Chưa có sự kiện dump nào được ghi nhận vào sổ cái đối chiếu.</td></tr>`;
+    if (paginationContainer) paginationContainer.innerHTML = "";
     return;
   }
 
-  tbody.innerHTML = records.map(r => {
+  const totalPages = ledgerPageSize > 0 ? Math.ceil(totalRecords / ledgerPageSize) : 1;
+  if (ledgerCurrentPage > totalPages) ledgerCurrentPage = Math.max(1, totalPages);
+  const startIndex = ledgerPageSize > 0 ? (ledgerCurrentPage - 1) * ledgerPageSize : 0;
+  const endIndex = ledgerPageSize > 0 ? Math.min(startIndex + ledgerPageSize, totalRecords) : totalRecords;
+  const paginatedRecords = ledgerPageSize > 0 ? cachedLedgerRecords.slice(startIndex, endIndex) : cachedLedgerRecords;
+
+  tbody.innerHTML = paginatedRecords.map(r => {
     const baseFmt = r.base_price < 0.001 ? r.base_price.toFixed(8) : r.base_price < 1 ? r.base_price.toFixed(5) : r.base_price.toFixed(2);
     const peakFmt = r.peak_price_actual < 0.001 ? r.peak_price_actual.toFixed(8) : r.peak_price_actual < 1 ? r.peak_price_actual.toFixed(5) : r.peak_price_actual.toFixed(2);
     const targetFmt = r.target_price_predicted < 0.001 ? r.target_price_predicted.toFixed(8) : r.target_price_predicted < 1 ? r.target_price_predicted.toFixed(5) : r.target_price_predicted.toFixed(2);
@@ -1096,7 +1266,12 @@ function renderBenchmarkLedgerTable(records) {
       </tr>
     `;
   }).join("");
+
+  if (paginationContainer) {
+    paginationContainer.innerHTML = buildPaginationHtml(totalRecords, ledgerCurrentPage, ledgerPageSize, 'setLedgerPage', 'setLedgerPageSize', [10, 20, 50, 100, 0]);
+  }
 }
+
 
 async function triggerManualRetrain() {
   try {
