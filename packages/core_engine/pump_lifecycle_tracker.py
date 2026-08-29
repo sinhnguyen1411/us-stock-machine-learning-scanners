@@ -389,6 +389,29 @@ class PumpLifecycleRegistry:
                 dump_date=None,
                 notes="Chien dich DeFi/Infra 2026: Day $0.1185 -> Dai dinh ky vong ML [4x - 20x] ($0.474 - $2.370), Med 9.0x ($1.066). Vol 24h bung no $219M (+50.3%), dang trong pha day manh.",
             ),
+            # 龙虾 (Long Xia / Lobster): Chinese Community Meme Tier 3 ($0.01 - $0.10)
+            PumpCampaign(
+                symbol="龙虾USDT",
+                origin_date="2026-08-05",
+                origin_bottom_price=0.01120000,
+                highest_peak_price=0.06900000,
+                highest_peak_date="2026-08-28",
+                current_price=0.06380000,
+                current_n=5.70,
+                max_n=6.16,
+                expected_n_ml=18.00,
+                expected_n_low=8.0,
+                expected_n_high=40.0,
+                drawdown_from_peak_pct=7.5,
+                pump_age_days=24,
+                stage=PumpStage.ACTIVE_EXPANSION,
+                stage_label_vi="Sóng Mới Đang Mở Rộng",
+                is_active=True,
+                dump_threshold_price=0.0380,
+                dump_date=None,
+                notes="Meme/Community Trung Quốc 2026: Đáy $0.0112 -> Đỉnh $0.0690 (6.16x). Volume 24h bùng nổ ~$390 Triệu USD, dòng tiền Á Châu FOMO cực mạnh.",
+            ),
+
             # VELVET: Completed Dump (-91.7% off peak)
             PumpCampaign(
                 symbol="VELVETUSDT",
