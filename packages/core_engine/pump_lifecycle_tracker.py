@@ -114,7 +114,6 @@ class PumpLifecycleRegistry:
     # Preserved as historical ML training data but excluded from active tracking
     _KNOWN_DELISTED: set = {
         "1000XUSDT",    # 2025 Telegram micro-cap
-        "TESTUSDT",     # Test/defunct
         "JSTUSDT",      # Delisted from Binance Futures
         "ATMUSDT",      # Delisted
         "DODOUSDT",     # Delisted
@@ -187,6 +186,7 @@ class PumpLifecycleRegistry:
                 c.is_active = False
                 c.stage = PumpStage.DELISTED
                 c.stage_label_vi = STAGE_LABELS_VI[PumpStage.DELISTED]
+        self.save()
 
     def _promote_confirmed_peaks(self) -> None:
         """
@@ -198,7 +198,7 @@ class PumpLifecycleRegistry:
         their final n_actual recorded and should not have expected_n_ml retroactively inflated.
         """
         for c in self.campaigns.values():
-            if not c.is_active:
+            if not c.is_active or c.symbol in self._KNOWN_DELISTED:
                 continue  # Skip completed, archived, delisted campaigns
             if c.origin_bottom_price <= 0 or c.highest_peak_price <= 0:
                 continue
@@ -608,6 +608,12 @@ class PumpLifecycleRegistry:
             return None
 
         c = self.campaigns[symbol]
+        if symbol in self._KNOWN_DELISTED or c.stage in (PumpStage.ARCHIVED, PumpStage.DELISTED):
+            c.is_active = False
+            c.stage = PumpStage.DELISTED if symbol in self._KNOWN_DELISTED else c.stage
+            c.stage_label_vi = STAGE_LABELS_VI.get(c.stage, c.stage)
+            return c
+
         c.current_price = current_price
         now_ts = datetime.now(timezone.utc)
         c.last_updated = now_ts.isoformat()
@@ -639,7 +645,7 @@ class PumpLifecycleRegistry:
         c.trailing_stop_price = round(c.highest_peak_price * 0.70, 8)
 
         # ── State Machine Transitions ──
-        if c.stage != PumpStage.ARCHIVED:
+        if c.stage not in (PumpStage.ARCHIVED, PumpStage.DELISTED):
             # Condition 1: Dump Confirmed
             if current_price < c.dump_threshold_price or c.drawdown_from_peak_pct >= 45.0:
                 was_active = c.is_active
@@ -719,7 +725,12 @@ class PumpLifecycleRegistry:
 
     def get_active_campaigns(self) -> List[PumpCampaign]:
         """Return all currently active pump campaigns sorted by current_n descending."""
-        active = [c for c in self.campaigns.values() if c.is_active]
+        active = [
+            c for c in self.campaigns.values()
+            if c.is_active
+            and c.symbol not in self._KNOWN_DELISTED
+            and c.stage not in (PumpStage.DUMP_CONFIRMED, PumpStage.ARCHIVED, PumpStage.DELISTED)
+        ]
         active.sort(key=lambda c: c.current_n, reverse=True)
         return active
 
