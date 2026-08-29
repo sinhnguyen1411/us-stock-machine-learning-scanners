@@ -100,6 +100,13 @@ function renderCampaignsGrid() {
       borderGlow = "border: 1px solid rgba(255, 51, 102, 0.4); background: rgba(255, 51, 102, 0.02);";
     }
 
+    const mlPred = c.ml_prediction || {};
+    const mlTargetN = mlPred.n_expected || c.expected_n_ml || c.max_n || 5.0;
+    const mlTargetPrice = mlPred.target_peak_price || (c.origin_bottom_price * mlTargetN);
+    const targetPriceFmt = mlTargetPrice < 0.001 ? mlTargetPrice.toFixed(8) : mlTargetPrice < 1 ? mlTargetPrice.toFixed(4) : mlTargetPrice.toFixed(2);
+    const progressPct = mlPred.progress_pct || Math.min(100, Math.round((c.current_n / mlTargetN) * 100));
+    const upsidePct = mlPred.remaining_upside_pct !== undefined ? mlPred.remaining_upside_pct : Math.max(0, Math.round(((mlTargetPrice - c.current_price) / c.current_price) * 100));
+
     return `
       <div style="background: rgba(11, 15, 23, 0.85); border-radius: 8px; padding: 16px; ${borderGlow} display: flex; flex-direction: column; justify-content: space-between;">
         <div>
@@ -117,7 +124,7 @@ function renderCampaignsGrid() {
           </div>
 
           <!-- Multipliers Grid -->
-          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; background: rgba(0, 0, 0, 0.28); padding: 12px; border-radius: 6px; margin-bottom: 12px; font-family: var(--font-mono); font-size: 0.82rem;">
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; background: rgba(0, 0, 0, 0.28); padding: 12px; border-radius: 6px; margin-bottom: 10px; font-family: var(--font-mono); font-size: 0.82rem;">
             <div>
               <span style="font-size: 0.68rem; color: var(--text-dim); display: block;">ĐÁY GỐC (BASE):</span>
               <strong style="color: var(--accent-cyan); font-size: 0.9rem;">$${bottomFmt}</strong>
@@ -136,6 +143,19 @@ function renderCampaignsGrid() {
             </div>
           </div>
 
+          <!-- ML Target & Progress Row -->
+          ${c.is_active ? `
+          <div style="background: rgba(0, 240, 255, 0.05); border: 1px dashed rgba(0, 240, 255, 0.3); padding: 10px; border-radius: 6px; margin-bottom: 10px; font-size: 0.78rem;">
+            <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
+              <span style="color: var(--text-dim);">🤖 ML Target Peak: <strong style="color: var(--accent-yellow); font-family: var(--font-mono);">${mlTargetN}x ($${targetPriceFmt})</strong></span>
+              <span style="color: ${upsidePct > 0 ? 'var(--accent-green)' : 'var(--text-dim)'}; font-weight: 700; font-family: var(--font-mono);">${upsidePct > 0 ? '+' + upsidePct + '% Upside' : 'Đã Đạt Mục Tiêu'}</span>
+            </div>
+            <div style="width: 100%; height: 6px; background: rgba(255,255,255,0.08); border-radius: 3px; overflow: hidden;">
+              <div style="width: ${progressPct}%; height: 100%; background: linear-gradient(90deg, #00e676, #00f0ff); border-radius: 3px;"></div>
+            </div>
+          </div>
+          ` : ''}
+
           <div style="font-size: 0.76rem; color: var(--text-dim); line-height: 1.4; margin-bottom: 10px;">
             ${c.notes || ''}
           </div>
@@ -151,6 +171,166 @@ function renderCampaignsGrid() {
       </div>
     `;
   }).join("");
+}
+
+const CAMPAIGN_PRESETS = {
+  "BTRUSDT":   { base: 0.01587, curr: 0.15663, vol: 18.5, funding: -1.20 },
+  "AKEUSDT":   { base: 0.0001729, curr: 0.0107, vol: 35.0, funding: -1.80 },
+  "BULLAUSDT": { base: 0.003824, curr: 0.01664, vol: 12.0, funding: -0.80 },
+  "PUMPUSDT":  { base: 0.001149, curr: 0.00456, vol: 15.0, funding: -1.50 },
+  "HEMIUSDT":  { base: 0.004101, curr: 0.01152, vol: 8.5, funding: -0.50 },
+  "SNXXUSDT":  { base: 6.20, curr: 12.77, vol: 6.0, funding: -0.30 },
+};
+
+function onMLSelectCampaign(symbol) {
+  const customBox = document.getElementById("ml-custom-input-box");
+  if (symbol === "CUSTOM") {
+    if (customBox) customBox.style.display = "block";
+    return;
+  }
+  if (customBox) customBox.style.display = "none";
+
+  const p = CAMPAIGN_PRESETS[symbol];
+  if (p) {
+    const baseIn = document.getElementById("ml-pred-base-price");
+    const currIn = document.getElementById("ml-pred-curr-price");
+    const volIn = document.getElementById("ml-pred-vol-spike");
+    const fundIn = document.getElementById("ml-pred-funding");
+
+    if (baseIn) baseIn.value = p.base;
+    if (currIn) currIn.value = p.curr;
+    if (volIn) volIn.value = p.vol;
+    if (fundIn) fundIn.value = p.funding;
+
+    runInteractiveMLPrediction();
+  }
+}
+
+async function runInteractiveMLPrediction() {
+  try {
+    const sel = document.getElementById("ml-pred-symbol-select");
+    let sym = sel ? sel.value : "BTRUSDT";
+    if (sym === "CUSTOM") {
+      const customIn = document.getElementById("ml-pred-custom-sym");
+      sym = (customIn && customIn.value.trim()) ? customIn.value.trim().toUpperCase() : "BTRUSDT";
+    }
+
+    const basePrice = parseFloat(document.getElementById("ml-pred-base-price")?.value || 0.01587);
+    const currPrice = parseFloat(document.getElementById("ml-pred-curr-price")?.value || 0.15663);
+    const volSpike = parseFloat(document.getElementById("ml-pred-vol-spike")?.value || 10.0);
+    const fundingPct = parseFloat(document.getElementById("ml-pred-funding")?.value || 0.0);
+    const fundingRate = fundingPct / 100.0;
+
+    const res = await fetch("/api/ml/predict_pump_multiplier", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        symbol: sym,
+        base_price: basePrice,
+        current_price: currPrice,
+        vol_spike_ratio: volSpike,
+        funding_rate: fundingRate,
+      })
+    });
+
+    if (!res.ok) return;
+    const data = await res.json();
+    if (data.status !== "success" || !data.prediction) return;
+
+    const p = data.prediction;
+
+    // Update Result UI Card
+    const symEl = document.getElementById("ml-pred-res-sym");
+    if (symEl) symEl.innerText = p.symbol;
+
+    const tierEl = document.getElementById("ml-pred-res-tier");
+    if (tierEl) tierEl.innerText = `Phân Khúc Giá: ${p.price_tier_label} (${p.price_tier_code})`;
+
+    const stageEl = document.getElementById("ml-pred-res-stage");
+    if (stageEl) {
+      stageEl.innerText = p.stage_recommendation;
+      if (p.risk_level === "LOW_RISK") {
+        stageEl.style.borderColor = "var(--accent-green)";
+        stageEl.style.color = "var(--accent-green)";
+        stageEl.style.background = "rgba(0, 230, 118, 0.15)";
+      } else if (p.risk_level === "MEDIUM_RISK") {
+        stageEl.style.borderColor = "var(--accent-yellow)";
+        stageEl.style.color = "var(--accent-yellow)";
+        stageEl.style.background = "rgba(255, 184, 0, 0.15)";
+      } else if (p.risk_level === "HIGH_RISK") {
+        stageEl.style.borderColor = "var(--accent-orange)";
+        stageEl.style.color = "var(--accent-orange)";
+        stageEl.style.background = "rgba(255, 102, 0, 0.15)";
+      } else {
+        stageEl.style.borderColor = "var(--accent-red)";
+        stageEl.style.color = "var(--accent-red)";
+        stageEl.style.background = "rgba(255, 51, 102, 0.15)";
+      }
+    }
+
+    const currNEl = document.getElementById("ml-pred-res-curr-n");
+    if (currNEl) currNEl.innerText = `${p.current_n.toFixed(2)}x`;
+
+    const expNEl = document.getElementById("ml-pred-res-exp-n");
+    if (expNEl) expNEl.innerText = `${p.n_expected.toFixed(2)}x`;
+
+    const nRangeEl = document.getElementById("ml-pred-res-n-range");
+    if (nRangeEl) nRangeEl.innerText = `Dải 90% CI: ${p.n_low.toFixed(1)}x - ${p.n_high.toFixed(1)}x`;
+
+    const targetPriceEl = document.getElementById("ml-pred-res-target-price");
+    if (targetPriceEl) {
+      const tpFmt = p.target_peak_price < 0.001 ? p.target_peak_price.toFixed(8) : p.target_peak_price < 1 ? p.target_peak_price.toFixed(5) : p.target_peak_price.toFixed(2);
+      targetPriceEl.innerText = `$${tpFmt}`;
+    }
+
+    const priceRangeEl = document.getElementById("ml-pred-res-price-range");
+    if (priceRangeEl) {
+      const lowFmt = p.target_price_low < 0.001 ? p.target_price_low.toFixed(8) : p.target_price_low.toFixed(4);
+      const highFmt = p.target_price_high < 0.001 ? p.target_price_high.toFixed(8) : p.target_price_high.toFixed(4);
+      priceRangeEl.innerText = `$${lowFmt} - $${highFmt}`;
+    }
+
+    const upsideEl = document.getElementById("ml-pred-res-upside");
+    if (upsideEl) {
+      upsideEl.innerText = p.remaining_upside_pct > 0 ? `+${p.remaining_upside_pct}%` : "0.0% (Đạt Đỉnh)";
+      upsideEl.style.color = p.remaining_upside_pct > 30 ? "var(--accent-green)" : p.remaining_upside_pct > 0 ? "var(--accent-yellow)" : "var(--accent-red)";
+    }
+
+    const progText = document.getElementById("ml-pred-res-progress-text");
+    if (progText) progText.innerText = `${p.progress_pct}%`;
+
+    const remText = document.getElementById("ml-pred-res-rem-text");
+    if (remText) {
+      const remPct = Math.max(0, 100 - p.progress_pct);
+      remText.innerText = remPct > 0 ? `Còn ${remPct.toFixed(1)}% để chạm mục tiêu ML` : `Đã chạm ngưỡng kỳ vọng`;
+    }
+
+    const progBar = document.getElementById("ml-pred-res-progress-bar");
+    if (progBar) progBar.style.width = `${p.progress_pct}%`;
+
+    const playbookEl = document.getElementById("ml-pred-res-playbook");
+    if (playbookEl) {
+      if (p.progress_pct < 45.0) {
+        playbookEl.innerText = `Sóng đang trong pha tăng tốc sớm (tiến độ ${p.progress_pct}%). Dư địa tăng còn lớn (+${p.remaining_upside_pct}%). Khuyến nghị canh các nhịp điều chỉnh pullback để gia tăng vị thế, mục tiêu chốt lời $${p.target_peak_price}.`;
+      } else if (p.progress_pct < 80.0) {
+        playbookEl.innerText = `Sóng đang trong pha trưởng thành (tiến độ ${p.progress_pct}%). Khuyến nghị giữ vị thế, dời Trailing Stop lên để bảo toàn lợi nhuận và chuẩn bị chốt lời từng phần khi tiệm cận $${p.target_peak_price}.`;
+      } else {
+        playbookEl.innerText = `Sóng đã tiến sát hoặc vượt mục tiêu ML (${p.progress_pct}%). Rủi ro đảo chiều/phân phối rất cao. Khuyến nghị chốt lời phần lớn vị thế và tuyệt đối không mua đuổi vùng giá này.`;
+      }
+    }
+
+    const featEl = document.getElementById("ml-pred-res-features");
+    if (featEl) {
+      featEl.innerHTML = `
+        <li>Phân khúc giá ${p.price_tier_code}: Nền tảng kỳ vọng n ≈ ${p.n_low.toFixed(1)}x - ${p.n_high.toFixed(1)}x</li>
+        <li>Vol Spike ${volSpike}x: Mở rộng thanh khoản theo luật lũy thừa Bayesian</li>
+        <li>Funding ${fundingPct}%: ${fundingPct <= -0.5 ? 'Áp lực Short Squeeze kích thích gia tốc bơm mạnh' : 'Funding trung tính'}</li>
+      `;
+    }
+
+  } catch (err) {
+    console.error("Error running ML prediction:", err);
+  }
 }
 
 async function fetchResearchData() {

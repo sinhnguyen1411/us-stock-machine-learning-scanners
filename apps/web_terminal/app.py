@@ -411,18 +411,85 @@ def api_pump_multiplier_research():
         return jsonify({"status": "error", "message": str(ex)}), 500
 
 
+@app.route("/api/ml/predict_pump_multiplier", methods=["GET", "POST"])
+def api_predict_pump_multiplier():
+    try:
+        from core_engine.pump_multiplier_regressor import get_pump_multiplier_regressor
+        
+        if request.method == "POST":
+            data = request.json or {}
+        else:
+            data = request.args
+            
+        symbol = str(data.get("symbol", "BTRUSDT")).strip().upper()
+        base_price = float(data.get("base_price", 0.0))
+        current_price = float(data.get("current_price", 0.0))
+        vol_spike_ratio = float(data.get("vol_spike_ratio", 10.0))
+        funding_rate = float(data.get("funding_rate", 0.0))
+        
+        # If base_price or current_price not supplied, auto-fetch from cycle
+        if base_price <= 0 or current_price <= 0:
+            from core_engine.autonomous_super_pump_scanner import AutonomousSuperPumpScanner
+            scanner = AutonomousSuperPumpScanner()
+            cycle = scanner.scan_symbol_cycle(symbol)
+            if cycle:
+                base_price = cycle["origin_bottom_price"]
+                current_price = cycle["current_price"]
+            else:
+                ticker = connector.get_24h_ticker(symbol=symbol)
+                current_price = float(ticker.get("lastPrice", 1.0))
+                base_price = float(ticker.get("lowPrice", current_price * 0.5))
+                
+        reg = get_pump_multiplier_regressor()
+        pred = reg.predict_in_flight(
+            symbol=symbol,
+            base_price=base_price,
+            current_price=current_price,
+            vol_spike_ratio=vol_spike_ratio,
+            funding_rate=funding_rate,
+        )
+        return jsonify({
+            "status": "success",
+            "prediction": pred,
+        })
+    except Exception as ex:
+        logger.error(f"Error predicting pump multiplier: {ex}", exc_info=True)
+        return jsonify({"status": "error", "message": str(ex)}), 500
+
+
 @app.route("/api/ml/active_pump_campaigns")
 def api_active_pump_campaigns():
     try:
         from core_engine import get_pump_registry
+        from core_engine.pump_multiplier_regressor import get_pump_multiplier_regressor
+        
         registry = get_pump_registry()
+        reg = get_pump_multiplier_regressor()
+        
         active = registry.get_active_campaigns()
         all_c = registry.get_all_campaigns()
+        
+        # Enrich active campaigns with real-time in-flight ML predictions
+        active_list = []
+        for c in active:
+            c_dict = c.to_dict()
+            try:
+                ml_eval = reg.predict_in_flight(
+                    symbol=c.symbol,
+                    base_price=c.origin_bottom_price,
+                    current_price=c.current_price,
+                    vol_spike_ratio=15.0,
+                )
+                c_dict["ml_prediction"] = ml_eval
+            except Exception:
+                pass
+            active_list.append(c_dict)
+            
         return jsonify({
             "status": "success",
             "timestamp": datetime.now(timezone.utc).strftime("%H:%M:%S"),
             "active_count": len(active),
-            "active_campaigns": [c.to_dict() for c in active],
+            "active_campaigns": active_list,
             "all_campaigns": [c.to_dict() for c in all_c],
         })
     except Exception as ex:

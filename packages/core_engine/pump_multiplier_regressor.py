@@ -255,6 +255,79 @@ class PumpMultiplierRegressor:
             }
         )
 
+    def predict_in_flight(
+        self,
+        symbol: str,
+        base_price: float,
+        current_price: float,
+        vol_spike_ratio: float = 1.0,
+        funding_rate: float = 0.0,
+        pre_pump_vol_24h: float = 1_000_000.0,
+    ) -> Dict[str, Any]:
+        """
+        Specialized In-Flight Pump Multiplier Predictor.
+        Computes expected ultimate peak n, target peak price, completion progress, remaining upside,
+        and ML stage recommendation for an active pump wave.
+        """
+        base_pred = self.predict(
+            symbol=symbol,
+            current_price=base_price,
+            vol_spike_ratio=vol_spike_ratio,
+            pre_pump_vol_24h=pre_pump_vol_24h,
+        )
+
+        n_expected = base_pred.n_expected
+        n_low = base_pred.n_low
+        n_high = base_pred.n_high
+
+        # Squeeze adjustment for negative funding pressure
+        if funding_rate <= -0.005:
+            funding_boost = min(1.0 + abs(funding_rate) * 25.0, 1.8)
+            n_expected = round(n_expected * funding_boost, 2)
+            n_high = round(n_high * funding_boost, 2)
+
+        curr_n = round(current_price / max(base_price, 1e-12), 2)
+        target_peak_price = round(base_price * n_expected, 8)
+        target_price_low = round(base_price * n_low, 8)
+        target_price_high = round(base_price * n_high, 8)
+
+        progress_pct = round(min(100.0, (curr_n / max(n_expected, 0.01)) * 100.0), 1)
+        remaining_upside_pct = round(max(0.0, (target_peak_price - current_price) / max(current_price, 1e-12) * 100.0), 1)
+
+        # Stage recommendation
+        if progress_pct < 45.0:
+            stage_rec = "🟢 PHA ĐẨY MẠNH (Upside Còn Lớn, Canh Pullback Vào Lệnh)"
+            risk_level = "LOW_RISK"
+        elif progress_pct < 80.0:
+            stage_rec = "🟡 PHA TRƯỞNG THÀNH (Gồng Lãi, Kéo Trailing Stop Bảo Toàn Vốn)"
+            risk_level = "MEDIUM_RISK"
+        elif progress_pct <= 105.0:
+            stage_rec = "🟠 TIỆM CẬN ĐỈNH ML (Chốt Lời Từng Phần, Tránh Mua Đu Đỉnh)"
+            risk_level = "HIGH_RISK"
+        else:
+            stage_rec = "🔴 VƯỢT MỤC TIÊU ML (Cảnh Báo Quá Mua / Cận Kề Pha Phân Phối)"
+            risk_level = "CRITICAL_EXHAUSTION"
+
+        return {
+            "symbol": symbol,
+            "base_price": base_price,
+            "current_price": current_price,
+            "current_n": curr_n,
+            "n_expected": n_expected,
+            "n_low": n_low,
+            "n_high": n_high,
+            "target_peak_price": target_peak_price,
+            "target_price_low": target_price_low,
+            "target_price_high": target_price_high,
+            "progress_pct": progress_pct,
+            "remaining_upside_pct": remaining_upside_pct,
+            "stage_recommendation": stage_rec,
+            "risk_level": risk_level,
+            "price_tier_code": base_pred.price_tier_code,
+            "price_tier_label": base_pred.price_tier_label,
+            "features_used": base_pred.features_used,
+        }
+
     def get_model_summary(self) -> Dict[str, Any]:
         return {
             "version": "v3_crisp_dm_ensemble",
