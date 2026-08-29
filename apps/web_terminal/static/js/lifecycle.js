@@ -662,16 +662,35 @@ async function runInteractiveMLPrediction() {
     }
 
     const progText = document.getElementById("ml-pred-res-progress-text");
-    if (progText) progText.innerText = `${p.progress_pct}%`;
+    if (progText) {
+      if (p.progress_pct > 100) {
+        progText.innerHTML = `<span style="color: #ff007a; font-weight: 800;">${p.progress_pct}% (VƯỢT ĐÍCH ${p.n_expected.toFixed(1)}x)</span>`;
+      } else {
+        progText.innerText = `${p.progress_pct}%`;
+      }
+    }
 
     const remText = document.getElementById("ml-pred-res-rem-text");
     if (remText) {
-      const remPct = Math.max(0, 100 - p.progress_pct);
-      remText.innerText = remPct > 0 ? `Còn ${remPct.toFixed(1)}% để chạm mục tiêu ML` : `Đã chạm ngưỡng kỳ vọng`;
+      if (p.progress_pct > 100) {
+        remText.innerHTML = `<span style="color: #ff007a; font-weight: 700;">Đã vượt xa mục tiêu ban đầu +${(p.progress_pct - 100).toFixed(1)}%</span>`;
+      } else {
+        const remPct = Math.max(0, 100 - p.progress_pct);
+        remText.innerText = remPct > 0 ? `Còn ${remPct.toFixed(1)}% để chạm mục tiêu ML` : `Đã chạm ngưỡng kỳ vọng`;
+      }
     }
 
     const progBar = document.getElementById("ml-pred-res-progress-bar");
-    if (progBar) progBar.style.width = `${p.progress_pct}%`;
+    if (progBar) {
+      progBar.style.width = `${Math.min(100, p.progress_pct)}%`;
+      if (p.progress_pct > 100) {
+        progBar.style.background = 'linear-gradient(90deg, #00e676 0%, #00f0ff 40%, #ff007a 100%)';
+        progBar.style.boxShadow = '0 0 12px rgba(255, 0, 122, 0.6)';
+      } else {
+        progBar.style.background = 'linear-gradient(90deg, #00e676 0%, #00f0ff 70%, #ffb800 100%)';
+        progBar.style.boxShadow = 'none';
+      }
+    }
 
     const playbookEl = document.getElementById("ml-pred-res-playbook");
     if (playbookEl) {
