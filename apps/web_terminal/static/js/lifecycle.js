@@ -882,6 +882,29 @@ async function fetchResearchData() {
   }
 }
 
+let currentScatterFilter = "ALL";
+
+function setScatterFilter(filter) {
+  currentScatterFilter = filter;
+  const btnIds = {
+    "ALL": "scatter-filter-all",
+    "ACTIVE": "scatter-filter-active",
+    "OUTLIER": "scatter-filter-outlier",
+    "MID": "scatter-filter-mid",
+    "BASE": "scatter-filter-base"
+  };
+  Object.keys(btnIds).forEach(k => {
+    const el = document.getElementById(btnIds[k]);
+    if (el) {
+      if (k === filter) el.classList.add("active");
+      else el.classList.remove("active");
+    }
+  });
+  if (cachedResearchData && cachedResearchData.events) {
+    renderScatterCanvas(cachedResearchData.events);
+  }
+}
+
 let scatterPoints = [];
 let isScatterHoverAttached = false;
 
@@ -889,25 +912,33 @@ function renderScatterCanvas(events) {
   const canvas = document.getElementById("ml-scatter-canvas");
   if (!canvas) return;
 
+  // 1. Dynamic dataset counter updates
+  const scatterCountEl = document.getElementById("scatter-events-count");
+  if (scatterCountEl) scatterCountEl.innerText = events.length;
+  const scatterCountAllEl = document.getElementById("scatter-count-all");
+  if (scatterCountAllEl) scatterCountAllEl.innerText = events.length;
+  const datasetCountEl = document.getElementById("dataset-events-count");
+  if (datasetCountEl) datasetCountEl.innerText = events.length;
+
   const rect = canvas.getBoundingClientRect();
   const dpr = window.devicePixelRatio || 2;
   canvas.width = (rect.width || 1100) * dpr;
-  canvas.height = (rect.height || 480) * dpr;
+  canvas.height = (rect.height || 520) * dpr;
 
   const ctx = canvas.getContext("2d");
   ctx.scale(dpr, dpr);
 
   const W = rect.width || 1100;
-  const H = rect.height || 480;
+  const H = rect.height || 520;
 
-  // High contrast background
+  // Deep space background
   ctx.fillStyle = "#0a0f1d";
   ctx.fillRect(0, 0, W, H);
 
-  const padLeft = 80;
-  const padRight = 40;
-  const padTop = 35;
-  const padBottom = 45;
+  const padLeft = 75;
+  const padRight = 35;
+  const padTop = 38;
+  const padBottom = 48;
 
   const plotW = W - padLeft - padRight;
   const plotH = H - padTop - padBottom;
@@ -916,9 +947,9 @@ function renderScatterCanvas(events) {
   const minLogP = Math.log(0.0001);
   const maxLogP = Math.log(1000.0);
 
-  // Log N Range: 1.0 (1x) to 120.0 (120x)
+  // Log N Range: 1.0 (1x) to 130.0 (130x)
   const minLogN = Math.log(1.0);
-  const maxLogN = Math.log(120.0);
+  const maxLogN = Math.log(130.0);
 
   function toScreenX(price) {
     const lp = Math.log(Math.max(price, 0.00008));
@@ -930,10 +961,40 @@ function renderScatterCanvas(events) {
     return padTop + plotH - ((ln - minLogN) / (maxLogN - minLogN)) * plotH;
   }
 
-  // Draw Grid Lines & Axis Labels
-  ctx.strokeStyle = "rgba(255, 255, 255, 0.12)";
+  // ── 2. BACKGROUND 8 PRICE TIER BANDS & LABELS ────────────────────────
+  const tierBands = [
+    { code: "T1", label: "Micro", min: 0.0001, max: 0.001 },
+    { code: "T2", label: "Sub-Cent", min: 0.001, max: 0.01 },
+    { code: "T3", label: "Penny", min: 0.01, max: 0.10 },
+    { code: "T4", label: "Low", min: 0.10, max: 1.0 },
+    { code: "T5", label: "Mid", min: 1.0, max: 5.0 },
+    { code: "T6", label: "High", min: 5.0, max: 20.0 },
+    { code: "T7", label: "Mega", min: 20.0, max: 100.0 },
+    { code: "T8", label: "Ultra", min: 100.0, max: 1000.0 }
+  ];
+
+  tierBands.forEach((tb, i) => {
+    const x1 = toScreenX(tb.min);
+    const x2 = toScreenX(tb.max);
+    
+    // Subtle alternating band shade
+    if (i % 2 === 0) {
+      ctx.fillStyle = "rgba(0, 240, 255, 0.015)";
+      ctx.fillRect(x1, padTop, x2 - x1, plotH);
+    }
+
+    // Tier header tag at the top
+    ctx.font = "bold 9px 'JetBrains Mono', monospace";
+    ctx.fillStyle = "rgba(0, 240, 255, 0.4)";
+    ctx.textAlign = "center";
+    ctx.fillText(`${tb.code} ${tb.label}`, (x1 + x2) / 2, padTop - 8);
+    ctx.textAlign = "left";
+  });
+
+  // ── 3. GRID LINES & AXIS TICKS ───────────────────────────────────────
+  ctx.strokeStyle = "rgba(255, 255, 255, 0.08)";
   ctx.lineWidth = 1;
-  ctx.font = "bold 12px 'JetBrains Mono', monospace";
+  ctx.font = "bold 11px 'JetBrains Mono', monospace";
 
   // Y-axis grid: 2x, 5x, 10x, 20x, 50x, 100x
   const yTicks = [2, 5, 10, 20, 50, 100];
@@ -944,11 +1005,11 @@ function renderScatterCanvas(events) {
     ctx.lineTo(W - padRight, y);
     ctx.stroke();
 
-    ctx.fillStyle = nVal >= 30 ? "#ff0055" : nVal >= 10 ? "#ffb800" : "#94a3b8";
-    ctx.fillText(`${nVal}x`, 22, y + 4);
+    ctx.fillStyle = nVal >= 30 ? "#ff0055" : nVal >= 10 ? "#ffb800" : "#64748b";
+    ctx.fillText(`${nVal}x`, 20, y + 4);
   });
 
-  // X-axis grid: $0.0001, $0.001, $0.01, $0.1, $1, $10, $100
+  // X-axis grid & labels
   const xTicks = [
     { p: 0.0001, lbl: "$0.0001" },
     { p: 0.001,  lbl: "$0.001" },
@@ -961,61 +1022,189 @@ function renderScatterCanvas(events) {
   xTicks.forEach(t => {
     const x = toScreenX(t.p);
     ctx.beginPath();
+    ctx.setLineDash([3, 3]);
     ctx.moveTo(x, padTop);
     ctx.lineTo(x, padTop + plotH);
     ctx.stroke();
+    ctx.setLineDash([]);
 
-    ctx.fillStyle = "#cbd5e1";
-    ctx.fillText(t.lbl, x - 22, H - 15);
+    ctx.fillStyle = "#94a3b8";
+    ctx.fillText(t.lbl, x - 18, H - 18);
   });
 
-  // Draw Regression Power Law Curve
-  ctx.strokeStyle = "rgba(0, 240, 255, 0.9)";
-  ctx.lineWidth = 3;
-  ctx.shadowColor = "rgba(0, 240, 255, 0.4)";
-  ctx.shadowBlur = 8;
+  // ── 4. SHADED 90% CONFIDENCE INTERVAL BAND (CI CONE) ────────────────
+  const ciSteps = 120;
+  const highPoints = [];
+  const lowPoints = [];
+
+  for (let s = 0; s <= ciSteps; s++) {
+    const pVal = Math.exp(minLogP + (s / ciSteps) * (maxLogP - minLogP));
+    const nMed = Math.min(85.0, Math.max(1.8, 6.2 * Math.pow(pVal, -0.22)));
+    const nHigh = Math.min(125.0, nMed * 1.95);
+    const nLow = Math.max(1.15, nMed * 0.52);
+
+    highPoints.push({ x: toScreenX(pVal), y: toScreenY(nHigh) });
+    lowPoints.push({ x: toScreenX(pVal), y: toScreenY(nLow) });
+  }
+
+  // Fill Shaded CI Polygon
   ctx.beginPath();
-  let firstPt = true;
-  for (let step = 0; step <= 100; step++) {
-    const pVal = Math.exp(minLogP + (step / 100) * (maxLogP - minLogP));
-    const nCurve = Math.min(100.0, Math.max(1.8, 6.2 * Math.pow(pVal, -0.22)));
+  highPoints.forEach((pt, idx) => {
+    if (idx === 0) ctx.moveTo(pt.x, pt.y);
+    else ctx.lineTo(pt.x, pt.y);
+  });
+  for (let idx = lowPoints.length - 1; idx >= 0; idx--) {
+    ctx.lineTo(lowPoints[idx].x, lowPoints[idx].y);
+  }
+  ctx.closePath();
+  const ciGrad = ctx.createLinearGradient(0, padTop, 0, padTop + plotH);
+  ciGrad.addColorStop(0, "rgba(0, 240, 255, 0.12)");
+  ciGrad.addColorStop(1, "rgba(0, 240, 255, 0.02)");
+  ctx.fillStyle = ciGrad;
+  ctx.fill();
+
+  // Upper & Lower dashed boundary lines
+  ctx.strokeStyle = "rgba(0, 240, 255, 0.35)";
+  ctx.lineWidth = 1.2;
+  ctx.setLineDash([4, 4]);
+
+  ctx.beginPath();
+  highPoints.forEach((pt, idx) => {
+    if (idx === 0) ctx.moveTo(pt.x, pt.y);
+    else ctx.lineTo(pt.x, pt.y);
+  });
+  ctx.stroke();
+
+  ctx.beginPath();
+  lowPoints.forEach((pt, idx) => {
+    if (idx === 0) ctx.moveTo(pt.x, pt.y);
+    else ctx.lineTo(pt.x, pt.y);
+  });
+  ctx.stroke();
+  ctx.setLineDash([]);
+
+  // ── 5. MAIN POWER LAW REGRESSION CURVE ───────────────────────────────
+  ctx.strokeStyle = "rgba(0, 240, 255, 0.95)";
+  ctx.lineWidth = 2.8;
+  ctx.shadowColor = "rgba(0, 240, 255, 0.5)";
+  ctx.shadowBlur = 10;
+  ctx.beginPath();
+  for (let s = 0; s <= ciSteps; s++) {
+    const pVal = Math.exp(minLogP + (s / ciSteps) * (maxLogP - minLogP));
+    const nMed = Math.min(85.0, Math.max(1.8, 6.2 * Math.pow(pVal, -0.22)));
     const x = toScreenX(pVal);
-    const y = toScreenY(nCurve);
-    if (firstPt) {
-      ctx.moveTo(x, y);
-      firstPt = false;
-    } else {
-      ctx.lineTo(x, y);
-    }
+    const y = toScreenY(nMed);
+    if (s === 0) ctx.moveTo(x, y);
+    else ctx.lineTo(x, y);
   }
   ctx.stroke();
   ctx.shadowBlur = 0;
 
-  // Store screen coordinates for hover interaction
+  // CI Label watermark
+  ctx.font = "italic 10px Inter, sans-serif";
+  ctx.fillStyle = "rgba(0, 240, 255, 0.7)";
+  ctx.fillText("Dải Phân Phối Chuẩn 90% CI (Power Law Cone)", toScreenX(0.0003), toScreenY(65));
+  ctx.fillText("Đường Hồi Quy Trung Vị: n ≈ 6.2 · P_base^-0.22", toScreenX(0.03), toScreenY(7));
+
+  // ── 6. DATA POINTS WITH Z-ORDERING & ACTIVE HIGHLIGHTS ───────────────
   scatterPoints = [];
 
-  // Draw Data Points
-  events.forEach(e => {
+  // Identify active coins
+  const activeCoinsList = (cachedCampaignsData && cachedCampaignsData.all_campaigns) 
+    ? cachedCampaignsData.all_campaigns.filter(c => c.is_active && c.stage !== "DUMP_CONFIRMED")
+    : [];
+  const activeSymbols = new Set(activeCoinsList.map(c => c.symbol));
+
+  // Filter events according to currentScatterFilter
+  let filteredEvents = events;
+  if (currentScatterFilter === "OUTLIER") {
+    filteredEvents = events.filter(e => e.n_actual >= 30);
+  } else if (currentScatterFilter === "MID") {
+    filteredEvents = events.filter(e => e.n_actual >= 10 && e.n_actual < 30);
+  } else if (currentScatterFilter === "BASE") {
+    filteredEvents = events.filter(e => e.n_actual < 10);
+  } else if (currentScatterFilter === "ACTIVE") {
+    filteredEvents = events.filter(e => activeSymbols.has(e.symbol));
+  }
+
+  // Split into layers for clean Z-Ordering
+  const basePoints = [];
+  const midPoints = [];
+  const outlierPoints = [];
+
+  filteredEvents.forEach(e => {
     const x = toScreenX(e.pre_pump_price);
     const y = toScreenY(e.n_actual);
+    const isActive = activeSymbols.has(e.symbol);
+    const pt = { x, y, event: e, isActive, radius: e.n_actual >= 30 ? 8 : e.n_actual >= 10 ? 6 : 4.5 };
+    scatterPoints.push(pt);
 
-    scatterPoints.push({
-      x, y,
-      event: e,
-      radius: e.n_actual >= 30 ? 7 : 5,
-    });
+    if (e.n_actual >= 30) outlierPoints.push(pt);
+    else if (e.n_actual >= 10) midPoints.push(pt);
+    else basePoints.push(pt);
+  });
 
-    // Glowing Dot
+  // Layer 1: Base Points (n < 10x)
+  basePoints.forEach(pt => {
     ctx.beginPath();
-    ctx.arc(x, y, e.n_actual >= 30 ? 7 : e.n_actual >= 10 ? 5.5 : 4.5, 0, 2 * Math.PI);
-    ctx.fillStyle = e.n_actual >= 30 ? "#ff0055" : e.n_actual >= 10 ? "#ffb800" : "#00f0ff";
+    ctx.arc(pt.x, pt.y, 4.0, 0, 2 * Math.PI);
+    ctx.fillStyle = "rgba(0, 229, 255, 0.7)";
+    ctx.fill();
+    ctx.strokeStyle = "rgba(255, 255, 255, 0.4)";
+    ctx.lineWidth = 1;
+    ctx.stroke();
+
+    if (pt.isActive) {
+      ctx.beginPath();
+      ctx.arc(pt.x, pt.y, 9.0, 0, 2 * Math.PI);
+      ctx.strokeStyle = "#00e676";
+      ctx.lineWidth = 1.8;
+      ctx.stroke();
+    }
+  });
+
+  // Layer 2: Mid Points (10x <= n < 30x)
+  midPoints.forEach(pt => {
+    ctx.beginPath();
+    ctx.arc(pt.x, pt.y, 5.8, 0, 2 * Math.PI);
+    ctx.fillStyle = "#ffb800";
     ctx.fill();
     ctx.strokeStyle = "#ffffff";
     ctx.lineWidth = 1.5;
     ctx.stroke();
+
+    if (pt.isActive) {
+      ctx.beginPath();
+      ctx.arc(pt.x, pt.y, 11.0, 0, 2 * Math.PI);
+      ctx.strokeStyle = "#00e676";
+      ctx.lineWidth = 2.0;
+      ctx.stroke();
+    }
   });
 
-  // Smart Non-Overlapping Badges for Landmark Coins
+  // Layer 3: Super Outliers (n >= 30x) - Rendered with high glow
+  outlierPoints.forEach(pt => {
+    ctx.shadowColor = "#ff0055";
+    ctx.shadowBlur = 12;
+    ctx.beginPath();
+    ctx.arc(pt.x, pt.y, 7.8, 0, 2 * Math.PI);
+    ctx.fillStyle = "#ff0055";
+    ctx.fill();
+    ctx.strokeStyle = "#ffffff";
+    ctx.lineWidth = 2.0;
+    ctx.stroke();
+    ctx.shadowBlur = 0;
+
+    if (pt.isActive) {
+      ctx.beginPath();
+      ctx.arc(pt.x, pt.y, 13.0, 0, 2 * Math.PI);
+      ctx.strokeStyle = "#00e676";
+      ctx.lineWidth = 2.2;
+      ctx.stroke();
+    }
+  });
+
+  // ── 7. SMART LANDMARK BADGES ─────────────────────────────────────────
   const landmarkPositions = {
     "AKEUSDT":    { dx: 10,  dy: -10, align: "left" },
     "BEATUSDT":   { dx: 10,  dy: -10, align: "left" },
@@ -1034,26 +1223,26 @@ function renderScatterCanvas(events) {
     "SNXXUSDT":   { dx: 10,  dy: -8,  align: "left" },
   };
 
-
-  events.forEach(e => {
+  filteredEvents.forEach(e => {
     const pos = landmarkPositions[e.symbol];
     if (pos) {
       const x = toScreenX(e.pre_pump_price);
       const y = toScreenY(e.n_actual);
+      const isActive = activeSymbols.has(e.symbol);
 
-      const labelText = `${e.symbol.replace("USDT", "")} (${e.n_actual.toFixed(0)}x)`;
+      const labelText = `${e.symbol.replace("USDT", "")} (${e.n_actual.toFixed(0)}x)${isActive ? ' 🔥' : ''}`;
       ctx.font = "bold 11px Inter, sans-serif";
       const textMetrics = ctx.measureText(labelText);
       const textW = textMetrics.width;
-      const textH = 14;
+      const textH = 15;
 
       const lx = pos.align === "right" ? x + pos.dx - textW - 4 : x + pos.dx;
       const ly = y + pos.dy - 10;
 
       // Draw pill badge
-      ctx.fillStyle = "rgba(10, 15, 29, 0.9)";
-      ctx.strokeStyle = e.n_actual >= 30 ? "#ff0055" : e.n_actual >= 10 ? "#ffb800" : "#00f0ff";
-      ctx.lineWidth = 1.2;
+      ctx.fillStyle = "rgba(10, 15, 29, 0.92)";
+      ctx.strokeStyle = isActive ? "#00e676" : e.n_actual >= 30 ? "#ff0055" : e.n_actual >= 10 ? "#ffb800" : "#00f0ff";
+      ctx.lineWidth = isActive ? 1.8 : 1.2;
       ctx.beginPath();
       ctx.roundRect(lx - 4, ly - 2, textW + 8, textH + 4, 4);
       ctx.fill();
@@ -1061,11 +1250,11 @@ function renderScatterCanvas(events) {
 
       // Draw text
       ctx.fillStyle = "#ffffff";
-      ctx.fillText(labelText, lx, ly + 10);
+      ctx.fillText(labelText, lx, ly + 11);
     }
   });
 
-  // Attach hover interaction once
+  // ── 8. RICH INTERACTIVE TOOLTIP ──────────────────────────────────────
   if (!isScatterHoverAttached) {
     isScatterHoverAttached = true;
     const tooltip = document.getElementById("ml-scatter-tooltip");
@@ -1078,7 +1267,7 @@ function renderScatterCanvas(events) {
       let found = null;
       for (const pt of scatterPoints) {
         const dist = Math.hypot(pt.x - mouseX, pt.y - mouseY);
-        if (dist <= pt.radius + 6) {
+        if (dist <= pt.radius + 8) {
           found = pt;
           break;
         }
@@ -1086,23 +1275,38 @@ function renderScatterCanvas(events) {
 
       if (found && tooltip) {
         const ev = found.event;
+        const isActive = found.isActive;
         const baseFmt = ev.pre_pump_price < 0.001 ? ev.pre_pump_price.toFixed(8) : ev.pre_pump_price < 1 ? ev.pre_pump_price.toFixed(5) : ev.pre_pump_price.toFixed(2);
         const peakFmt = ev.peak_price < 0.001 ? ev.peak_price.toFixed(8) : ev.peak_price < 1 ? ev.peak_price.toFixed(5) : ev.peak_price.toFixed(2);
 
         tooltip.innerHTML = `
-          <div style="font-weight: 800; font-size: 0.92rem; color: var(--accent-cyan); margin-bottom: 4px;">${ev.symbol}</div>
-          <div style="font-family: var(--font-mono); font-size: 0.76rem; color: #fff; margin-bottom: 3px;">
-            Giá Đáy Gốc: <strong style="color: var(--accent-cyan);">$${baseFmt}</strong>
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+            <span style="font-weight: 800; font-size: 1.02rem; color: #fff;">${ev.symbol}</span>
+            <span style="font-size: 0.68rem; padding: 2px 6px; border-radius: 4px; font-weight: 700; background: ${isActive ? 'rgba(0,230,118,0.15)' : 'rgba(255,255,255,0.08)'}; color: ${isActive ? '#00e676' : 'var(--text-dim)'}; border: 1px solid ${isActive ? '#00e676' : 'rgba(255,255,255,0.15)'};">
+              ${isActive ? '🟢 ĐANG CHẠY' : '⚪ ĐÃ HOÀN TẤT'}
+            </span>
           </div>
-          <div style="font-family: var(--font-mono); font-size: 0.76rem; color: #fff; margin-bottom: 3px;">
-            Đỉnh Cao Nhất: <strong style="color: var(--accent-yellow);">$${peakFmt} (${ev.n_actual.toFixed(2)}x)</strong>
+          <div style="font-family: var(--font-mono); font-size: 0.76rem; color: #fff; margin-bottom: 3px; display: flex; justify-content: space-between;">
+            <span style="color: var(--text-dim);">Đáy Gốc (Base):</span>
+            <strong style="color: var(--accent-cyan);">$${baseFmt}</strong>
           </div>
-          <div style="font-size: 0.72rem; color: var(--text-dim); margin-top: 4px;">
-            Phân Khúc: ${ev.tier_code} • Ngày Đáy: ${ev.event_date}
+          <div style="font-family: var(--font-mono); font-size: 0.76rem; color: #fff; margin-bottom: 3px; display: flex; justify-content: space-between;">
+            <span style="color: var(--text-dim);">Đỉnh Cao Nhất:</span>
+            <strong style="color: var(--accent-yellow);">$${peakFmt}</strong>
+          </div>
+          <div style="font-family: var(--font-mono); font-size: 0.82rem; margin-bottom: 6px; display: flex; justify-content: space-between; background: rgba(0,0,0,0.35); padding: 4px 6px; border-radius: 4px; border: 1px solid rgba(255,255,255,0.06);">
+            <span style="color: var(--text-dim);">Bội Số Thực Tế n:</span>
+            <strong style="color: ${ev.n_actual >= 30 ? '#ff0055' : ev.n_actual >= 10 ? '#ffb800' : '#00e5ff'}; font-size: 0.92rem;">${ev.n_actual.toFixed(2)}x</strong>
+          </div>
+          <div style="font-size: 0.70rem; color: var(--text-dim); line-height: 1.4; border-top: 1px solid rgba(255,255,255,0.08); padding-top: 5px;">
+            Tầng: <strong style="color: var(--accent-cyan);">${ev.tier_code || 'Tiers'}</strong> &bull; Vol Spike: <strong style="color: #fff;">${ev.vol_spike_ratio ? ev.vol_spike_ratio.toFixed(1) + 'x' : '—'}</strong> &bull; Ngày: ${ev.event_date}
+          </div>
+          <div style="margin-top: 6px; text-align: right;">
+            <a href="/?symbol=${ev.symbol}" style="font-size: 0.70rem; color: var(--accent-cyan); text-decoration: none; font-weight: 700;">Soi Nến Live ↗</a>
           </div>
         `;
-        tooltip.style.left = `${Math.min(cRect.width - 220, Math.max(10, mouseX + 15))}px`;
-        tooltip.style.top = `${Math.max(10, mouseY - 70)}px`;
+        tooltip.style.left = `${Math.min(cRect.width - 240, Math.max(10, mouseX + 15))}px`;
+        tooltip.style.top = `${Math.max(10, mouseY - 85)}px`;
         tooltip.style.display = "block";
       } else if (tooltip) {
         tooltip.style.display = "none";
@@ -1114,6 +1318,7 @@ function renderScatterCanvas(events) {
     });
   }
 }
+
 
 function renderTiersGrid(tiers) {
   const container = document.getElementById("tiers-grid");

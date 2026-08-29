@@ -308,44 +308,46 @@
 
       <!-- Scatter Chart Canvas Container -->
       <div style="background: rgba(13, 19, 31, 0.95); border: 1px solid rgba(0, 240, 255, 0.35); border-radius: 8px; padding: 20px; margin-bottom: 20px; box-shadow: 0 4px 20px rgba(0,0,0,0.5);">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; flex-wrap: wrap; gap: 12px;">
           <div>
             <h4 style="font-size: 1.05rem; font-weight: 800; color: #fff; margin: 0 0 4px 0;">
               Biểu Đồ Phân Tán Thực Nghiệm: Giá Đáy (Log Scale) &harr; Bội Số Pump n (Log Scale)
             </h4>
-            <div style="font-size: 0.76rem; color: var(--accent-cyan);">Dữ liệu 128 sự kiện Binance Futures USD-M • Đường hồi quy luật lũy thừa (Power Law Regression)</div>
+            <div style="font-size: 0.76rem; color: var(--accent-cyan);">Dữ liệu <span id="scatter-events-count" style="font-weight: 800; color: #fff;">388</span> sự kiện Binance Futures USD-M &bull; Đường hồi quy định luật lũy thừa & Dải phân phối chuẩn 90% CI</div>
           </div>
-          <div style="display: flex; gap: 12px; font-size: 0.76rem; font-family: var(--font-mono);">
-            <span style="display: flex; align-items: center; gap: 5px; color: #fff;"><span style="width: 10px; height: 10px; border-radius: 50%; background: #ff0055; display: inline-block;"></span> n &ge; 30x</span>
-            <span style="display: flex; align-items: center; gap: 5px; color: #fff;"><span style="width: 10px; height: 10px; border-radius: 50%; background: #ffb800; display: inline-block;"></span> 10x &le; n &lt; 30x</span>
-            <span style="display: flex; align-items: center; gap: 5px; color: #fff;"><span style="width: 10px; height: 10px; border-radius: 50%; background: #00f0ff; display: inline-block;"></span> n &lt; 10x</span>
+          <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
+            <button class="filter-btn active" id="scatter-filter-all" onclick="setScatterFilter('ALL')" style="font-size: 0.72rem; padding: 4px 10px;">Tất Cả (<span id="scatter-count-all">388</span>)</button>
+            <button class="filter-btn" id="scatter-filter-active" onclick="setScatterFilter('ACTIVE')" style="font-size: 0.72rem; padding: 4px 10px; border-color: rgba(0, 230, 118, 0.4); color: #00e676;">🔥 Đang Chạy (22)</button>
+            <button class="filter-btn" id="scatter-filter-outlier" onclick="setScatterFilter('OUTLIER')" style="font-size: 0.72rem; padding: 4px 10px; border-color: rgba(255, 0, 85, 0.4); color: #ff0055;">🔴 n &ge; 30x</button>
+            <button class="filter-btn" id="scatter-filter-mid" onclick="setScatterFilter('MID')" style="font-size: 0.72rem; padding: 4px 10px; border-color: rgba(255, 184, 0, 0.4); color: #ffb800;">🟡 10x &le; n &lt; 30x</button>
+            <button class="filter-btn" id="scatter-filter-base" onclick="setScatterFilter('BASE')" style="font-size: 0.72rem; padding: 4px 10px; border-color: rgba(0, 240, 255, 0.4); color: #00f0ff;">🔵 n &lt; 10x</button>
           </div>
         </div>
-        <div style="position: relative; width: 100%; height: 480px;">
-          <canvas id="ml-scatter-canvas" style="width: 100%; height: 100%; display: block; border-radius: 6px;"></canvas>
-          <div id="ml-scatter-tooltip" style="position: absolute; display: none; pointer-events: none; background: rgba(11, 15, 23, 0.95); border: 1px solid var(--accent-cyan); border-radius: 6px; padding: 10px 14px; font-size: 0.78rem; color: #fff; box-shadow: 0 8px 24px rgba(0,0,0,0.8); z-index: 100; min-width: 180px;"></div>
+        <div style="position: relative; width: 100%; height: 520px;">
+          <canvas id="ml-scatter-canvas" style="width: 100%; height: 100%; display: block; border-radius: 6px; cursor: crosshair;"></canvas>
+          <div id="ml-scatter-tooltip" style="position: absolute; display: none; pointer-events: none; background: rgba(11, 15, 23, 0.96); border: 1px solid var(--accent-cyan); border-radius: 6px; padding: 12px 16px; font-size: 0.78rem; color: #fff; box-shadow: 0 8px 24px rgba(0,0,0,0.85); z-index: 100; min-width: 220px; backdrop-filter: blur(8px);"></div>
         </div>
       </div>
 
       <!-- 8 Price Tiers Reference Cards -->
       <div style="margin-bottom: 20px;">
         <h4 style="font-size: 0.95rem; font-weight: 700; color: var(--text-main); margin-bottom: 10px;">
-          8 Tầng Giá & Giới Hạn Kỳ Vọng Vật Lý (Physical Limits):
+          8 Tầng Giá &amp; Giới Hạn Kỳ Vọng Vật Lý (Physical Limits):
         </h4>
         <div id="tiers-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 10px;">
           <!-- Rendered via JS -->
         </div>
       </div>
 
-      <!-- Verified 126 Events Dataset Table -->
+      <!-- Verified 388 Events Dataset Table -->
       <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
         <h4 style="font-size: 0.95rem; font-weight: 700; color: var(--text-main);">
-          Tập Dữ Liệu 128 Sự Kiện USD-M Futures Được Huấn Luyện (Sorted by Base Price):
+          Tập Dữ Liệu <span id="dataset-events-count" style="color: var(--accent-cyan);">388</span> Sự Kiện USD-M Futures Được Huấn Luyện (Sorted by Base Price):
         </h4>
-        <span style="font-size: 0.74rem; color: var(--text-dim);">100% Futures USD-M 2026 &bull; Tự động cập nhật qua Active Learning</span>
+        <span style="font-size: 0.74rem; color: var(--text-dim);">100% Futures USD-M 2024-2026 &bull; Tự động cập nhật qua Active Learning 24/7</span>
       </div>
 
-      <div style="max-height: 380px; overflow-y: auto; border: 1px solid var(--border-color); border-radius: 6px 6px 0 0;">
+      <div style="max-height: 420px; overflow-y: auto; border: 1px solid var(--border-color); border-radius: 6px 6px 0 0;">
         <table class="styled-table" style="font-size: 0.82rem;">
           <thead>
             <tr>
@@ -362,12 +364,13 @@
           </thead>
           <tbody id="dataset-tbody">
             <tr>
-              <td colspan="9" style="text-align: center; color: var(--text-dim); padding: 25px;">Đang tải dữ liệu 128 sự kiện từ hệ thống ML...</td>
+              <td colspan="9" style="text-align: center; color: var(--text-dim); padding: 25px;">Đang tải dữ liệu 388 sự kiện từ hệ thống ML...</td>
             </tr>
           </tbody>
         </table>
       </div>
       <div id="dataset-pagination-container"></div>
+
     </section>
 
     <!-- SECTION 3: SỔ CÁI ĐỐI CHIẾU DỰ BÁO & THỰC TẾ (PREDICTION VS REALITY BENCHMARK LEDGER) -->
