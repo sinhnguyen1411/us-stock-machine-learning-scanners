@@ -296,16 +296,16 @@ class PumpMultiplierRegressor:
 
         # Stage recommendation
         if progress_pct < 45.0:
-            stage_rec = "🟢 PHA ĐẨY MẠNH (Upside Còn Lớn, Canh Pullback Vào Lệnh)"
+            stage_rec = "PHA DAY MANH (Upside Con Lon, Canh Pullback Vao Lenh)"
             risk_level = "LOW_RISK"
         elif progress_pct < 80.0:
-            stage_rec = "🟡 PHA TRƯỞNG THÀNH (Gồng Lãi, Kéo Trailing Stop Bảo Toàn Vốn)"
+            stage_rec = "PHA TRUONG THANH (Gong Lai, Keo Trailing Stop Bao Toan Von)"
             risk_level = "MEDIUM_RISK"
         elif progress_pct <= 105.0:
-            stage_rec = "🟠 TIỆM CẬN ĐỈNH ML (Chốt Lời Từng Phần, Tránh Mua Đu Đỉnh)"
+            stage_rec = "TIEM CAN DINH ML (Chot Loi Tung Phan, Tranh Mua Du Dinh)"
             risk_level = "HIGH_RISK"
         else:
-            stage_rec = "🔴 VƯỢT MỤC TIÊU ML (Cảnh Báo Quá Mua / Cận Kề Pha Phân Phối)"
+            stage_rec = "VUOT MUC TIEU ML (Canh Bao Qua Mua / Can Ke Pha Phan Phoi)"
             risk_level = "CRITICAL_EXHAUSTION"
 
         return {

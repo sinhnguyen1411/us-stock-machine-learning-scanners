@@ -157,20 +157,20 @@ function renderCampaignsGrid() {
           <div style="background: rgba(0, 240, 255, 0.04); border: 1px dashed rgba(0, 240, 255, 0.35); padding: 12px; border-radius: 6px; margin-bottom: 12px; font-size: 0.78rem;">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
               <div>
-                <span style="color: var(--text-dim); display: block; font-size: 0.68rem;">🤖 DẢI ĐỈNH KỲ VỌNG ML (90% CI):</span>
+                <span style="color: var(--text-dim); display: block; font-size: 0.68rem;">DAI DINH KY VONG ML (90% CI):</span>
                 <strong style="color: var(--accent-yellow); font-family: var(--font-mono); font-size: 0.92rem;">${nLow.toFixed(1)}x &rarr; ${nHigh.toFixed(1)}x</strong>
                 <span style="color: var(--accent-cyan); font-size: 0.72rem; font-family: var(--font-mono); margin-left: 4px;">(Med: ${nExp.toFixed(1)}x)</span>
               </div>
               <div style="text-align: right;">
-                <span style="color: var(--text-dim); display: block; font-size: 0.68rem;">VÙNG GIÁ MỤC TIÊU:</span>
+                <span style="color: var(--text-dim); display: block; font-size: 0.68rem;">VUNG GIA MUC TIEU:</span>
                 <strong style="color: #fff; font-family: var(--font-mono); font-size: 0.82rem;">$${priceLowFmt} &rarr; $${priceHighFmt}</strong>
               </div>
             </div>
 
             <div style="display: flex; justify-content: space-between; font-size: 0.73rem; margin-bottom: 4px;">
-              <span style="color: var(--text-muted);">Tiến Độ Đạt Mục Tiêu ML: <strong style="color: var(--accent-cyan); font-family: var(--font-mono);">${progressPct}%</strong></span>
+              <span style="color: var(--text-muted);">Tien Do Dat Muc Tieu ML: <strong style="color: var(--accent-cyan); font-family: var(--font-mono);">${progressPct}%</strong></span>
               <span style="color: ${upsidePct > 0 ? 'var(--accent-green)' : 'var(--accent-red)'}; font-weight: 700; font-family: var(--font-mono);">
-                ${upsidePct > 0 ? '+' + upsidePct + '% Dư Địa Đến Đỉnh' : 'Đã Chạm Vùng Đỉnh ML'}
+                ${upsidePct > 0 ? '+' + upsidePct + '% Du Dia Den Dinh' : 'Da Cham Vung Dinh ML'}
               </span>
             </div>
             <div style="width: 100%; height: 6px; background: rgba(255,255,255,0.08); border-radius: 3px; overflow: hidden;">
@@ -186,9 +186,9 @@ function renderCampaignsGrid() {
 
         <!-- Bottom Warning / Trailing -->
         <div style="font-size: 0.75rem; color: var(--text-muted); border-top: 1px solid rgba(255, 255, 255, 0.06); padding-top: 10px; display: flex; justify-content: space-between; align-items: center;">
-          <span>Ngưỡng Cắt Dump: <strong style="color: var(--accent-red);">$${dumpFmt}</strong></span>
-          <a href="/?symbol=${c.symbol}" class="btn-inspect" style="padding: 4px 10px; font-size: 0.74rem;" title="Mở biểu đồ TradingView">
-            Soi Nến ↗
+          <span>Nguong Cat Dump: <strong style="color: var(--accent-red);">$${dumpFmt}</strong></span>
+          <a href="/?symbol=${c.symbol}" class="btn-inspect" style="padding: 4px 10px; font-size: 0.74rem;" title="Mo bieu do TradingView">
+            Soi Nen
           </a>
         </div>
       </div>
