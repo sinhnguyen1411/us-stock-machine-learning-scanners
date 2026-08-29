@@ -224,7 +224,7 @@ function renderCampaignsView() {
               <th style="padding: 10px 14px; color: var(--accent-cyan); font-weight: 700; text-align: right; cursor: pointer;" onclick="setCampaignSort('CURRENT_N_DESC')" title="Bấm để sắp xếp">GIÁ HIỆN TẠI ⬍</th>
               <th style="padding: 10px 14px; color: var(--accent-cyan); font-weight: 700; text-align: right; cursor: pointer;" onclick="setCampaignSort('DRAWDOWN_DESC')" title="Bấm để sắp xếp">SỤT TỪ ĐỈNH ⬍</th>
               <th style="padding: 10px 14px; color: var(--accent-cyan); font-weight: 700; text-align: center;">DẢI ĐỈNH ML (90% CI)</th>
-              <th style="padding: 10px 14px; color: var(--accent-cyan); font-weight: 700; min-width: 190px; cursor: pointer;" onclick="setCampaignSort('PROGRESS_DESC')" title="Bấm để sắp xếp">TIẾN ĐỘ ML &amp; DƯ ĐỊA ⬍</th>
+              <th style="padding: 10px 14px; color: var(--accent-cyan); font-weight: 700; min-width: 215px; cursor: pointer;" onclick="setCampaignSort('PROGRESS_DESC')" title="Bấm để sắp xếp">TIẾN ĐỘ &amp; GIÁ ĐÍCH 100% ⬍</th>
               <th style="padding: 10px 14px; color: var(--accent-cyan); font-weight: 700; text-align: center;">CẮT DUMP</th>
               <th style="padding: 10px 12px; color: var(--accent-cyan); font-weight: 700; text-align: center; width: 110px;">THAO TÁC</th>
             </tr>
@@ -261,8 +261,9 @@ function renderCampaignsView() {
               const priceHigh = mlPred.target_price_high || (c.origin_bottom_price * nHigh);
               const priceExp = mlPred.target_peak_price || (c.origin_bottom_price * nExp);
 
-              const priceLowFmt = priceLow < 0.001 ? priceLow.toFixed(6) : priceLow < 1 ? priceLow.toFixed(4) : priceLow.toFixed(2);
-              const priceHighFmt = priceHigh < 0.001 ? priceHigh.toFixed(6) : priceHigh < 1 ? priceHigh.toFixed(4) : priceHigh.toFixed(2);
+              const priceLowFmt = priceLow < 0.0001 ? priceLow.toFixed(8) : priceLow < 0.01 ? priceLow.toFixed(6) : priceLow < 1 ? priceLow.toFixed(4) : priceLow.toFixed(2);
+              const priceHighFmt = priceHigh < 0.0001 ? priceHigh.toFixed(8) : priceHigh < 0.01 ? priceHigh.toFixed(6) : priceHigh < 1 ? priceHigh.toFixed(4) : priceHigh.toFixed(2);
+              const priceExpFmt = priceExp < 0.0001 ? priceExp.toFixed(8) : priceExp < 0.01 ? priceExp.toFixed(6) : priceExp < 1 ? priceExp.toFixed(4) : priceExp.toFixed(2);
 
               const progressPct = mlPred.progress_pct || Math.min(100, Math.round(((c.is_active ? c.current_n : c.max_n) / nExp) * 100));
               const upsidePct = mlPred.remaining_upside_pct !== undefined ? mlPred.remaining_upside_pct : Math.max(0, Math.round(((priceExp - c.current_price) / c.current_price) * 100));
@@ -325,17 +326,20 @@ function renderCampaignsView() {
 
                   <!-- ML Expected Range (90% CI) -->
                   <td style="padding: 11px 14px; text-align: center; font-family: var(--font-mono);">
-                    <div style="color: var(--accent-yellow); font-weight: 700; font-size: 0.86rem;">
+                    <div style="color: var(--accent-yellow); font-weight: 700; font-size: 0.88rem;">
                       ${nLow.toFixed(1)}x &rarr; ${nHigh.toFixed(1)}x
                     </div>
-                    <div style="font-size: 0.71rem; color: var(--text-dim);">
-                      Med: <strong style="color: var(--accent-cyan);">${nExp.toFixed(1)}x</strong> ($${priceLowFmt}-$${priceHighFmt})
+                    <div style="font-size: 0.72rem; color: #fff; font-weight: 600;">
+                      Đích 100%: <strong style="color: var(--accent-cyan); font-size: 0.78rem;">$${priceExpFmt}</strong> <span style="color: var(--text-dim);">(${nExp.toFixed(1)}x)</span>
+                    </div>
+                    <div style="font-size: 0.68rem; color: var(--text-dim);">
+                      Dải: $${priceLowFmt} &rarr; $${priceHighFmt}
                     </div>
                   </td>
 
-                  <!-- ML Progress Bar & Upside -->
-                  <td style="padding: 11px 14px; min-width: 190px;">
-                    <div style="display: flex; justify-content: space-between; font-size: 0.72rem; margin-bottom: 3px; font-family: var(--font-mono);">
+                  <!-- ML Progress Bar & 100% Target Price -->
+                  <td style="padding: 11px 14px; min-width: 215px;">
+                    <div style="display: flex; justify-content: space-between; font-size: 0.73rem; margin-bottom: 3px; font-family: var(--font-mono);">
                       <span style="color: #fff; font-weight: 700;">
                         ${progressPct}% <span style="color: var(--text-dim); font-weight: normal;">(${c.is_active ? c.current_n : c.max_n}x / ${nExp.toFixed(1)}x)</span>
                       </span>
@@ -343,8 +347,12 @@ function renderCampaignsView() {
                         ${c.is_active ? (upsidePct > 0 ? `+${upsidePct}%` : 'Chạm đỉnh') : (progressPct >= 100 ? 'Đạt Target' : 'Hoàn tất')}
                       </span>
                     </div>
-                    <div style="width: 100%; height: 5px; background: rgba(255,255,255,0.08); border-radius: 3px; overflow: hidden;">
+                    <div style="width: 100%; height: 5px; background: rgba(255,255,255,0.08); border-radius: 3px; overflow: hidden; margin-bottom: 4px;">
                       <div style="width: ${Math.min(100, progressPct)}%; height: 100%; background: ${progressPct >= 100 ? 'linear-gradient(90deg, #00e676 0%, #00f0ff 100%)' : 'linear-gradient(90deg, #00e676 0%, #00f0ff 70%, #ffb800 100%)'}; border-radius: 3px;"></div>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; align-items: center; font-size: 0.72rem; font-family: var(--font-mono); background: rgba(0,0,0,0.3); padding: 2px 6px; border-radius: 4px; border: 1px solid rgba(255, 184, 0, 0.2);">
+                      <span style="color: var(--text-dim);">🎯 Giá Khi Đầy 100%:</span>
+                      <strong style="color: var(--accent-yellow); font-size: 0.82rem;">$${priceExpFmt}</strong>
                     </div>
                   </td>
 
@@ -369,12 +377,12 @@ function renderCampaignsView() {
                 <!-- Collapsible Detailed Notes Row -->
                 <tr id="details-${rowId}" style="display: none; background: rgba(0, 240, 255, 0.03); border-bottom: 1px solid rgba(0, 240, 255, 0.2);">
                   <td colspan="11" style="padding: 10px 18px; font-size: 0.78rem; color: var(--text-dim); line-height: 1.5;">
-                    <div style="display: flex; gap: 16px; flex-wrap: wrap;">
+                    <div style="display: flex; gap: 16px; flex-wrap: wrap; align-items: center;">
                       <div style="flex: 1; min-width: 280px;">
                         <strong style="color: var(--accent-cyan);">Phân Tích Sóng &amp; Động Lực:</strong> ${c.notes || 'Không có ghi chú thêm.'}
                       </div>
-                      <div style="font-family: var(--font-mono); font-size: 0.74rem; background: rgba(0,0,0,0.3); padding: 6px 12px; border-radius: 4px; border: 1px solid rgba(255,255,255,0.08);">
-                        Vùng Giá Mục Tiêu ML: <strong style="color: var(--accent-yellow);">$${priceLowFmt} &rarr; $${priceHighFmt}</strong> (Kỳ vọng: <strong style="color: #fff;">$${priceExp < 0.001 ? priceExp.toFixed(6) : priceExp < 1 ? priceExp.toFixed(4) : priceExp.toFixed(2)}</strong>)
+                      <div style="font-family: var(--font-mono); font-size: 0.75rem; background: rgba(0,0,0,0.35); padding: 6px 14px; border-radius: 4px; border: 1px solid rgba(0, 240, 255, 0.25);">
+                        🎯 Giá Đầy 100% (Med ${nExp.toFixed(1)}x): <strong style="color: var(--accent-yellow); font-size: 0.88rem;">$${priceExpFmt}</strong> &bull; Dải 90% CI: <strong style="color: #fff;">$${priceLowFmt} &rarr; $${priceHighFmt}</strong>
                       </div>
                     </div>
                   </td>
@@ -422,8 +430,9 @@ function renderCampaignsView() {
         const priceHigh = mlPred.target_price_high || (c.origin_bottom_price * nHigh);
         const priceExp = mlPred.target_peak_price || (c.origin_bottom_price * nExp);
 
-        const priceLowFmt = priceLow < 0.001 ? priceLow.toFixed(8) : priceLow < 1 ? priceLow.toFixed(5) : priceLow.toFixed(2);
-        const priceHighFmt = priceHigh < 0.001 ? priceHigh.toFixed(8) : priceHigh < 1 ? priceHigh.toFixed(5) : priceHigh.toFixed(2);
+        const priceLowFmt = priceLow < 0.0001 ? priceLow.toFixed(8) : priceLow < 0.01 ? priceLow.toFixed(6) : priceLow < 1 ? priceLow.toFixed(4) : priceLow.toFixed(2);
+        const priceHighFmt = priceHigh < 0.0001 ? priceHigh.toFixed(8) : priceHigh < 0.01 ? priceHigh.toFixed(6) : priceHigh < 1 ? priceHigh.toFixed(4) : priceHigh.toFixed(2);
+        const priceExpFmt = priceExp < 0.0001 ? priceExp.toFixed(8) : priceExp < 0.01 ? priceExp.toFixed(6) : priceExp < 1 ? priceExp.toFixed(4) : priceExp.toFixed(2);
 
         const progressPct = mlPred.progress_pct || Math.min(100, Math.round((c.current_n / nExp) * 100));
         const upsidePct = mlPred.remaining_upside_pct !== undefined ? mlPred.remaining_upside_pct : Math.max(0, Math.round(((priceExp - c.current_price) / c.current_price) * 100));
@@ -488,8 +497,14 @@ function renderCampaignsView() {
                     ${c.is_active ? (upsidePct > 0 ? '+' + upsidePct + '% Dư Địa Đến Đỉnh' : 'Đã Chạm Vùng Đỉnh ML') : (progressPct >= 100 ? 'ĐẠT VƯỢT MỤC TIÊU' : 'HOÀN TẤT CHU KỲ')}
                   </span>
                 </div>
-                <div style="width: 100%; height: 6px; background: rgba(255,255,255,0.08); border-radius: 3px; overflow: hidden;">
+                <div style="width: 100%; height: 6px; background: rgba(255,255,255,0.08); border-radius: 3px; overflow: hidden; margin-bottom: 8px;">
                   <div style="width: ${Math.min(100, progressPct)}%; height: 100%; background: ${progressPct >= 100 ? 'linear-gradient(90deg, #00e676 0%, #00f0ff 100%)' : 'linear-gradient(90deg, #00e676 0%, #00f0ff 70%, #ffb800 100%)'}; border-radius: 3px;"></div>
+                </div>
+
+                <!-- Explicit 100% Target Price Row in Cards -->
+                <div style="display: flex; justify-content: space-between; align-items: center; padding: 4px 8px; background: rgba(0,0,0,0.3); border-radius: 4px; border: 1px solid rgba(255, 184, 0, 0.25);">
+                  <span style="color: var(--text-dim); font-size: 0.72rem;">🎯 Giá Khi Đầy 100% (Med):</span>
+                  <strong style="color: var(--accent-yellow); font-family: var(--font-mono); font-size: 0.88rem;">$${priceExpFmt}</strong>
                 </div>
               </div>
 
