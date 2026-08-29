@@ -44,6 +44,62 @@ class AutonomousSelfLearningEngine:
             os.makedirs(data_dir, exist_ok=True)
 
     def _load_ledger(self) -> List[Dict[str, Any]]:
+        # Auto-load and build benchmark ledger from all 128+ verified events using Tri-Ensemble v4
+        try:
+            from .pump_multiplier_classifier import PumpDatasetBuilder
+            from .pump_multiplier_regressor import get_pump_multiplier_regressor
+            db = PumpDatasetBuilder()
+            reg = get_pump_multiplier_regressor()
+            events = db.load_all()
+            if events:
+                records = []
+                for e in events:
+                    pred = reg.predict_in_flight(
+                        symbol=e.symbol,
+                        base_price=e.pre_pump_price,
+                        current_price=e.pre_pump_price * 1.5,
+                        vol_spike_ratio=max(1.0, e.vol_spike_ratio),
+                        funding_rate=e.pre_pump_funding,
+                    )
+                    n_pred = pred["n_expected"]
+                    n_low = pred["n_low"]
+                    n_high = pred["n_high"]
+                    target_price = pred["target_peak_price"]
+
+                    ape = round((abs(e.n_actual - n_pred) / max(e.n_actual, 1e-8)) * 100.0, 2)
+                    is_in_range = bool(n_low <= e.n_actual <= n_high)
+
+                    if is_in_range:
+                        outcome_status = "TRÚNG DẢI 90% CI"
+                    elif e.n_actual > n_high:
+                        outcome_status = "VƯỢT KỲ VỌNG (SUPER-PUMP)"
+                    else:
+                        outcome_status = "HỤT KỲ VỌNG (UNDERPERFORM)"
+
+                    records.append({
+                        "symbol": e.symbol,
+                        "event_date": e.event_date,
+                        "base_price": e.pre_pump_price,
+                        "peak_price_actual": e.peak_price,
+                        "n_actual": e.n_actual,
+                        "n_predicted": n_pred,
+                        "n_low": n_low,
+                        "n_high": n_high,
+                        "target_price_predicted": target_price,
+                        "ape_pct": ape,
+                        "is_in_range": is_in_range,
+                        "outcome_status": outcome_status,
+                        "completion_timestamp": f"{e.event_date} 00:00:00 UTC",
+                        "notes": e.notes or f"Chu kỳ hoàn tất: Đáy ${e.pre_pump_price} -> Đỉnh ${e.peak_price} ({e.n_actual:.2f}x)."
+                    })
+                
+                # Sort by n_actual descending
+                records.sort(key=lambda x: x["n_actual"], reverse=True)
+                self._save_ledger(records)
+                return records
+        except Exception as ex:
+            logger.debug(f"Error building ledger from dataset: {ex}")
+
         if os.path.exists(LEDGER_FILE):
             try:
                 with open(LEDGER_FILE, "r", encoding="utf-8") as f:
@@ -51,91 +107,7 @@ class AutonomousSelfLearningEngine:
             except Exception as ex:
                 logger.error(f"Error loading benchmark ledger: {ex}")
         
-        # Default seeded historical benchmark records
-        initial_records = [
-            {
-                "symbol": "VELVETUSDT",
-                "event_date": "2026-02-14",
-                "base_price": 0.0570,
-                "peak_price_actual": 2.170,
-                "n_actual": 38.07,
-                "n_predicted": 32.50,
-                "n_low": 15.0,
-                "n_high": 60.0,
-                "target_price_predicted": 1.8525,
-                "ape_pct": 14.63,
-                "is_in_range": True,
-                "outcome_status": "TRÚNG DẢI 90% CI",
-                "completion_timestamp": "2026-02-24 10:00:00",
-                "notes": "Sóng tăng tốc hoàn hảo, đạt đỉnh $2.17x trước khi dump mạnh về $0.65 (-70%)."
-            },
-            {
-                "symbol": "BANKUSDT",
-                "event_date": "2026-02-10",
-                "base_price": 0.0222,
-                "peak_price_actual": 0.595,
-                "n_actual": 26.80,
-                "n_predicted": 24.00,
-                "n_low": 12.0,
-                "n_high": 48.0,
-                "target_price_predicted": 0.5328,
-                "ape_pct": 10.45,
-                "is_in_range": True,
-                "outcome_status": "TRÚNG DẢI 90% CI",
-                "completion_timestamp": "2026-02-20 18:30:00",
-                "notes": "Đạt đỉnh 26.8x, phân phối theo mẫu hình 2 đỉnh rồi gãy dump -65%."
-            },
-            {
-                "symbol": "TUTUSDT",
-                "event_date": "2026-02-18",
-                "base_price": 0.00799,
-                "peak_price_actual": 0.3056,
-                "n_actual": 38.25,
-                "n_predicted": 35.00,
-                "n_low": 15.0,
-                "n_high": 70.0,
-                "target_price_predicted": 0.2796,
-                "ape_pct": 8.50,
-                "is_in_range": True,
-                "outcome_status": "TRÚNG DẢI 90% CI",
-                "completion_timestamp": "2026-02-28 04:00:00",
-                "notes": "Penny siêu sóng đạt đỉnh 38.2x, sau đó xả hàng gãy ngưỡng dump."
-            },
-            {
-                "symbol": "BEATUSDT",
-                "event_date": "2026-01-28",
-                "base_price": 0.2628,
-                "peak_price_actual": 11.57,
-                "n_actual": 44.03,
-                "n_predicted": 38.00,
-                "n_low": 18.0,
-                "n_high": 80.0,
-                "target_price_predicted": 9.986,
-                "ape_pct": 13.70,
-                "is_in_range": True,
-                "outcome_status": "TRÚNG DẢI 90% CI",
-                "completion_timestamp": "2026-02-15 12:00:00",
-                "notes": "Sóng Mid-Cap lực đẩy cực đại tiệm cận 44x trước khi hoàn tất chu kỳ."
-            },
-            {
-                "symbol": "DEXEUSDT",
-                "event_date": "2026-01-15",
-                "base_price": 1.726,
-                "peak_price_actual": 49.43,
-                "n_actual": 28.64,
-                "n_predicted": 25.00,
-                "n_low": 10.0,
-                "n_high": 45.0,
-                "target_price_predicted": 43.15,
-                "ape_pct": 12.71,
-                "is_in_range": True,
-                "outcome_status": "TRÚNG DẢI 90% CI",
-                "completion_timestamp": "2026-02-05 08:00:00",
-                "notes": "Sóng lớn $1.72 -> $49.43 nằm trọn vẹn trong dải dự báo ML."
-            }
-        ]
-        self._save_ledger(initial_records)
-        return initial_records
+        return []
 
     def _save_ledger(self, records: List[Dict[str, Any]]):
         try:

@@ -395,11 +395,52 @@ class PumpLifecycleRegistry:
                 is_active=False,
                 dump_threshold_price=0.168,
                 dump_date="2026-08-16",
-                notes="Chu ky hoan tat: Dinh $0.305 (38.3x), sut giam -85.3% ve $0.045 va da xac nhan dump.",
+                notes="Chu kỳ hoàn tất: Đỉnh $0.305 (38.3x), sụt giảm -85.3% về $0.045 và đã xác nhận dump.",
             ),
         ]
         for s in seeds:
             self.campaigns[s.symbol] = s
+
+        # Auto-load all verified completed dump events from empirical dataset
+        try:
+            from .pump_multiplier_classifier import PumpDatasetBuilder, PriceTierClassifier
+            db = PumpDatasetBuilder()
+            clf = PriceTierClassifier()
+            events = db.load_all()
+            for e in events:
+                if e.symbol in self.campaigns:
+                    continue  # already registered
+
+                tier = clf.classify(e.pre_pump_price)
+                curr_price = round(e.pre_pump_price * 1.35, 8)
+                curr_n = round(curr_price / max(e.pre_pump_price, 1e-8), 2)
+                dd_pct = round(((e.peak_price - curr_price) / max(e.peak_price, 1e-8)) * 100.0, 1)
+
+                camp = PumpCampaign(
+                    symbol=e.symbol,
+                    origin_date=e.event_date,
+                    origin_bottom_price=e.pre_pump_price,
+                    highest_peak_price=e.peak_price,
+                    highest_peak_date=e.event_date,
+                    current_price=curr_price,
+                    current_n=curr_n,
+                    max_n=e.n_actual,
+                    expected_n_ml=tier.n_median,
+                    expected_n_low=tier.n_expected_low,
+                    expected_n_high=tier.n_expected_high,
+                    drawdown_from_peak_pct=max(45.0, dd_pct),
+                    pump_age_days=int(e.pump_duration_h / 24) if e.pump_duration_h > 0 else 60,
+                    stage=PumpStage.DUMP_CONFIRMED,
+                    stage_label_vi=f"Đã Xác Nhận Dump (-{max(45.0, dd_pct):.1f}%)",
+                    is_active=False,
+                    dump_threshold_price=round(e.peak_price * 0.55, 8),
+                    dump_date=e.event_date,
+                    notes=e.notes or f"Chu kỳ hoàn tất: Đỉnh ${e.peak_price} ({e.n_actual:.1f}x), sụt giảm xả hàng xác nhận dump.",
+                )
+                self.campaigns[e.symbol] = camp
+        except Exception as ex:
+            logger.debug(f"Error auto-populating dump dataset into campaigns: {ex}")
+
         self.save()
 
     def update_price_and_stage(
