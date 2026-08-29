@@ -36,6 +36,7 @@ class PumpStage:
     EXHAUSTION_WARNING  = "EXHAUSTION_WARNING"   # Weakening momentum, funding flip
     DUMP_CONFIRMED      = "DUMP_CONFIRMED"       # Broken structure (>45% off peak)
     ARCHIVED            = "ARCHIVED"             # Post-dump baseline return
+    DELISTED            = "DELISTED"             # Removed from Binance Futures — historical data only
 
 
 STAGE_LABELS_VI = {
@@ -45,6 +46,7 @@ STAGE_LABELS_VI = {
     PumpStage.EXHAUSTION_WARNING: "⚠️ Cảnh Báo Kiệt Sức / Phân Phối",
     PumpStage.DUMP_CONFIRMED:     "🔴 Đã Xác Nhận Dump (Thoát Hết)",
     PumpStage.ARCHIVED:           "⚪ Chu Kỳ Đã Kết Thúc",
+    PumpStage.DELISTED:           "🚫 Đã Bị Hủy Niêm Yết (Binance)",
 }
 
 
@@ -104,19 +106,100 @@ class PumpLifecycleRegistry:
         self.campaigns: Dict[str, PumpCampaign] = {}
         self._load()
         self._seed_known_2026_campaigns()
-        self._promote_confirmed_peaks()  # Always ensure real peaks override stale tier-medians
+        self._mark_known_delisted()       # Remove coins no longer on Binance Futures
+        self._promote_confirmed_peaks()   # Ensure real peaks override stale tier-medians (active only)
 
+
+    # Coins confirmed NOT on Binance Futures as of 2026-08-29 (verified by API scan)
+    # Preserved as historical ML training data but excluded from active tracking
+    _KNOWN_DELISTED: set = {
+        "1000XUSDT",    # 2025 Telegram micro-cap
+        "TESTUSDT",     # Test/defunct
+        "JSTUSDT",      # Delisted from Binance Futures
+        "ATMUSDT",      # Delisted
+        "DODOUSDT",     # Delisted
+        "REQUSDT",      # Delisted
+        "GLMRUSDT",     # Delisted
+        "LUNCUSDT",     # Delisted (Terra Luna Classic)
+        "OSMOUSDT",     # Delisted
+        "CGPTUSDT",     # Delisted
+        "MITOUSDT",     # Delisted
+        "SENTUSDT",     # Delisted
+        "AXTIBUSDT",    # Delisted
+        "MVLLBUSDT",    # Delisted
+        "SNXXBUSDT",    # Delisted
+        "1000MOGUSDT",  # Delisted
+        "1000WHYUSDT",  # Delisted
+        "CATIUSDT",     # Delisted
+        "SUNDOGUSDT",   # Delisted
+        "MYROUSDT",     # Delisted
+        "BLASTUSDT",    # Delisted
+        "SWELLUSDT",    # Delisted
+        "TRUUSDT",      # Delisted
+        "VANRYUSDT",    # Delisted
+        "NFPUSDT",      # Delisted
+        "FRONTUSDT",    # Delisted
+        "AIUSDT",       # Delisted
+        "UNFIUSDT",     # Delisted
+        "TONUSDT",      # Delisted
+        "OMNIUSDT",     # Delisted
+        "RNDRUSDT",     # Delisted (now RENDERUSDT)
+        "AVAXUSDT",     # Delisted from Futures
+        "AGIXUSDT",     # Delisted
+        "HOOKUSDT",     # Delisted
+        "LOOMUSDT",     # Delisted
+        "ORBSUSDT",     # Delisted
+        "DARUSDT",      # Delisted
+        "HIGHUSDT",     # Delisted
+        "BLZUSDT",      # Delisted
+        "HIFIUSDT",     # Delisted
+        "STRAXUSDT",    # Delisted
+        "PHBUSDT",      # Delisted
+        "MDTUSDT",      # Delisted
+        "KEYUSDT",      # Delisted
+        "AMBUSDT",      # Delisted
+        "STPTUSDT",     # Delisted
+        "RADUSDT",      # Delisted
+        "QUICKUSDT",    # Delisted
+        "PERPUSDT",     # Delisted
+        "OXTUSDT",      # Delisted
+        "NKNUSDT",      # Delisted
+        "LINAUSDT",     # Delisted
+        "LEVERUSDT",    # Delisted
+        "IDEXUSDT",     # Delisted
+        "FTMUSDT",      # Delisted (now SONICUSDT)
+        "FLMUSDT",      # Delisted
+        "FISUSDT",      # Delisted
+        "DGBUSDT",      # Delisted
+        "DENTUSDT",     # Delisted
+        "BAKEUSDT",     # Delisted
+        "BADGERUSDT",   # Delisted
+    }
+
+    def _mark_known_delisted(self) -> None:
+        """
+        Mark any campaign whose symbol is confirmed delisted from Binance Futures.
+        These are preserved as historical ML training data but hidden from active tracking.
+        """
+        for sym in self._KNOWN_DELISTED:
+            if sym in self.campaigns:
+                c = self.campaigns[sym]
+                c.is_active = False
+                c.stage = PumpStage.DELISTED
+                c.stage_label_vi = STAGE_LABELS_VI[PumpStage.DELISTED]
 
     def _promote_confirmed_peaks(self) -> None:
         """
-        After load + seed, ensure any campaign where the real confirmed peak multiplier
+        After load + seed, ensure any ACTIVE campaign where the real confirmed peak multiplier
         (highest_peak_price / origin_bottom_price) exceeds the stored expected_n_ml
         gets promoted to use the real peak as the authoritative training reference.
 
-        This prevents stale tier-medians (e.g. 1.9x for ZECUSDT) from overriding
-        the already-observed reality ($888 = 4.81x) as the '100% target'.
+        Only applies to ACTIVE campaigns — completed/delisted campaigns already have
+        their final n_actual recorded and should not have expected_n_ml retroactively inflated.
         """
         for c in self.campaigns.values():
+            if not c.is_active:
+                continue  # Skip completed, archived, delisted campaigns
             if c.origin_bottom_price <= 0 or c.highest_peak_price <= 0:
                 continue
             real_n = round(c.highest_peak_price / c.origin_bottom_price, 2)
