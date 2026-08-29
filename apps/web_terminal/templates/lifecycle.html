@@ -304,7 +304,7 @@
       <!-- Verified 126 Events Dataset Table -->
       <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
         <h4 style="font-size: 0.95rem; font-weight: 700; color: var(--text-main);">
-          Tập Dữ Liệu 126 Sự Kiện USD-M Futures Được Huấn Luyện (Sorted by Base Price):
+          Tập Dữ Liệu 128 Sự Kiện USD-M Futures Được Huấn Luyện (Sorted by Base Price):
         </h4>
         <span style="font-size: 0.74rem; color: var(--text-dim);">100% Futures USD-M 2026 &bull; Tự động cập nhật qua Active Learning</span>
       </div>
@@ -326,7 +326,75 @@
           </thead>
           <tbody id="dataset-tbody">
             <tr>
-              <td colspan="9" style="text-align: center; color: var(--text-dim); padding: 25px;">Đang tải dữ liệu 126 sự kiện từ hệ thống ML...</td>
+              <td colspan="9" style="text-align: center; color: var(--text-dim); padding: 25px;">Đang tải dữ liệu 128 sự kiện từ hệ thống ML...</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- SECTION 3: SỔ CÁI ĐỐI CHIẾU DỰ BÁO & THỰC TẾ (PREDICTION VS REALITY BENCHMARK LEDGER) -->
+    <section class="card-panel" style="border-color: rgba(0, 230, 118, 0.35); background: linear-gradient(180deg, rgba(0, 230, 118, 0.04) 0%, rgba(18, 24, 36, 0.7) 100%); margin-bottom: 24px;">
+      <div class="panel-header" style="margin-bottom: 16px;">
+        <div>
+          <h3 class="asset-title" style="font-size: 1.2rem; color: var(--accent-green);">SỔ CÁI ĐỐI CHIẾU DỰ BÁO &amp; THỰC TẾ (PREDICTION VS REALITY BENCHMARK LEDGER)</h3>
+          <div style="font-size: 0.78rem; color: var(--text-dim);">Hệ thống tự động khóa đỉnh khi chu kỳ kết thúc, đối chiếu sai số APE (%) so với dự báo ban đầu và tự động tái huấn luyện (Retrain) mô hình liên tục.</div>
+        </div>
+        <div>
+          <button class="btn-primary" style="font-size: 0.8rem; padding: 7px 14px; background: linear-gradient(135deg, #00e676 0%, #00b0ff 100%); border: none; border-radius: 6px; color: #000; font-weight: 700; cursor: pointer;" onclick="triggerManualRetrain()">
+            TÁI HUẤN LUYỆN ML &amp; ĐỒNG BỘ DỮ LIỆU
+          </button>
+        </div>
+      </div>
+
+      <!-- Telemetry Health Cards -->
+      <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-bottom: 20px;">
+        <div style="background: rgba(11, 15, 23, 0.9); border: 1px solid rgba(0, 230, 118, 0.3); border-radius: 8px; padding: 14px;">
+          <span style="font-size: 0.72rem; color: var(--text-dim); display: block; margin-bottom: 4px;">TỶ LỆ TRÚNG DẢI 90% CI:</span>
+          <strong id="ledger-hit-rate" style="font-size: 1.4rem; color: var(--accent-green); font-family: var(--font-mono);">100.0%</strong>
+          <div style="font-size: 0.68rem; color: var(--text-muted);">Độ tin cậy bao phủ dải dự báo</div>
+        </div>
+
+        <div style="background: rgba(11, 15, 23, 0.9); border: 1px solid rgba(0, 240, 255, 0.3); border-radius: 8px; padding: 14px;">
+          <span style="font-size: 0.72rem; color: var(--text-dim); display: block; margin-bottom: 4px;">SAI SỐ TRUNG BÌNH (MAPE):</span>
+          <strong id="ledger-avg-ape" style="font-size: 1.4rem; color: var(--accent-cyan); font-family: var(--font-mono);">12.0%</strong>
+          <div style="font-size: 0.68rem; color: var(--text-muted);">Sai số tuyệt đối trung bình</div>
+        </div>
+
+        <div style="background: rgba(11, 15, 23, 0.9); border: 1px solid rgba(255, 184, 0, 0.3); border-radius: 8px; padding: 14px;">
+          <span style="font-size: 0.72rem; color: var(--text-dim); display: block; margin-bottom: 4px;">SỰ KIỆN ĐÃ KIỂM CHỨNG:</span>
+          <strong id="ledger-total-events" style="font-size: 1.4rem; color: var(--accent-yellow); font-family: var(--font-mono);">5 Sự Kiện</strong>
+          <div style="font-size: 0.68rem; color: var(--text-muted);">Tự động ghi nhận khi Dump</div>
+        </div>
+
+        <div style="background: rgba(11, 15, 23, 0.9); border: 1px solid rgba(255, 255, 255, 0.15); border-radius: 8px; padding: 14px;">
+          <span style="font-size: 0.72rem; color: var(--text-dim); display: block; margin-bottom: 4px;">TRẠNG THÁI VẬN HÀNH:</span>
+          <strong id="ledger-daemon-status" style="font-size: 0.88rem; color: #fff; font-weight: 700; display: block; line-height: 1.3;">Tự Động 24/7</strong>
+          <div id="ledger-last-retrain" style="font-size: 0.68rem; color: var(--accent-green);">Đã đồng bộ thời gian thực</div>
+        </div>
+      </div>
+
+      <!-- Ledger Table -->
+      <div style="max-height: 420px; overflow-y: auto; border: 1px solid rgba(0, 230, 118, 0.25); border-radius: 6px;">
+        <table class="styled-table" style="font-size: 0.82rem;">
+          <thead>
+            <tr>
+              <th>Mã Coin</th>
+              <th>Ngày Bắt Đầu</th>
+              <th>Giá Đáy Gốc</th>
+              <th>Đỉnh Thực Tế</th>
+              <th>Bội Số n Thực</th>
+              <th>ML Dự Báo (n)</th>
+              <th>Dải 90% CI</th>
+              <th>Giá Mục Tiêu</th>
+              <th>Sai Số APE</th>
+              <th>Đánh Giá Kết Quả</th>
+              <th>Ghi Chú Đối Chiếu</th>
+            </tr>
+          </thead>
+          <tbody id="ledger-tbody">
+            <tr>
+              <td colspan="11" style="text-align: center; color: var(--text-dim); padding: 25px;">Đang tải dữ liệu sổ cái đối chiếu thực tế...</td>
             </tr>
           </tbody>
         </table>

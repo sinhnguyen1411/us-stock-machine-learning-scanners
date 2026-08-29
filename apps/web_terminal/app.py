@@ -499,6 +499,37 @@ def api_active_pump_campaigns():
         return jsonify({"status": "error", "message": str(ex)}), 500
 
 
+@app.route("/api/ml/benchmark_ledger")
+def api_benchmark_ledger():
+    try:
+        from core_engine.self_learning_engine import get_self_learning_engine
+        engine = get_self_learning_engine()
+        report = engine.get_benchmark_report()
+        return jsonify({
+            "status": "success",
+            "report": report
+        })
+    except Exception as ex:
+        logger.error(f"Error in api_benchmark_ledger: {ex}", exc_info=True)
+        return jsonify({"status": "error", "message": str(ex)}), 500
+
+
+@app.route("/api/ml/retrain_models", methods=["POST", "GET"])
+def api_retrain_models():
+    try:
+        from core_engine.self_learning_engine import get_self_learning_engine
+        engine = get_self_learning_engine()
+        res = engine.retrain_models()
+        return jsonify({
+            "status": "success",
+            "result": res,
+            "report": engine.get_benchmark_report()
+        })
+    except Exception as ex:
+        logger.error(f"Error in api_retrain_models: {ex}", exc_info=True)
+        return jsonify({"status": "error", "message": str(ex)}), 500
+
+
 @app.route("/api/analyze/<symbol>")
 def api_analyze(symbol):
 

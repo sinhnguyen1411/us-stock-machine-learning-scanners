@@ -10,7 +10,9 @@ let cachedResearchData = null;
 document.addEventListener("DOMContentLoaded", () => {
   fetchCampaignsData();
   fetchResearchData();
+  fetchBenchmarkLedger();
   setInterval(fetchCampaignsData, 5000);
+  setInterval(fetchBenchmarkLedger, 10000);
 });
 
 function setCampaignFilter(filter) {
@@ -639,4 +641,107 @@ function renderDatasetTable(events) {
       </td>
     </tr>
   `).join("");
+}
+
+async function fetchBenchmarkLedger() {
+  try {
+    const res = await fetch("/api/ml/benchmark_ledger");
+    if (!res.ok) return;
+    const data = await res.json();
+    if (data.status !== "success" || !data.report) return;
+
+    const rep = data.report;
+
+    const hitEl = document.getElementById("ledger-hit-rate");
+    if (hitEl) hitEl.innerText = `${rep.hit_rate_pct}%`;
+
+    const apeEl = document.getElementById("ledger-avg-ape");
+    if (apeEl) apeEl.innerText = `${rep.avg_ape_pct}%`;
+
+    const totalEl = document.getElementById("ledger-total-events");
+    if (totalEl) totalEl.innerText = `${rep.total_events} Sự Kiện`;
+
+    const statusEl = document.getElementById("ledger-daemon-status");
+    if (statusEl) statusEl.innerText = rep.daemon_status || "Tự Động 24/7";
+
+    const lastRetrainEl = document.getElementById("ledger-last-retrain");
+    if (lastRetrainEl) lastRetrainEl.innerText = `Đã cập nhật: ${rep.last_retrain || 'Realtime'}`;
+
+    renderBenchmarkLedgerTable(rep.records || []);
+  } catch (err) {
+    console.debug("Error fetching benchmark ledger:", err);
+  }
+}
+
+function renderBenchmarkLedgerTable(records) {
+  const tbody = document.getElementById("ledger-tbody");
+  if (!tbody) return;
+
+  if (records.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="11" style="text-align: center; color: var(--text-dim); padding: 25px;">Chưa có sự kiện dump nào được ghi nhận vào sổ cái đối chiếu.</td></tr>`;
+    return;
+  }
+
+  tbody.innerHTML = records.map(r => {
+    const baseFmt = r.base_price < 0.001 ? r.base_price.toFixed(8) : r.base_price < 1 ? r.base_price.toFixed(5) : r.base_price.toFixed(2);
+    const peakFmt = r.peak_price_actual < 0.001 ? r.peak_price_actual.toFixed(8) : r.peak_price_actual < 1 ? r.peak_price_actual.toFixed(5) : r.peak_price_actual.toFixed(2);
+    const targetFmt = r.target_price_predicted < 0.001 ? r.target_price_predicted.toFixed(8) : r.target_price_predicted < 1 ? r.target_price_predicted.toFixed(5) : r.target_price_predicted.toFixed(2);
+
+    let badgeColor = "var(--accent-green)";
+    let badgeBg = "rgba(0, 230, 118, 0.15)";
+    if (r.outcome_status.includes("VƯỢT")) {
+      badgeColor = "var(--accent-cyan)";
+      badgeBg = "rgba(0, 240, 255, 0.15)";
+    } else if (r.outcome_status.includes("HỤT")) {
+      badgeColor = "var(--accent-red)";
+      badgeBg = "rgba(255, 51, 102, 0.15)";
+    }
+
+    return `
+      <tr>
+        <td style="font-weight: 800;">
+          <a href="/?symbol=${r.symbol}" style="color: var(--accent-cyan); text-decoration: none;">${r.symbol}</a>
+        </td>
+        <td style="font-family: var(--font-mono); color: var(--text-dim);">${r.event_date}</td>
+        <td style="font-family: var(--font-mono);">$${baseFmt}</td>
+        <td style="font-family: var(--font-mono); font-weight: 700; color: #fff;">$${peakFmt}</td>
+        <td style="font-family: var(--font-mono); font-weight: 800; color: ${r.n_actual >= 30 ? 'var(--accent-red)' : r.n_actual >= 10 ? 'var(--accent-yellow)' : 'var(--accent-green)'};">
+          ${r.n_actual.toFixed(2)}x
+        </td>
+        <td style="font-family: var(--font-mono); font-weight: 700; color: var(--accent-yellow);">
+          ${r.n_predicted.toFixed(2)}x
+        </td>
+        <td style="font-family: var(--font-mono); color: var(--text-dim);">
+          ${r.n_low.toFixed(1)}x - ${r.n_high.toFixed(1)}x
+        </td>
+        <td style="font-family: var(--font-mono); color: var(--text-muted);">$${targetFmt}</td>
+        <td style="font-family: var(--font-mono); font-weight: 700; color: ${r.ape_pct <= 15 ? 'var(--accent-green)' : r.ape_pct <= 25 ? 'var(--accent-yellow)' : 'var(--accent-red)'};">
+          ${r.ape_pct.toFixed(1)}%
+        </td>
+        <td>
+          <span style="display: inline-block; padding: 3px 8px; border-radius: 4px; font-size: 0.72rem; font-weight: 700; background: ${badgeBg}; color: ${badgeColor}; border: 1px solid ${badgeColor};">
+            ${r.outcome_status}
+          </span>
+        </td>
+        <td style="font-size: 0.74rem; color: var(--text-muted); max-width: 240px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="${r.notes || ''}">
+          ${r.notes || '—'}
+        </td>
+      </tr>
+    `;
+  }).join("");
+}
+
+async function triggerManualRetrain() {
+  try {
+    const res = await fetch("/api/ml/retrain_models", { method: "POST" });
+    if (!res.ok) return;
+    const data = await res.json();
+    if (data.status === "success") {
+      fetchBenchmarkLedger();
+      fetchResearchData();
+      alert("Đã tái huấn luyện mô hình ML Tri-Ensemble v4 và đồng bộ sổ cái đối chiếu thực nghiệm thành công!");
+    }
+  } catch (e) {
+    console.error("Error triggering manual retrain:", e);
+  }
 }
