@@ -247,23 +247,26 @@ function populateMLSymbolSelect(campaigns) {
   if (!sel) return;
   const currentVal = sel.value;
   
-  const active = (campaigns || []).filter(c => c.is_active && c.stage !== "DUMP_CONFIRMED");
+  const active = (campaigns || []).filter(c => c.is_active && c.stage !== "DUMP_CONFIRMED" && c.stage !== "DELISTED");
   active.sort((a, b) => (b.current_n || 0) - (a.current_n || 0));
   if (active.length === 0) return;
   
-  if (sel.options.length <= 7) {
-    let html = "";
-    active.forEach(c => {
-      const stageTxt = c.stage === "ACTIVE_EXPANSION" ? "Đang đẩy" : c.stage === "HIGH_CONSOLIDATION" ? "Neo đỉnh" : "Tích lũy";
-      html += `<option value="${c.symbol}">${c.symbol} (${c.current_n || 1.0}x - ${stageTxt})</option>`;
-    });
-    html += `<option value="CUSTOM">Nhập Mã Khác...</option>`;
-    sel.innerHTML = html;
-    if (currentVal && Array.from(sel.options).some(o => o.value === currentVal)) {
-      sel.value = currentVal;
-    }
+  let html = "";
+  active.forEach(c => {
+    const stageTxt = c.stage === "ACTIVE_EXPANSION" ? "Đang đẩy" : c.stage === "HIGH_CONSOLIDATION" ? "Neo đỉnh" : "Tích lũy";
+    const nDisplay = c.max_n ? `${c.max_n}x` : `${c.current_n || 1.0}x`;
+    html += `<option value="${c.symbol}">${c.symbol} (${nDisplay} - ${stageTxt})</option>`;
+  });
+  html += `<option value="CUSTOM">➕ Nhập Mã Khác...</option>`;
+  sel.innerHTML = html;
+  
+  if (currentVal && Array.from(sel.options).some(o => o.value === currentVal)) {
+    sel.value = currentVal;
+  } else if (Array.from(sel.options).some(o => o.value === "MAGMAUSDT")) {
+    sel.value = "MAGMAUSDT";
   }
 }
+
 
 function renderCampaignsGrid() {
   renderCampaignsView();
@@ -1022,11 +1025,15 @@ function renderScatterCanvas(events) {
     "BANKUSDT":   { dx: -12, dy: 14,  align: "right" },
     "SYNUSDT":    { dx: 12,  dy: 14,  align: "left" },
     "BTRUSDT":    { dx: 12,  dy: -8,  align: "left" },
+    "MAGMAUSDT":  { dx: 12,  dy: -10, align: "left" },
+    "ZECUSDT":    { dx: -12, dy: -8,  align: "right" },
+    "PROMUSDT":   { dx: 10,  dy: 12,  align: "left" },
     "BULLAUSDT":  { dx: 10,  dy: -8,  align: "left" },
     "PUMPUSDT":   { dx: 10,  dy: 12,  align: "left" },
     "HEMIUSDT":   { dx: 10,  dy: -8,  align: "left" },
     "SNXXUSDT":   { dx: 10,  dy: -8,  align: "left" },
   };
+
 
   events.forEach(e => {
     const pos = landmarkPositions[e.symbol];
