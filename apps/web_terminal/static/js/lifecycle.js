@@ -4,6 +4,7 @@
  */
 
 let currentCampaignFilter = "ACTIVE";
+let currentCampaignSort = "PROGRESS_DESC";
 let cachedCampaignsData = null;
 let cachedResearchData = null;
 
@@ -27,6 +28,11 @@ function setCampaignFilter(filter) {
       }
     }
   });
+  renderCampaignsGrid();
+}
+
+function setCampaignSort(sortBy) {
+  currentCampaignSort = sortBy;
   renderCampaignsGrid();
 }
 
@@ -66,6 +72,34 @@ function renderCampaignsGrid() {
     displayCampaigns = all.filter(c => !c.is_active || c.stage === "DUMP_CONFIRMED");
   } else {
     displayCampaigns = all;
+  }
+
+  // Precompute metrics & sorting keys
+  displayCampaigns.forEach(c => {
+    const mlPred = c.ml_prediction || {};
+    const nLow = mlPred.n_low || c.expected_n_low || 5.0;
+    const nHigh = mlPred.n_high || c.expected_n_high || 20.0;
+    const nExp = mlPred.n_expected || c.expected_n_ml || ((nLow + nHigh) / 2) || 10.0;
+
+    const effectiveN = c.is_active ? (c.current_n || 1.0) : (c.max_n || c.current_n || 1.0);
+    const progressPct = mlPred.progress_pct !== undefined ? mlPred.progress_pct : Math.round((effectiveN / Math.max(nExp, 0.1)) * 1000) / 10;
+    
+    c._progressPct = progressPct;
+    c._maxN = c.max_n || c.current_n || 1.0;
+    c._nExp = nExp;
+    c._nLow = nLow;
+    c._nHigh = nHigh;
+  });
+
+  // Sort by selected criteria (Default: % Tiến độ đạt mục tiêu ML giảm dần)
+  if (currentCampaignSort === "PROGRESS_DESC") {
+    displayCampaigns.sort((a, b) => b._progressPct - a._progressPct);
+  } else if (currentCampaignSort === "PROGRESS_ASC") {
+    displayCampaigns.sort((a, b) => a._progressPct - b._progressPct);
+  } else if (currentCampaignSort === "MAX_N_DESC") {
+    displayCampaigns.sort((a, b) => b._maxN - a._maxN);
+  } else if (currentCampaignSort === "DATE_DESC") {
+    displayCampaigns.sort((a, b) => (b.origin_date || '').localeCompare(a.origin_date || ''));
   }
 
   const grid = document.getElementById("campaigns-grid");
@@ -155,8 +189,7 @@ function renderCampaignsGrid() {
           </div>
 
           <!-- ML Training Target Range & Progress Row -->
-          ${c.is_active ? `
-          <div style="background: rgba(0, 240, 255, 0.04); border: 1px dashed rgba(0, 240, 255, 0.35); padding: 12px; border-radius: 6px; margin-bottom: 12px; font-size: 0.78rem;">
+          <div style="background: rgba(0, 240, 255, 0.04); border: 1px dashed ${c.is_active ? 'rgba(0, 240, 255, 0.35)' : 'rgba(255, 255, 255, 0.15)'}; padding: 12px; border-radius: 6px; margin-bottom: 12px; font-size: 0.78rem;">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
               <div>
                 <span style="color: var(--text-dim); display: block; font-size: 0.68rem;">DẢI ĐỈNH KỲ VỌNG ML (90% CI):</span>
@@ -170,16 +203,19 @@ function renderCampaignsGrid() {
             </div>
 
             <div style="display: flex; justify-content: space-between; font-size: 0.73rem; margin-bottom: 4px;">
-              <span style="color: var(--text-muted);">Tiến Độ Đạt Mục Tiêu ML: <strong style="color: var(--accent-cyan); font-family: var(--font-mono);">${progressPct}%</strong></span>
-              <span style="color: ${upsidePct > 0 ? 'var(--accent-green)' : 'var(--accent-red)'}; font-weight: 700; font-family: var(--font-mono);">
-                ${upsidePct > 0 ? '+' + upsidePct + '% Dư Địa Đến Đỉnh' : 'Đã Chạm Vùng Đỉnh ML'}
+              <span style="color: var(--text-muted);">
+                ${c.is_active ? 'Tiến Độ Đạt Mục Tiêu ML:' : 'Đỉnh Thực Tế Đạt:'} 
+                <strong style="color: var(--accent-cyan); font-family: var(--font-mono); font-size: 0.85rem;">${progressPct}%</strong>
+                <span style="color: var(--text-dim); font-size: 0.7rem;">(${c.is_active ? c.current_n : c.max_n}x / ${nExp.toFixed(1)}x)</span>
+              </span>
+              <span style="color: ${c.is_active ? (upsidePct > 0 ? 'var(--accent-green)' : 'var(--accent-red)') : (progressPct >= 100 ? 'var(--accent-green)' : 'var(--accent-yellow)')}; font-weight: 700; font-family: var(--font-mono);">
+                ${c.is_active ? (upsidePct > 0 ? '+' + upsidePct + '% Dư Địa Đến Đỉnh' : 'Đã Chạm Vùng Đỉnh ML') : (progressPct >= 100 ? 'ĐẠT VƯỢT MỤC TIÊU' : 'HOÀN TẤT CHU KỲ')}
               </span>
             </div>
             <div style="width: 100%; height: 6px; background: rgba(255,255,255,0.08); border-radius: 3px; overflow: hidden;">
-              <div style="width: ${progressPct}%; height: 100%; background: linear-gradient(90deg, #00e676 0%, #00f0ff 70%, #ffb800 100%); border-radius: 3px;"></div>
+              <div style="width: ${Math.min(100, progressPct)}%; height: 100%; background: ${progressPct >= 100 ? 'linear-gradient(90deg, #00e676 0%, #00f0ff 100%)' : 'linear-gradient(90deg, #00e676 0%, #00f0ff 70%, #ffb800 100%)'}; border-radius: 3px;"></div>
             </div>
           </div>
-          ` : ''}
 
           <div style="font-size: 0.76rem; color: var(--text-dim); line-height: 1.4; margin-bottom: 10px;">
             ${c.notes || ''}

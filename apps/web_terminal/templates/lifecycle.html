@@ -98,8 +98,17 @@
           <div style="font-size: 0.78rem; color: var(--text-dim);">Theo dõi liên tục từ đáy gốc đến đỉnh và cảnh báo xả hàng khi gãy ngưỡng dump (-45% từ đỉnh)</div>
         </div>
         
-        <!-- Filter Tabs -->
-        <div style="display: flex; align-items: center; gap: 8px;">
+        <!-- Filter Tabs & Sort Controls -->
+        <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+          <div style="display: flex; align-items: center; gap: 6px; background: rgba(0,0,0,0.4); padding: 4px 10px; border-radius: 6px; border: 1px solid rgba(0,240,255,0.3);">
+            <label style="font-size: 0.74rem; color: var(--text-dim);">Sắp xếp:</label>
+            <select id="campaign-sort-select" style="background: transparent; border: none; color: var(--accent-cyan); font-size: 0.78rem; font-weight: 700; cursor: pointer; outline: none;" onchange="setCampaignSort(this.value)">
+              <option value="PROGRESS_DESC" selected style="background: #0b0f17; color: #fff;">% Tiến Độ Đạt Mục Tiêu ML (Cao &rarr; Thấp)</option>
+              <option value="PROGRESS_ASC" style="background: #0b0f17; color: #fff;">% Tiến Độ (Thấp &rarr; Cao - Mới Gom)</option>
+              <option value="MAX_N_DESC" style="background: #0b0f17; color: #fff;">Bội Số Đỉnh n Thực Tế (Cao &rarr; Thấp)</option>
+              <option value="DATE_DESC" style="background: #0b0f17; color: #fff;">Ngày Khởi Phát (Mới Nhất)</option>
+            </select>
+          </div>
           <button id="campaign-filter-active" class="filter-btn active" style="font-size: 0.8rem; padding: 5px 12px;" onclick="setCampaignFilter('ACTIVE')">Đang Chạy (Active)</button>
           <button id="campaign-filter-dumped" class="filter-btn" style="font-size: 0.8rem; padding: 5px 12px; border-color: rgba(255, 51, 102, 0.4); color: var(--accent-red);" onclick="setCampaignFilter('DUMPED')">Lịch Sử Đã Dump</button>
           <button id="campaign-filter-all" class="filter-btn" style="font-size: 0.8rem; padding: 5px 12px;" onclick="setCampaignFilter('ALL')">Tất Cả</button>
