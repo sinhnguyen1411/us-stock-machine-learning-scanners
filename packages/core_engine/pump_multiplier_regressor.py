@@ -294,18 +294,18 @@ class PumpMultiplierRegressor:
         progress_pct = round(min(100.0, (curr_n / max(n_expected, 0.01)) * 100.0), 1)
         remaining_upside_pct = round(max(0.0, (target_peak_price - current_price) / max(current_price, 1e-12) * 100.0), 1)
 
-        # Stage recommendation
+        # Stage recommendation (Chuẩn Tiếng Việt có dấu, không emoji)
         if progress_pct < 45.0:
-            stage_rec = "PHA DAY MANH (Upside Con Lon, Canh Pullback Vao Lenh)"
+            stage_rec = "PHA ĐẨY MẠNH (Dư địa tăng còn lớn, canh các nhịp điều chỉnh để gia nhập vị thế)"
             risk_level = "LOW_RISK"
         elif progress_pct < 80.0:
-            stage_rec = "PHA TRUONG THANH (Gong Lai, Keo Trailing Stop Bao Toan Von)"
+            stage_rec = "PHA TRƯỞNG THÀNH (Gồng lãi, nâng ngưỡng Trailing Stop để bảo toàn vốn)"
             risk_level = "MEDIUM_RISK"
         elif progress_pct <= 105.0:
-            stage_rec = "TIEM CAN DINH ML (Chot Loi Tung Phan, Tranh Mua Du Dinh)"
+            stage_rec = "TIỆM CẬN ĐỈNH ML (Chốt lời từng phần, tuyệt đối tránh mua đuổi vùng đỉnh)"
             risk_level = "HIGH_RISK"
         else:
-            stage_rec = "VUOT MUC TIEU ML (Canh Bao Qua Mua / Can Ke Pha Phan Phoi)"
+            stage_rec = "VƯỢT MỤC TIÊU ML (Cảnh báo quá mua / Cận kề phân phối đảo chiều)"
             risk_level = "CRITICAL_EXHAUSTION"
 
         return {

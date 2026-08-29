@@ -157,20 +157,20 @@ function renderCampaignsGrid() {
           <div style="background: rgba(0, 240, 255, 0.04); border: 1px dashed rgba(0, 240, 255, 0.35); padding: 12px; border-radius: 6px; margin-bottom: 12px; font-size: 0.78rem;">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
               <div>
-                <span style="color: var(--text-dim); display: block; font-size: 0.68rem;">DAI DINH KY VONG ML (90% CI):</span>
+                <span style="color: var(--text-dim); display: block; font-size: 0.68rem;">DẢI ĐỈNH KỲ VỌNG ML (90% CI):</span>
                 <strong style="color: var(--accent-yellow); font-family: var(--font-mono); font-size: 0.92rem;">${nLow.toFixed(1)}x &rarr; ${nHigh.toFixed(1)}x</strong>
                 <span style="color: var(--accent-cyan); font-size: 0.72rem; font-family: var(--font-mono); margin-left: 4px;">(Med: ${nExp.toFixed(1)}x)</span>
               </div>
               <div style="text-align: right;">
-                <span style="color: var(--text-dim); display: block; font-size: 0.68rem;">VUNG GIA MUC TIEU:</span>
+                <span style="color: var(--text-dim); display: block; font-size: 0.68rem;">VÙNG GIÁ MỤC TIÊU:</span>
                 <strong style="color: #fff; font-family: var(--font-mono); font-size: 0.82rem;">$${priceLowFmt} &rarr; $${priceHighFmt}</strong>
               </div>
             </div>
 
             <div style="display: flex; justify-content: space-between; font-size: 0.73rem; margin-bottom: 4px;">
-              <span style="color: var(--text-muted);">Tien Do Dat Muc Tieu ML: <strong style="color: var(--accent-cyan); font-family: var(--font-mono);">${progressPct}%</strong></span>
+              <span style="color: var(--text-muted);">Tiến Độ Đạt Mục Tiêu ML: <strong style="color: var(--accent-cyan); font-family: var(--font-mono);">${progressPct}%</strong></span>
               <span style="color: ${upsidePct > 0 ? 'var(--accent-green)' : 'var(--accent-red)'}; font-weight: 700; font-family: var(--font-mono);">
-                ${upsidePct > 0 ? '+' + upsidePct + '% Du Dia Den Dinh' : 'Da Cham Vung Dinh ML'}
+                ${upsidePct > 0 ? '+' + upsidePct + '% Dư Địa Đến Đỉnh' : 'Đã Chạm Vùng Đỉnh ML'}
               </span>
             </div>
             <div style="width: 100%; height: 6px; background: rgba(255,255,255,0.08); border-radius: 3px; overflow: hidden;">
@@ -186,24 +186,15 @@ function renderCampaignsGrid() {
 
         <!-- Bottom Warning / Trailing -->
         <div style="font-size: 0.75rem; color: var(--text-muted); border-top: 1px solid rgba(255, 255, 255, 0.06); padding-top: 10px; display: flex; justify-content: space-between; align-items: center;">
-          <span>Nguong Cat Dump: <strong style="color: var(--accent-red);">$${dumpFmt}</strong></span>
-          <a href="/?symbol=${c.symbol}" class="btn-inspect" style="padding: 4px 10px; font-size: 0.74rem;" title="Mo bieu do TradingView">
-            Soi Nen
+          <span>Ngưỡng Cắt Dump: <strong style="color: var(--accent-red);">$${dumpFmt}</strong></span>
+          <a href="/?symbol=${c.symbol}" class="btn-inspect" style="padding: 4px 10px; font-size: 0.74rem;" title="Mở biểu đồ TradingView">
+            Soi Nến
           </a>
         </div>
       </div>
     `;
   }).join("");
 }
-
-const CAMPAIGN_PRESETS = {
-  "BTRUSDT":   { base: 0.01587, curr: 0.15663, vol: 18.5, funding: -1.20 },
-  "AKEUSDT":   { base: 0.0001729, curr: 0.0107, vol: 35.0, funding: -1.80 },
-  "BULLAUSDT": { base: 0.003824, curr: 0.01664, vol: 12.0, funding: -0.80 },
-  "PUMPUSDT":  { base: 0.001149, curr: 0.00456, vol: 15.0, funding: -1.50 },
-  "HEMIUSDT":  { base: 0.004101, curr: 0.01152, vol: 8.5, funding: -0.50 },
-  "SNXXUSDT":  { base: 6.20, curr: 12.77, vol: 6.0, funding: -0.30 },
-};
 
 function onMLSelectCampaign(symbol) {
   const customBox = document.getElementById("ml-custom-input-box");
@@ -212,21 +203,7 @@ function onMLSelectCampaign(symbol) {
     return;
   }
   if (customBox) customBox.style.display = "none";
-
-  const p = CAMPAIGN_PRESETS[symbol];
-  if (p) {
-    const baseIn = document.getElementById("ml-pred-base-price");
-    const currIn = document.getElementById("ml-pred-curr-price");
-    const volIn = document.getElementById("ml-pred-vol-spike");
-    const fundIn = document.getElementById("ml-pred-funding");
-
-    if (baseIn) baseIn.value = p.base;
-    if (currIn) currIn.value = p.curr;
-    if (volIn) volIn.value = p.vol;
-    if (fundIn) fundIn.value = p.funding;
-
-    runInteractiveMLPrediction();
-  }
+  runInteractiveMLPrediction();
 }
 
 async function runInteractiveMLPrediction() {
@@ -238,31 +215,40 @@ async function runInteractiveMLPrediction() {
       sym = (customIn && customIn.value.trim()) ? customIn.value.trim().toUpperCase() : "BTRUSDT";
     }
 
-    const basePrice = parseFloat(document.getElementById("ml-pred-base-price")?.value || 0.01587);
-    const currPrice = parseFloat(document.getElementById("ml-pred-curr-price")?.value || 0.15663);
-    const volSpike = parseFloat(document.getElementById("ml-pred-vol-spike")?.value || 10.0);
-    const fundingPct = parseFloat(document.getElementById("ml-pred-funding")?.value || 0.0);
-    const fundingRate = fundingPct / 100.0;
-
-    const res = await fetch("/api/ml/predict_pump_multiplier", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        symbol: sym,
-        base_price: basePrice,
-        current_price: currPrice,
-        vol_spike_ratio: volSpike,
-        funding_rate: fundingRate,
-      })
-    });
-
+    const res = await fetch(`/api/ml/predict_pump_multiplier?symbol=${encodeURIComponent(sym)}`);
     if (!res.ok) return;
     const data = await res.json();
     if (data.status !== "success" || !data.prediction) return;
 
     const p = data.prediction;
+    const live = data.live_metrics || {};
 
-    // Update Result UI Card
+    // 1. Update Live Binance Metric Stat Displays (Read-Only)
+    const baseEl = document.getElementById("ml-live-base-price");
+    if (baseEl) {
+      const bFmt = p.base_price < 0.001 ? p.base_price.toFixed(8) : p.base_price < 1 ? p.base_price.toFixed(5) : p.base_price.toFixed(2);
+      baseEl.innerText = `$${bFmt}`;
+    }
+
+    const currEl = document.getElementById("ml-live-curr-price");
+    if (currEl) {
+      const cFmt = p.current_price < 0.001 ? p.current_price.toFixed(8) : p.current_price < 1 ? p.current_price.toFixed(5) : p.current_price.toFixed(2);
+      currEl.innerText = `$${cFmt}`;
+    }
+
+    const volEl = document.getElementById("ml-live-vol-spike");
+    if (volEl) {
+      volEl.innerText = `${p.vol_spike_ratio ? p.vol_spike_ratio.toFixed(1) : '10.0'}x`;
+    }
+
+    const fundEl = document.getElementById("ml-live-funding");
+    if (fundEl) {
+      const fPct = p.funding_rate_pct !== undefined ? p.funding_rate_pct : (p.funding_rate * 100.0);
+      fundEl.innerText = `${fPct >= 0 ? '+' : ''}${fPct.toFixed(2)}%`;
+      fundEl.style.color = fPct <= -0.5 ? "var(--accent-red)" : fPct < 0 ? "var(--accent-yellow)" : "var(--accent-cyan)";
+    }
+
+    // 2. Update Result Display Card
     const symEl = document.getElementById("ml-pred-res-sym");
     if (symEl) symEl.innerText = p.symbol;
 
@@ -293,6 +279,12 @@ async function runInteractiveMLPrediction() {
 
     const currNEl = document.getElementById("ml-pred-res-curr-n");
     if (currNEl) currNEl.innerText = `${p.current_n.toFixed(2)}x`;
+
+    const subCurrEl = document.getElementById("ml-pred-res-curr-price-sub");
+    if (subCurrEl) {
+      const cFmt = p.current_price < 0.001 ? p.current_price.toFixed(8) : p.current_price < 1 ? p.current_price.toFixed(5) : p.current_price.toFixed(2);
+      subCurrEl.innerText = `$${cFmt}`;
+    }
 
     const expNEl = document.getElementById("ml-pred-res-exp-n");
     if (expNEl) expNEl.innerText = `${p.n_expected.toFixed(2)}x`;
@@ -333,21 +325,23 @@ async function runInteractiveMLPrediction() {
 
     const playbookEl = document.getElementById("ml-pred-res-playbook");
     if (playbookEl) {
+      const tpFmt = p.target_peak_price < 0.001 ? p.target_peak_price.toFixed(8) : p.target_peak_price < 1 ? p.target_peak_price.toFixed(5) : p.target_peak_price.toFixed(2);
       if (p.progress_pct < 45.0) {
-        playbookEl.innerText = `Sóng đang trong pha tăng tốc sớm (tiến độ ${p.progress_pct}%). Dư địa tăng còn lớn (+${p.remaining_upside_pct}%). Khuyến nghị canh các nhịp điều chỉnh pullback để gia tăng vị thế, mục tiêu chốt lời $${p.target_peak_price}.`;
+        playbookEl.innerText = `Sóng đang trong pha tăng tốc sớm (tiến độ ${p.progress_pct}%). Dư địa tăng còn lớn (+${p.remaining_upside_pct}%). Khuyến nghị canh các nhịp điều chỉnh pullback để gia tăng vị thế, mục tiêu chốt lời $${tpFmt}.`;
       } else if (p.progress_pct < 80.0) {
-        playbookEl.innerText = `Sóng đang trong pha trưởng thành (tiến độ ${p.progress_pct}%). Khuyến nghị giữ vị thế, dời Trailing Stop lên để bảo toàn lợi nhuận và chuẩn bị chốt lời từng phần khi tiệm cận $${p.target_peak_price}.`;
+        playbookEl.innerText = `Sóng đang trong pha trưởng thành (tiến độ ${p.progress_pct}%). Khuyến nghị giữ vị thế, dời Trailing Stop lên để bảo toàn lợi nhuận và chuẩn bị chốt lời từng phần khi tiệm cận $${tpFmt}.`;
       } else {
-        playbookEl.innerText = `Sóng đã tiến sát hoặc vượt mục tiêu ML (${p.progress_pct}%). Rủi ro đảo chiều/phân phối rất cao. Khuyến nghị chốt lời phần lớn vị thế và tuyệt đối không mua đuổi vùng giá này.`;
+        playbookEl.innerText = `Sóng đã tiến sát hoặc nằm trong dải đỉnh kỳ vọng ML (${p.progress_pct}%). Rủi ro đảo chiều/phân phối tăng cao. Khuyến nghị chốt lời phần lớn vị thế và tuyệt đối không mua đuổi vùng giá này.`;
       }
     }
 
     const featEl = document.getElementById("ml-pred-res-features");
     if (featEl) {
+      const fPct = p.funding_rate_pct !== undefined ? p.funding_rate_pct : (p.funding_rate * 100.0);
       featEl.innerHTML = `
         <li>Phân khúc giá ${p.price_tier_code}: Nền tảng kỳ vọng n ≈ ${p.n_low.toFixed(1)}x - ${p.n_high.toFixed(1)}x</li>
-        <li>Vol Spike ${volSpike}x: Mở rộng thanh khoản theo luật lũy thừa Bayesian</li>
-        <li>Funding ${fundingPct}%: ${fundingPct <= -0.5 ? 'Áp lực Short Squeeze kích thích gia tốc bơm mạnh' : 'Funding trung tính'}</li>
+        <li>Vol Spike ${p.vol_spike_ratio ? p.vol_spike_ratio.toFixed(1) : '10.0'}x: Mở rộng thanh khoản theo luật lũy thừa Bayesian</li>
+        <li>Funding ${fPct >= 0 ? '+' : ''}${fPct.toFixed(2)}%: ${fPct <= -0.5 ? 'Áp lực Short Squeeze kích thích gia tốc bơm mạnh' : 'Funding trung tính'}</li>
       `;
     }
 

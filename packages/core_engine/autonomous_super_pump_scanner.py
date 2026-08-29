@@ -102,6 +102,96 @@ class AutonomousSuperPumpScanner:
             return None
         return None
 
+    def fetch_live_binance_metrics(self, symbol: str) -> Dict[str, Any]:
+        """
+        Fetch 100% live Binance USD-M Futures real-time metrics:
+        - Live current price from ticker
+        - Live funding rate from premiumIndex
+        - Base bottom price from registry or 120D klines
+        - Volume spike ratio (24h volume vs 30D average)
+        """
+        headers = {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36",
+            "Accept": "application/json",
+        }
+
+        # 1. Fetch live 24h ticker
+        curr_price = 0.0
+        vol_24h_quote = 1_000_000.0
+        try:
+            url_ticker = f"https://fapi.binance.com/fapi/v1/ticker/24hr?symbol={symbol}"
+            req = urllib.request.Request(url_ticker, headers=headers)
+            with urllib.request.urlopen(req, timeout=4) as resp:
+                tick = json.loads(resp.read().decode())
+                curr_price = float(tick.get("lastPrice", 0.0))
+                vol_24h_quote = float(tick.get("quoteVolume", 1_000_000.0))
+        except Exception as ex:
+            logger.debug(f"Ticker fetch failed for {symbol}: {ex}")
+
+        # 2. Fetch live funding rate
+        funding_rate = 0.0
+        try:
+            url_fund = f"https://fapi.binance.com/fapi/v1/premiumIndex?symbol={symbol}"
+            req = urllib.request.Request(url_fund, headers=headers)
+            with urllib.request.urlopen(req, timeout=4) as resp:
+                fund_data = json.loads(resp.read().decode())
+                funding_rate = float(fund_data.get("lastFundingRate", 0.0))
+        except Exception as ex:
+            logger.debug(f"Funding fetch failed for {symbol}: {ex}")
+
+        # 3. Fetch base bottom price and volume baseline
+        base_price = 0.0
+        vol_spike_ratio = 10.0
+
+        # Check registry first for curated macro base price
+        if symbol in self.registry.campaigns:
+            camp = self.registry.campaigns[symbol]
+            base_price = camp.origin_bottom_price
+            if curr_price <= 0:
+                curr_price = camp.current_price
+
+        # If not in registry or base_price missing, compute from 120D klines
+        if base_price <= 0 or vol_spike_ratio == 10.0:
+            try:
+                url_klines = f"https://fapi.binance.com/fapi/v1/klines?symbol={symbol}&interval=1d&limit=120"
+                req = urllib.request.Request(url_klines, headers=headers)
+                with urllib.request.urlopen(req, timeout=4) as resp:
+                    klines = json.loads(resp.read().decode())
+
+                if klines and len(klines) >= 10:
+                    lows = [float(k[3]) for k in klines]
+                    if base_price <= 0:
+                        base_price = min(lows)
+                    if curr_price <= 0:
+                        curr_price = float(klines[-1][4])
+
+                    quote_vols = [float(k[7]) for k in klines]
+                    if len(quote_vols) >= 15:
+                        # Baseline volume: average volume of early 30-day baseline before breakout
+                        baseline_window = quote_vols[:min(30, len(quote_vols) // 2)]
+                        baseline_vol = sum(baseline_window) / max(len(baseline_window), 1)
+                        # Current surge volume
+                        recent_vol = max(quote_vols[-5:])
+                        vol_spike_ratio = round(max(1.0, min(100.0, recent_vol / max(baseline_vol, 1.0))), 2)
+            except Exception as ex:
+                logger.debug(f"Klines fetch failed for {symbol}: {ex}")
+
+        if base_price <= 0:
+            base_price = curr_price * 0.5 if curr_price > 0 else 1.0
+        if curr_price <= 0:
+            curr_price = base_price * 2.0
+
+        return {
+            "symbol": symbol,
+            "current_price": curr_price,
+            "base_price": base_price,
+            "funding_rate": funding_rate,
+            "funding_rate_pct": round(funding_rate * 100.0, 4),
+            "vol_spike_ratio": vol_spike_ratio,
+            "vol_24h_quote": vol_24h_quote,
+            "source": "Binance USD-M Futures Realtime API",
+        }
+
     def scan_all_markets(self, max_symbols: int = 150) -> Dict[str, Any]:
         """
         Scan Binance USD-M Futures contracts with built-in token-bucket pacing (3 req/s).

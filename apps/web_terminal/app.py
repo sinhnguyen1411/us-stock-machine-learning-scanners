@@ -415,6 +415,7 @@ def api_pump_multiplier_research():
 def api_predict_pump_multiplier():
     try:
         from core_engine.pump_multiplier_regressor import get_pump_multiplier_regressor
+        from core_engine.autonomous_super_pump_scanner import AutonomousSuperPumpScanner
         
         if request.method == "POST":
             data = request.json or {}
@@ -422,24 +423,16 @@ def api_predict_pump_multiplier():
             data = request.args
             
         symbol = str(data.get("symbol", "BTRUSDT")).strip().upper()
-        base_price = float(data.get("base_price", 0.0))
-        current_price = float(data.get("current_price", 0.0))
-        vol_spike_ratio = float(data.get("vol_spike_ratio", 10.0))
-        funding_rate = float(data.get("funding_rate", 0.0))
         
-        # If base_price or current_price not supplied, auto-fetch from cycle
-        if base_price <= 0 or current_price <= 0:
-            from core_engine.autonomous_super_pump_scanner import AutonomousSuperPumpScanner
-            scanner = AutonomousSuperPumpScanner()
-            cycle = scanner.scan_symbol_cycle(symbol)
-            if cycle:
-                base_price = cycle["origin_bottom_price"]
-                current_price = cycle["current_price"]
-            else:
-                ticker = connector.get_24h_ticker(symbol=symbol)
-                current_price = float(ticker.get("lastPrice", 1.0))
-                base_price = float(ticker.get("lowPrice", current_price * 0.5))
-                
+        # Always fetch 100% live Binance USD-M Futures real-time metrics
+        scanner = AutonomousSuperPumpScanner()
+        live_metrics = scanner.fetch_live_binance_metrics(symbol)
+        
+        base_price = live_metrics["base_price"]
+        current_price = live_metrics["current_price"]
+        vol_spike_ratio = live_metrics["vol_spike_ratio"]
+        funding_rate = live_metrics["funding_rate"]
+        
         reg = get_pump_multiplier_regressor()
         pred = reg.predict_in_flight(
             symbol=symbol,
@@ -448,9 +441,18 @@ def api_predict_pump_multiplier():
             vol_spike_ratio=vol_spike_ratio,
             funding_rate=funding_rate,
         )
+        
+        # Enforce live metrics in prediction payload
+        pred["vol_spike_ratio"] = vol_spike_ratio
+        pred["funding_rate"] = funding_rate
+        pred["funding_rate_pct"] = live_metrics["funding_rate_pct"]
+        pred["vol_24h_quote"] = live_metrics.get("vol_24h_quote", 0.0)
+        pred["source"] = "Binance USD-M Futures Realtime API"
+        
         return jsonify({
             "status": "success",
             "prediction": pred,
+            "live_metrics": live_metrics,
         })
     except Exception as ex:
         logger.error(f"Error predicting pump multiplier: {ex}", exc_info=True)

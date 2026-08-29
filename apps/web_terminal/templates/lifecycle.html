@@ -94,15 +94,15 @@
     <section class="card-panel" style="border-color: rgba(0, 240, 255, 0.35); background: linear-gradient(180deg, rgba(0, 240, 255, 0.04) 0%, rgba(18, 24, 36, 0.6) 100%); margin-bottom: 24px;">
       <div class="panel-header" style="margin-bottom: 14px;">
         <div>
-          <h3 class="asset-title" style="font-size: 1.2rem; color: var(--accent-cyan);">GIAM SAT CHIEN DICH SIEU SONG DA THANG (MULTI-MONTH TRACKER)</h3>
-          <div style="font-size: 0.78rem; color: var(--text-dim);">Theo doi lien tuc tu day goc den dinh va canh bao xa hang khi gay nguong dump (-45% tu dinh)</div>
+          <h3 class="asset-title" style="font-size: 1.2rem; color: var(--accent-cyan);">GIÁM SÁT CHIẾN DỊCH SIÊU SÓNG ĐA THÁNG (MULTI-MONTH TRACKER)</h3>
+          <div style="font-size: 0.78rem; color: var(--text-dim);">Theo dõi liên tục từ đáy gốc đến đỉnh và cảnh báo xả hàng khi gãy ngưỡng dump (-45% từ đỉnh)</div>
         </div>
         
         <!-- Filter Tabs -->
         <div style="display: flex; align-items: center; gap: 8px;">
-          <button id="campaign-filter-active" class="filter-btn active" style="font-size: 0.8rem; padding: 5px 12px;" onclick="setCampaignFilter('ACTIVE')">Dang Chay (Active)</button>
-          <button id="campaign-filter-dumped" class="filter-btn" style="font-size: 0.8rem; padding: 5px 12px; border-color: rgba(255, 51, 102, 0.4); color: var(--accent-red);" onclick="setCampaignFilter('DUMPED')">Lich Su Da Dump</button>
-          <button id="campaign-filter-all" class="filter-btn" style="font-size: 0.8rem; padding: 5px 12px;" onclick="setCampaignFilter('ALL')">Tat Ca</button>
+          <button id="campaign-filter-active" class="filter-btn active" style="font-size: 0.8rem; padding: 5px 12px;" onclick="setCampaignFilter('ACTIVE')">Đang Chạy (Active)</button>
+          <button id="campaign-filter-dumped" class="filter-btn" style="font-size: 0.8rem; padding: 5px 12px; border-color: rgba(255, 51, 102, 0.4); color: var(--accent-red);" onclick="setCampaignFilter('DUMPED')">Lịch Sử Đã Dump</button>
+          <button id="campaign-filter-all" class="filter-btn" style="font-size: 0.8rem; padding: 5px 12px;" onclick="setCampaignFilter('ALL')">Tất Cả</button>
         </div>
       </div>
 
@@ -115,8 +115,8 @@
     <section class="card-panel" style="border-color: rgba(0, 240, 255, 0.4); background: linear-gradient(180deg, rgba(0, 240, 255, 0.05) 0%, rgba(18, 24, 36, 0.7) 100%); margin-bottom: 24px;">
       <div class="panel-header" style="margin-bottom: 16px;">
         <div>
-          <h3 class="asset-title" style="font-size: 1.2rem; color: var(--accent-cyan);">DU BAO BOI SO ML & DINH GIA DINH CHO CAC SONG DANG PUMP (IN-FLIGHT ML PREDICTOR)</h3>
-          <div style="font-size: 0.78rem; color: var(--text-dim);">Ung dung mo hinh Tri-Ensemble v4 de tinh toan Boi So Dinh n, Gia Muc Tieu, Du Dia Con Lai & Khuyen Nghi Van Hanh</div>
+          <h3 class="asset-title" style="font-size: 1.2rem; color: var(--accent-cyan);">DỰ BÁO BỘI SỐ ML &amp; ĐỊNH GIÁ ĐỈNH CHO CÁC SÓNG ĐANG PUMP (IN-FLIGHT ML PREDICTOR)</h3>
+          <div style="font-size: 0.78rem; color: var(--text-dim);">Dữ liệu chỉ số được truy xuất trực tiếp từ Binance USD-M Futures realtime. Mô hình Tri-Ensemble v4 tính toán Dải Đỉnh n, Giá Mục Tiêu &amp; Dư Địa Còn Lại.</div>
         </div>
       </div>
 
@@ -125,54 +125,65 @@
         
         <!-- Input Controls -->
         <div style="background: rgba(11, 15, 23, 0.85); border: 1px solid rgba(0, 240, 255, 0.25); border-radius: 8px; padding: 18px;">
-          <h4 style="font-size: 0.95rem; font-weight: 700; color: #fff; margin-bottom: 14px;">
-            Chon Hoac Nhap Ma Sieu Song
-          </h4>
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px;">
+            <h4 style="font-size: 0.95rem; font-weight: 700; color: #fff; margin: 0;">
+              Chọn Mã Hợp Đồng
+            </h4>
+            <span style="font-size: 0.68rem; color: var(--accent-green); background: rgba(0,230,118,0.1); border: 1px solid var(--accent-green); padding: 2px 6px; border-radius: 4px; font-weight: 700;">Binance Futures Live</span>
+          </div>
 
-          <div style="margin-bottom: 12px;">
-            <label style="font-size: 0.74rem; color: var(--text-dim); display: block; margin-bottom: 5px;">MA HOP DONG (BINANCE USD-M FUTURES):</label>
+          <div style="margin-bottom: 14px;">
+            <label style="font-size: 0.74rem; color: var(--text-dim); display: block; margin-bottom: 5px;">MÃ HỢP ĐỒNG (BINANCE USD-M FUTURES):</label>
             <div style="display: flex; gap: 6px;">
               <select id="ml-pred-symbol-select" style="flex: 1; background: rgba(0,0,0,0.5); border: 1px solid rgba(255,255,255,0.15); color: #fff; border-radius: 4px; padding: 8px; font-weight: 700;" onchange="onMLSelectCampaign(this.value)">
-                <option value="BTRUSDT">BTRUSDT (Song lon 11.3x - Dang chay)</option>
-                <option value="AKEUSDT">AKEUSDT (Sieu song 94x - Neo dinh)</option>
-                <option value="BULLAUSDT">BULLAUSDT (4.3x - Tich luy)</option>
-                <option value="PUMPUSDT">PUMPUSDT (3.9x - Dang day)</option>
-                <option value="HEMIUSDT">HEMIUSDT (2.8x - Tich luy)</option>
-                <option value="SNXXUSDT">SNXXUSDT (2.1x - Tich luy)</option>
-                <option value="CUSTOM">Nhap Ma Khac...</option>
+                <option value="BTRUSDT">BTRUSDT (Sóng lớn 11.3x - Đang chạy)</option>
+                <option value="AKEUSDT">AKEUSDT (Siêu sóng 94x - Neo đỉnh)</option>
+                <option value="BULLAUSDT">BULLAUSDT (4.3x - Tích lũy)</option>
+                <option value="PUMPUSDT">PUMPUSDT (3.9x - Đang đẩy)</option>
+                <option value="HEMIUSDT">HEMIUSDT (2.8x - Tích lũy)</option>
+                <option value="SNXXUSDT">SNXXUSDT (2.1x - Tích lũy)</option>
+                <option value="CUSTOM">Nhập Mã Khác...</option>
               </select>
             </div>
           </div>
 
-          <div id="ml-custom-input-box" style="display: none; margin-bottom: 12px;">
-            <label style="font-size: 0.74rem; color: var(--text-dim); display: block; margin-bottom: 5px;">NHAP TICKER TUY CHON:</label>
-            <input type="text" id="ml-pred-custom-sym" placeholder="VD: DEXEUSDT, OGNUSDT..." style="width: 100%; background: rgba(0,0,0,0.5); border: 1px solid rgba(0,240,255,0.4); color: #fff; border-radius: 4px; padding: 8px; font-family: var(--font-mono); text-transform: uppercase;">
+          <div id="ml-custom-input-box" style="display: none; margin-bottom: 14px;">
+            <label style="font-size: 0.74rem; color: var(--text-dim); display: block; margin-bottom: 5px;">NHẬP TICKER BINANCE USD-M:</label>
+            <div style="display: flex; gap: 6px;">
+              <input type="text" id="ml-pred-custom-sym" placeholder="VD: DEXEUSDT, OGNUSDT..." style="flex: 1; background: rgba(0,0,0,0.5); border: 1px solid rgba(0,240,255,0.4); color: #fff; border-radius: 4px; padding: 8px; font-family: var(--font-mono); text-transform: uppercase;">
+              <button class="btn-inspect" style="padding: 0 12px; font-size: 0.78rem;" onclick="runInteractiveMLPrediction()">Tải Dữ Liệu</button>
+            </div>
           </div>
 
-          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 12px;">
-            <div>
-              <label style="font-size: 0.72rem; color: var(--text-dim); display: block; margin-bottom: 4px;">GIA DAY GOC (BASE):</label>
-              <input type="number" step="any" id="ml-pred-base-price" value="0.01587" style="width: 100%; background: rgba(0,0,0,0.5); border: 1px solid rgba(255,255,255,0.15); color: var(--accent-cyan); border-radius: 4px; padding: 7px; font-family: var(--font-mono);">
+          <!-- Real-time Live Readonly Metric Displays -->
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px;">
+            <div style="background: rgba(0,0,0,0.4); border: 1px solid rgba(0,240,255,0.25); border-radius: 6px; padding: 10px;">
+              <div style="font-size: 0.68rem; color: var(--text-dim); margin-bottom: 2px;">GIÁ ĐÁY GỐC (BASE):</div>
+              <div id="ml-live-base-price" style="font-size: 1.0rem; font-weight: 700; color: var(--accent-cyan); font-family: var(--font-mono);">$0.01587</div>
+              <div style="font-size: 0.62rem; color: var(--text-muted);">Đáy chu kỳ 120D</div>
             </div>
-            <div>
-              <label style="font-size: 0.72rem; color: var(--text-dim); display: block; margin-bottom: 4px;">GIA HIEN TAI (PRICE):</label>
-              <input type="number" step="any" id="ml-pred-curr-price" value="0.15663" style="width: 100%; background: rgba(0,0,0,0.5); border: 1px solid rgba(255,255,255,0.15); color: #fff; border-radius: 4px; padding: 7px; font-family: var(--font-mono);">
+            <div style="background: rgba(0,0,0,0.4); border: 1px solid rgba(255,255,255,0.15); border-radius: 6px; padding: 10px;">
+              <div style="font-size: 0.68rem; color: var(--text-dim); margin-bottom: 2px;">GIÁ HIỆN TẠI (PRICE):</div>
+              <div id="ml-live-curr-price" style="font-size: 1.0rem; font-weight: 700; color: #fff; font-family: var(--font-mono);">$0.15663</div>
+              <div style="font-size: 0.62rem; color: var(--text-muted);">Live Ticker Binance</div>
             </div>
           </div>
 
           <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 16px;">
-            <div>
-              <label style="font-size: 0.72rem; color: var(--text-dim); display: block; margin-bottom: 4px;">VOL SPIKE RATIO:</label>
-              <input type="number" step="0.5" id="ml-pred-vol-spike" value="18.5" style="width: 100%; background: rgba(0,0,0,0.5); border: 1px solid rgba(255,255,255,0.15); color: var(--accent-yellow); border-radius: 4px; padding: 7px; font-family: var(--font-mono);">
+            <div style="background: rgba(0,0,0,0.4); border: 1px solid rgba(255,184,0,0.25); border-radius: 6px; padding: 10px;">
+              <div style="font-size: 0.68rem; color: var(--text-dim); margin-bottom: 2px;">VOL SPIKE (24H/30D):</div>
+              <div id="ml-live-vol-spike" style="font-size: 1.0rem; font-weight: 700; color: var(--accent-yellow); font-family: var(--font-mono);">18.5x</div>
+              <div style="font-size: 0.62rem; color: var(--text-muted);">Đột biến volume</div>
             </div>
-            <div>
-              <label style="font-size: 0.72rem; color: var(--text-dim); display: block; margin-bottom: 4px;">FUNDING RATE (%):</label>
-              <input type="number" step="0.01" id="ml-pred-funding" value="-1.20" style="width: 100%; background: rgba(0,0,0,0.5); border: 1px solid rgba(255,255,255,0.15); color: var(--accent-red); border-radius: 4px; padding: 7px; font-family: var(--font-mono);">
+            <div style="background: rgba(0,0,0,0.4); border: 1px solid rgba(255,51,102,0.25); border-radius: 6px; padding: 10px;">
+              <div style="font-size: 0.68rem; color: var(--text-dim); margin-bottom: 2px;">FUNDING RATE LIVE:</div>
+              <div id="ml-live-funding" style="font-size: 1.0rem; font-weight: 700; color: var(--accent-red); font-family: var(--font-mono);">-1.20%</div>
+              <div style="font-size: 0.62rem; color: var(--text-muted);">Tỷ lệ phí funding</div>
             </div>
           </div>
 
           <button class="btn-primary" style="width: 100%; padding: 10px; font-size: 0.88rem; font-weight: 700; background: linear-gradient(135deg, #00f0ff 0%, #0080ff 100%); color: #000; border: none; border-radius: 6px; cursor: pointer;" onclick="runInteractiveMLPrediction()">
-            CHAY DU BAO ML MULTIPLIER n
+            LÀM MỚI REALTIME &amp; DỰ BÁO ML
           </button>
         </div>
 
@@ -182,45 +193,45 @@
           <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 16px; border-bottom: 1px solid rgba(255,255,255,0.08); padding-bottom: 12px;">
             <div>
               <h3 id="ml-pred-res-sym" style="font-size: 1.4rem; font-weight: 800; color: #fff; margin: 0;">BTRUSDT</h3>
-              <span id="ml-pred-res-tier" style="font-size: 0.76rem; color: var(--accent-cyan);">Phan Khuc: PENNY_LOW ($0.01 - $0.05)</span>
+              <span id="ml-pred-res-tier" style="font-size: 0.76rem; color: var(--accent-cyan);">Phân Khúc: PENNY_LOW ($0.01 - $0.05)</span>
             </div>
             <div id="ml-pred-res-stage" style="padding: 4px 10px; border-radius: 4px; background: rgba(0, 230, 118, 0.15); color: var(--accent-green); font-size: 0.8rem; font-weight: 700; border: 1px solid var(--accent-green);">
-              PHA DAY MANH (Upside Con Lon)
+              PHA ĐẨY MẠNH (Dư Địa Còn Lớn)
             </div>
           </div>
 
           <!-- Multipliers & Target Prices -->
           <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 18px;">
             <div style="background: rgba(0,0,0,0.3); padding: 12px; border-radius: 6px; border-left: 3px solid var(--accent-cyan);">
-              <span style="font-size: 0.7rem; color: var(--text-dim); display: block;">BOI SO HIEN TAI (n):</span>
+              <span style="font-size: 0.7rem; color: var(--text-dim); display: block;">BỘI SỐ HIỆN TẠI (n):</span>
               <strong id="ml-pred-res-curr-n" style="font-size: 1.25rem; color: #fff; font-family: var(--font-mono);">9.87x</strong>
-              <div style="font-size: 0.68rem; color: var(--text-muted);">$0.15663</div>
+              <div id="ml-pred-res-curr-price-sub" style="font-size: 0.68rem; color: var(--text-muted);">$0.15663</div>
             </div>
 
             <div style="background: rgba(0,0,0,0.3); padding: 12px; border-radius: 6px; border-left: 3px solid var(--accent-yellow);">
-              <span style="font-size: 0.7rem; color: var(--text-dim); display: block;">ML DU BAO DINH (n):</span>
+              <span style="font-size: 0.7rem; color: var(--text-dim); display: block;">ML DỰ BÁO ĐỈNH (n):</span>
               <strong id="ml-pred-res-exp-n" style="font-size: 1.25rem; color: var(--accent-yellow); font-family: var(--font-mono);">18.00x</strong>
-              <div id="ml-pred-res-n-range" style="font-size: 0.68rem; color: var(--text-dim);">Dai: 8.0x - 40.0x</div>
+              <div id="ml-pred-res-n-range" style="font-size: 0.68rem; color: var(--text-dim);">Dải: 8.0x - 40.0x</div>
             </div>
 
             <div style="background: rgba(0,0,0,0.3); padding: 12px; border-radius: 6px; border-left: 3px solid var(--accent-green);">
-              <span style="font-size: 0.7rem; color: var(--text-dim); display: block;">GIA DINH MUC TIEU:</span>
+              <span style="font-size: 0.7rem; color: var(--text-dim); display: block;">GIÁ ĐỈNH MỤC TIÊU:</span>
               <strong id="ml-pred-res-target-price" style="font-size: 1.25rem; color: var(--accent-green); font-family: var(--font-mono);">$0.28566</strong>
               <div id="ml-pred-res-price-range" style="font-size: 0.68rem; color: var(--text-dim);">$0.127 - $0.634</div>
             </div>
 
             <div style="background: rgba(0,0,0,0.3); padding: 12px; border-radius: 6px; border-left: 3px solid #00f0ff;">
-              <span style="font-size: 0.7rem; color: var(--text-dim); display: block;">DU DIA CON LAI:</span>
+              <span style="font-size: 0.7rem; color: var(--text-dim); display: block;">DƯ ĐỊA CÒN LẠI:</span>
               <strong id="ml-pred-res-upside" style="font-size: 1.25rem; color: #00f0ff; font-family: var(--font-mono);">+82.4%</strong>
-              <div style="font-size: 0.68rem; color: var(--accent-green);">Tu gia hien tai</div>
+              <div style="font-size: 0.68rem; color: var(--accent-green);">Từ giá hiện tại</div>
             </div>
           </div>
 
           <!-- Progress Bar -->
           <div style="margin-bottom: 18px;">
             <div style="display: flex; justify-content: space-between; font-size: 0.76rem; margin-bottom: 6px;">
-              <span>Tien Do Chu Ky Song Day: <strong id="ml-pred-res-progress-text" style="color: var(--accent-cyan);">54.8%</strong></span>
-              <span id="ml-pred-res-rem-text" style="color: var(--text-dim);">Con 45.2% de cham muc tieu ML</span>
+              <span>Tiến Độ Chu Kỳ Sóng Đẩy: <strong id="ml-pred-res-progress-text" style="color: var(--accent-cyan);">54.8%</strong></span>
+              <span id="ml-pred-res-rem-text" style="color: var(--text-dim);">Còn 45.2% để chạm mục tiêu ML</span>
             </div>
             <div style="width: 100%; height: 10px; background: rgba(255,255,255,0.08); border-radius: 5px; overflow: hidden; position: relative;">
               <div id="ml-pred-res-progress-bar" style="width: 54.8%; height: 100%; background: linear-gradient(90deg, #00e676 0%, #00f0ff 70%, #ffb800 100%); border-radius: 5px; transition: width 0.4s ease;"></div>
@@ -230,17 +241,17 @@
           <!-- Operational Playbook & Feature Attributions -->
           <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px; background: rgba(0,0,0,0.25); padding: 12px; border-radius: 6px; font-size: 0.78rem;">
             <div>
-              <span style="font-weight: 700; color: var(--accent-cyan); display: block; margin-bottom: 4px;">Chien Luoc Giao Dich ML:</span>
+              <span style="font-weight: 700; color: var(--accent-cyan); display: block; margin-bottom: 4px;">Chiến Lược Giao Dịch ML:</span>
               <p id="ml-pred-res-playbook" style="margin: 0; color: var(--text-muted); line-height: 1.4;">
-                Song dang trong pha tang toc manh me (tien do 54.8%). Khuyen nghi giu vi the, cai Trailing Stop duoi $0.0988 de bao toan loi nhuan va chot loi dan khi gia tiem can $0.285.
+                Sóng đang trong pha tăng tốc mạnh mẽ (tiến độ 54.8%). Khuyến nghị giữ vị thế, cài Trailing Stop dưới $0.0988 để bảo toàn lợi nhuận và chốt lời dần khi giá tiệm cận $0.285.
               </p>
             </div>
             <div>
-              <span style="font-weight: 700; color: var(--accent-yellow); display: block; margin-bottom: 4px;">Dong Gop Tinh Nang ML (Feature Attribution):</span>
+              <span style="font-weight: 700; color: var(--accent-yellow); display: block; margin-bottom: 4px;">Đóng Góp Tính Năng ML (Feature Attribution):</span>
               <ul id="ml-pred-res-features" style="margin: 0; padding-left: 16px; color: var(--text-dim); font-family: var(--font-mono); font-size: 0.72rem;">
-                <li>Phan khuc gia Penny: Nen tang ky vong n ~ 6.5x - 18x</li>
-                <li>Vol Spike 18.5x: He so mo rong Bayesian x 1.45</li>
-                <li>Funding -1.2%: Ap luc Short Squeeze kich thich gia toc</li>
+                <li>Phân khúc giá Penny: Nền tảng kỳ vọng n ~ 6.5x - 18x</li>
+                <li>Vol Spike 18.5x: Hệ số mở rộng Bayesian x 1.45</li>
+                <li>Funding -1.2%: Áp lực Short Squeeze kích thích gia tốc</li>
               </ul>
             </div>
           </div>
@@ -254,8 +265,8 @@
     <section class="card-panel" style="border-color: rgba(0, 240, 255, 0.25); margin-bottom: 24px;">
       <div class="panel-header">
         <div>
-          <h3 class="asset-title" style="font-size: 1.2rem; color: var(--accent-cyan);">NGHIEN CUU ML: TUONG QUAN GIA DAY &amp; BOI SO PUMP n</h3>
-          <div style="font-size: 0.78rem; color: var(--text-dim);">Quy trinh CRISP-DM 2 Chieu - Mo hinh Tri-Ensemble v4 (Ridge + Random Forest + Gradient Boosting + Bayesian Prior)</div>
+          <h3 class="asset-title" style="font-size: 1.2rem; color: var(--accent-cyan);">NGHIÊN CỨU ML: TƯƠNG QUAN GIÁ ĐÁY &amp; BỘI SỐ PUMP n</h3>
+          <div style="font-size: 0.78rem; color: var(--text-dim);">Quy trình CRISP-DM 2 Chiều - Mô hình Tri-Ensemble v4 (Ridge + Random Forest + Gradient Boosting + Bayesian Prior)</div>
         </div>
       </div>
 
