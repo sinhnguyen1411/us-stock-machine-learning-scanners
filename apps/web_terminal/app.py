@@ -519,15 +519,81 @@ def api_retrain_models():
     try:
         from core_engine.self_learning_engine import get_self_learning_engine
         engine = get_self_learning_engine()
-        res = engine.retrain_models()
+        result = engine.retrain_models()
+        report = engine.get_benchmark_report()
         return jsonify({
             "status": "success",
-            "result": res,
-            "report": engine.get_benchmark_report()
+            "result": result,
+            "report": report
         })
     except Exception as ex:
         logger.error(f"Error in api_retrain_models: {ex}", exc_info=True)
         return jsonify({"status": "error", "message": str(ex)}), 500
+
+
+@app.route("/api/qa/health_check")
+def api_qa_health_check():
+    """
+    Comprehensive QA/QC Diagnostic & Telemetry Endpoint.
+    Verifies live Binance connectivity, model status, database records, and latency.
+    """
+    import time
+    start_t = time.perf_counter()
+    diagnostics = {
+        "status": "PASS",
+        "timestamp": datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC"),
+        "checks": {}
+    }
+
+    # 1. Binance Live REST API Check
+    try:
+        from core_engine.autonomous_super_pump_scanner import AutonomousSuperPumpScanner
+        scanner = AutonomousSuperPumpScanner()
+        btr_metrics = scanner.fetch_live_binance_metrics("BTRUSDT")
+        diagnostics["checks"]["binance_futures_api"] = {
+            "status": "PASS",
+            "sample_symbol": "BTRUSDT",
+            "live_price": btr_metrics["current_price"],
+            "live_funding_rate_pct": btr_metrics["funding_rate_pct"],
+            "source": btr_metrics["source"],
+        }
+    except Exception as ex:
+        diagnostics["status"] = "DEGRADED"
+        diagnostics["checks"]["binance_futures_api"] = {"status": "FAIL", "error": str(ex)}
+
+    # 2. ML Tri-Ensemble Model Check
+    try:
+        from core_engine.pump_multiplier_regressor import get_pump_multiplier_regressor
+        reg = get_pump_multiplier_regressor()
+        summary = reg.get_model_summary()
+        diagnostics["checks"]["ml_regressor"] = {
+            "status": "PASS",
+            "version": summary.get("version"),
+            "is_trained": summary.get("is_trained"),
+            "dataset_size": summary.get("dataset_size"),
+            "5fold_mae": summary.get("5fold_mae"),
+        }
+    except Exception as ex:
+        diagnostics["status"] = "DEGRADED"
+        diagnostics["checks"]["ml_regressor"] = {"status": "FAIL", "error": str(ex)}
+
+    # 3. Ground-Truth Benchmark Ledger Check
+    try:
+        from core_engine.self_learning_engine import get_self_learning_engine
+        engine = get_self_learning_engine()
+        rep = engine.get_benchmark_report()
+        diagnostics["checks"]["benchmark_ledger"] = {
+            "status": "PASS",
+            "total_verified_events": rep.get("total_events"),
+            "hit_rate_pct": rep.get("hit_rate_pct"),
+            "avg_ape_pct": rep.get("avg_ape_pct"),
+        }
+    except Exception as ex:
+        diagnostics["status"] = "DEGRADED"
+        diagnostics["checks"]["benchmark_ledger"] = {"status": "FAIL", "error": str(ex)}
+
+    diagnostics["latency_ms"] = round((time.perf_counter() - start_t) * 1000, 2)
+    return jsonify(diagnostics)
 
 
 @app.route("/api/analyze/<symbol>")
