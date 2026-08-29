@@ -265,6 +265,28 @@ class PumpLifecycleRegistry:
                 dump_date=None,
                 notes="Large Tier Asset: Day $6.20 -> Dai dinh ky vong ML [2x - 10x] ($12.40 - $62.00). Hien dat 2.06x.",
             ),
+            # MAGMA: Medium tier ($0.1 - $1.0) -> ML Model Training Range: [4.0x - 20.0x], Median: 9.0x
+            PumpCampaign(
+                symbol="MAGMAUSDT",
+                origin_date="2026-07-25",
+                origin_bottom_price=0.11850000,
+                highest_peak_price=0.57955000,
+                highest_peak_date="2026-08-29",
+                current_price=0.53282000,
+                current_n=4.50,
+                max_n=4.89,
+                expected_n_ml=9.00,
+                expected_n_low=4.0,
+                expected_n_high=20.0,
+                drawdown_from_peak_pct=8.1,
+                pump_age_days=35,
+                stage=PumpStage.ACTIVE_EXPANSION,
+                stage_label_vi="Song Moi Dang Mo Rong",
+                is_active=True,
+                dump_threshold_price=0.3187,
+                dump_date=None,
+                notes="Chien dich DeFi/Infra 2026: Day $0.1185 -> Dai dinh ky vong ML [4x - 20x] ($0.474 - $2.370), Med 9.0x ($1.066). Vol 24h bung no $219M (+50.3%), dang trong pha day manh.",
+            ),
             # VELVET: Completed Dump (-91.7% off peak)
             PumpCampaign(
                 symbol="VELVETUSDT",
