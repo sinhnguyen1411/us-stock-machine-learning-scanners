@@ -12,10 +12,14 @@ document.addEventListener("DOMContentLoaded", () => {
   fetchCampaignsData();
   fetchResearchData();
   fetchBenchmarkLedger();
-  predictInFlight(); // Immediately fetch live Binance Futures metrics on load
+  runInteractiveMLPrediction(); // Immediately fetch live Binance Futures metrics on load
   setInterval(fetchCampaignsData, 5000);
   setInterval(fetchBenchmarkLedger, 10000);
 });
+
+function predictInFlight() {
+  return runInteractiveMLPrediction();
+}
 
 function setCampaignFilter(filter) {
   currentCampaignFilter = filter;

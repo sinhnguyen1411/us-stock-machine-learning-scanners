@@ -159,7 +159,13 @@
           <div id="ml-custom-input-box" style="display: none; margin-bottom: 14px;">
             <label style="font-size: 0.74rem; color: var(--text-dim); display: block; margin-bottom: 5px;">NHẬP TICKER BINANCE USD-M:</label>
             <div style="display: flex; gap: 6px;">
-              <input type="text" id="ml-pred-custom-sym" placeholder="VD: DEXEUSDT, OGNUSDT..." style="flex: 1; background: rgba(0,0,0,0.5); border: 1px solid rgba(0,240,255,0.4); color: #fff; border-radius: 4px; padding: 8px; font-family: var          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 12px;">
+              <input type="text" id="ml-pred-custom-sym" placeholder="VD: DEXEUSDT, OGNUSDT..." style="flex: 1; background: rgba(0,0,0,0.5); border: 1px solid rgba(0,240,255,0.4); color: #fff; border-radius: 4px; padding: 8px; font-family: var(--font-mono); text-transform: uppercase;">
+              <button class="btn-inspect" style="padding: 0 12px; font-size: 0.78rem;" onclick="runInteractiveMLPrediction()">Tải Dữ Liệu</button>
+            </div>
+          </div>
+
+          <!-- Real-time Live Readonly Metric Displays -->
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 12px;">
             <div style="background: rgba(0,0,0,0.4); border: 1px solid rgba(0,240,255,0.25); border-radius: 6px; padding: 10px;">
               <div style="font-size: 0.68rem; color: var(--text-dim); margin-bottom: 2px;">GIÁ ĐÁY GỐC (BASE):</div>
               <div id="ml-live-base-price" style="font-size: 1.0rem; font-weight: 700; color: var(--accent-cyan); font-family: var(--font-mono);">$0.01587</div>
