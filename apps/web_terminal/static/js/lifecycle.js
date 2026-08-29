@@ -237,7 +237,12 @@ async function fetchCampaignsData() {
 
     populateMLSymbolSelect(all);
     renderCampaignsView();
+
+    if (cachedResearchData && cachedResearchData.events) {
+      renderScatterCanvas(cachedResearchData.events);
+    }
   } catch (e) {
+
     console.debug("Error fetching campaigns data:", e);
   }
 }
@@ -1106,16 +1111,16 @@ function renderScatterCanvas(events) {
   ctx.fillText("Dải Phân Phối Chuẩn 90% CI (Power Law Cone)", toScreenX(0.0003), toScreenY(65));
   ctx.fillText("Đường Hồi Quy Trung Vị: n ≈ 6.2 · P_base^-0.22", toScreenX(0.03), toScreenY(7));
 
-  // ── 6. DATA POINTS WITH Z-ORDERING & ACTIVE HIGHLIGHTS ───────────────
+  // ── 6. DATA POINTS WITH Z-ORDERING ──────────────────────────────────
   scatterPoints = [];
 
-  // Identify active coins
+  // Get exact active campaigns list from Section 1
   const activeCoinsList = (cachedCampaignsData && cachedCampaignsData.all_campaigns) 
-    ? cachedCampaignsData.all_campaigns.filter(c => c.is_active && c.stage !== "DUMP_CONFIRMED")
+    ? cachedCampaignsData.all_campaigns.filter(c => c.is_active && c.stage !== "DUMP_CONFIRMED" && c.stage !== "DELISTED")
     : [];
   const activeSymbols = new Set(activeCoinsList.map(c => c.symbol));
 
-  // Filter events according to currentScatterFilter
+  // Filter historical events according to currentScatterFilter
   let filteredEvents = events;
   if (currentScatterFilter === "OUTLIER") {
     filteredEvents = events.filter(e => e.n_actual >= 30);
@@ -1124,7 +1129,7 @@ function renderScatterCanvas(events) {
   } else if (currentScatterFilter === "BASE") {
     filteredEvents = events.filter(e => e.n_actual < 10);
   } else if (currentScatterFilter === "ACTIVE") {
-    filteredEvents = events.filter(e => activeSymbols.has(e.symbol));
+    filteredEvents = []; // When ACTIVE filter selected, show only active coins in step 7
   }
 
   // Split into layers for clean Z-Ordering
@@ -1135,8 +1140,7 @@ function renderScatterCanvas(events) {
   filteredEvents.forEach(e => {
     const x = toScreenX(e.pre_pump_price);
     const y = toScreenY(e.n_actual);
-    const isActive = activeSymbols.has(e.symbol);
-    const pt = { x, y, event: e, isActive, radius: e.n_actual >= 30 ? 8 : e.n_actual >= 10 ? 6 : 4.5 };
+    const pt = { x, y, event: e, isActive: false, radius: e.n_actual >= 30 ? 7.5 : e.n_actual >= 10 ? 5.5 : 4.0 };
     scatterPoints.push(pt);
 
     if (e.n_actual >= 30) outlierPoints.push(pt);
@@ -1144,126 +1148,106 @@ function renderScatterCanvas(events) {
     else basePoints.push(pt);
   });
 
-  // Layer 1: Base Points (n < 10x)
+  // Layer 1: Historical Base Points (n < 10x)
   basePoints.forEach(pt => {
     ctx.beginPath();
-    ctx.arc(pt.x, pt.y, 4.0, 0, 2 * Math.PI);
-    ctx.fillStyle = "rgba(0, 229, 255, 0.7)";
+    ctx.arc(pt.x, pt.y, 3.8, 0, 2 * Math.PI);
+    ctx.fillStyle = "rgba(0, 229, 255, 0.6)";
     ctx.fill();
-    ctx.strokeStyle = "rgba(255, 255, 255, 0.4)";
-    ctx.lineWidth = 1;
+    ctx.strokeStyle = "rgba(255, 255, 255, 0.3)";
+    ctx.lineWidth = 0.8;
     ctx.stroke();
-
-    if (pt.isActive) {
-      ctx.beginPath();
-      ctx.arc(pt.x, pt.y, 9.0, 0, 2 * Math.PI);
-      ctx.strokeStyle = "#00e676";
-      ctx.lineWidth = 1.8;
-      ctx.stroke();
-    }
   });
 
-  // Layer 2: Mid Points (10x <= n < 30x)
+  // Layer 2: Historical Mid Points (10x <= n < 30x)
   midPoints.forEach(pt => {
     ctx.beginPath();
-    ctx.arc(pt.x, pt.y, 5.8, 0, 2 * Math.PI);
-    ctx.fillStyle = "#ffb800";
+    ctx.arc(pt.x, pt.y, 5.5, 0, 2 * Math.PI);
+    ctx.fillStyle = "rgba(255, 184, 0, 0.85)";
     ctx.fill();
     ctx.strokeStyle = "#ffffff";
-    ctx.lineWidth = 1.5;
+    ctx.lineWidth = 1.2;
     ctx.stroke();
-
-    if (pt.isActive) {
-      ctx.beginPath();
-      ctx.arc(pt.x, pt.y, 11.0, 0, 2 * Math.PI);
-      ctx.strokeStyle = "#00e676";
-      ctx.lineWidth = 2.0;
-      ctx.stroke();
-    }
   });
 
-  // Layer 3: Super Outliers (n >= 30x) - Rendered with high glow
+  // Layer 3: Historical Super Outliers (n >= 30x)
   outlierPoints.forEach(pt => {
     ctx.shadowColor = "#ff0055";
-    ctx.shadowBlur = 12;
+    ctx.shadowBlur = 10;
     ctx.beginPath();
-    ctx.arc(pt.x, pt.y, 7.8, 0, 2 * Math.PI);
+    ctx.arc(pt.x, pt.y, 7.5, 0, 2 * Math.PI);
     ctx.fillStyle = "#ff0055";
+    ctx.fill();
+    ctx.strokeStyle = "#ffffff";
+    ctx.lineWidth = 1.8;
+    ctx.stroke();
+    ctx.shadowBlur = 0;
+  });
+
+  // ── 7. RENDER ACTIVE RUNNING COINS (SYNCHRONIZED WITH SECTION 1) ───────
+  const activeLandmarkOffsets = {
+    "AKEUSDT":     { dx: 12,  dy: -10, align: "left" },
+    "BTRUSDT":     { dx: 12,  dy: -8,  align: "left" },
+    "龙虾USDT":    { dx: 12,  dy: -14, align: "left" },
+    "PROMUSDT":    { dx: 12,  dy: -10, align: "left" },
+    "MAGMAUSDT":   { dx: 12,  dy: -10, align: "left" },
+    "BULLAUSDT":   { dx: -12, dy: -8,  align: "right" },
+    "ZECUSDT":     { dx: -12, dy: -8,  align: "right" },
+    "PUMPUSDT":    { dx: -12, dy: -8,  align: "right" },
+    "HEMIUSDT":    { dx: 12,  dy: 14,  align: "left" },
+    "MORPHOUSDT":  { dx: 12,  dy: -8,  align: "left" },
+    "MUBARAKUSDT": { dx: -12, dy: 14,  align: "right" },
+    "ENAUSDT":     { dx: 12,  dy: 12,  align: "left" },
+    "TRUMPUSDT":   { dx: 12,  dy: -10, align: "left" },
+    "NEARUSDT":    { dx: -12, dy: 14,  align: "right" },
+    "SNXXUSDT":    { dx: 12,  dy: -8,  align: "left" },
+    "AAVEUSDT":    { dx: 12,  dy: 12,  align: "left" },
+    "HUMAUSDT":    { dx: 12,  dy: -10, align: "left" },
+    "COTIUSDT":    { dx: -12, dy: -12, align: "right" },
+    "GIGGLEUSDT":  { dx: 12,  dy: -10, align: "left" },
+    "CETUSUSDT":   { dx: -12, dy: 12,  align: "right" },
+    "TAOUSDT":     { dx: 12,  dy: -12, align: "left" },
+    "ACTUSDT":     { dx: 12,  dy: -8,  align: "left" },
+    "VIRTUALUSDT": { dx: 12,  dy: 10,  align: "left" },
+  };
+
+  // Render each active campaign from Section 1 exactly ONCE
+  activeCoinsList.forEach(c => {
+    const sym = c.symbol;
+    const basePrice = c.origin_bottom_price;
+    const maxN = c.max_n || c.current_n || 2.0;
+    const offset = activeLandmarkOffsets[sym] || { dx: 10, dy: -8, align: "left" };
+
+    const x = toScreenX(basePrice);
+    const y = toScreenY(maxN);
+
+    // Push to scatterPoints for interactive hover
+    scatterPoints.push({
+      x, y,
+      isActive: true,
+      campaign: c,
+      radius: 10
+    });
+
+    // 1. Draw Active Point Dot
+    ctx.beginPath();
+    ctx.arc(x, y, 6.5, 0, 2 * Math.PI);
+    ctx.fillStyle = maxN >= 30 ? "#ff0055" : maxN >= 10 ? "#ffb800" : "#00f0ff";
     ctx.fill();
     ctx.strokeStyle = "#ffffff";
     ctx.lineWidth = 2.0;
     ctx.stroke();
-    ctx.shadowBlur = 0;
 
-    if (pt.isActive) {
-      ctx.beginPath();
-      ctx.arc(pt.x, pt.y, 13.0, 0, 2 * Math.PI);
-      ctx.strokeStyle = "#00e676";
-      ctx.lineWidth = 2.2;
-      ctx.stroke();
-    }
-  });
+    // 2. Draw Active Green Pulsing Halo
+    ctx.beginPath();
+    ctx.arc(x, y, 11.5, 0, 2 * Math.PI);
+    ctx.strokeStyle = "#00e676";
+    ctx.lineWidth = 2.0;
+    ctx.stroke();
 
-  // ── 7. RENDER LABELS ONLY FOR ACTIVE (IN-FLIGHT) COINS ────────────────
-  const activeLandmarkOffsets = {
-    "AKEUSDT":     { dx: 12,  dy: -10, align: "left" },
-    "BTRUSDT":     { dx: 12,  dy: -8,  align: "left" },
-    "龙虾USDT":    { dx: 12,  dy: -12, align: "left" },
-    "PROMUSDT":    { dx: 12,  dy: -10, align: "left" },
-    "MAGMAUSDT":   { dx: 12,  dy: -10, align: "left" },
-    "BULLAUSDT":   { dx: 10,  dy: -10, align: "left" },
-    "ZECUSDT":     { dx: -12, dy: -8,  align: "right" },
-    "PUMPUSDT":    { dx: -12, dy: -8,  align: "right" },
-    "HEMIUSDT":    { dx: 10,  dy: 12,  align: "left" },
-    "MORPHOUSDT":  { dx: 10,  dy: -8,  align: "left" },
-    "MUBARAKUSDT": { dx: -12, dy: 14,  align: "right" },
-    "ENAUSDT":     { dx: 10,  dy: 12,  align: "left" },
-    "TRUMPUSDT":   { dx: 10,  dy: -10, align: "left" },
-    "NEARUSDT":    { dx: -10, dy: 14,  align: "right" },
-    "SNXXUSDT":    { dx: 10,  dy: -8,  align: "left" },
-    "AAVEUSDT":    { dx: 10,  dy: 12,  align: "left" },
-    "HUMAUSDT":    { dx: 10,  dy: -10, align: "left" },
-    "COTIUSDT":    { dx: 10,  dy: 12,  align: "left" },
-    "GIGGLEUSDT":  { dx: 10,  dy: -10, align: "left" },
-    "CETUSUSDT":   { dx: -12, dy: 12,  align: "right" },
-    "TAOUSDT":     { dx: 10,  dy: -12, align: "left" },
-    "ACTUSDT":     { dx: 10,  dy: -8,  align: "left" },
-    "VIRTUALUSDT": { dx: 10,  dy: 10,  align: "left" },
-  };
-
-  const activeEventsToLabel = [];
-
-  // 1. From filtered events matching active set
-  filteredEvents.forEach(e => {
-    if (activeSymbols.has(e.symbol)) {
-      activeEventsToLabel.push({
-        symbol: e.symbol,
-        price: e.pre_pump_price,
-        n: e.n_actual
-      });
-    }
-  });
-
-  // 2. From active coins list to ensure all current in-flight coins are labeled
-  activeCoinsList.forEach(c => {
-    if (!activeEventsToLabel.some(x => x.symbol === c.symbol)) {
-      activeEventsToLabel.push({
-        symbol: c.symbol,
-        price: c.origin_bottom_price,
-        n: c.max_n || c.current_n || 2.0
-      });
-    }
-  });
-
-  // Render badges strictly for active coins
-  activeEventsToLabel.forEach(item => {
-    const sym = item.symbol;
-    const offset = activeLandmarkOffsets[sym] || { dx: 10, dy: -8, align: "left" };
-    const x = toScreenX(item.price);
-    const y = toScreenY(item.n);
-
+    // 3. Draw Badge Tag
     const cleanSym = sym.endsWith("USDT") ? sym.slice(0, -4) : sym;
-    const labelText = `${cleanSym} (${item.n.toFixed(0)}x) 🔥`;
+    const labelText = `${cleanSym} (${maxN.toFixed(1)}x) 🔥`;
 
     ctx.font = "bold 11px 'JetBrains Mono', Inter, sans-serif";
     const textMetrics = ctx.measureText(labelText);
@@ -1274,7 +1258,7 @@ function renderScatterCanvas(events) {
     const ly = y + offset.dy - 10;
 
     // Glowing Pill badge for Active Coin
-    ctx.shadowColor = "rgba(0, 230, 118, 0.4)";
+    ctx.shadowColor = "rgba(0, 230, 118, 0.5)";
     ctx.shadowBlur = 8;
     ctx.fillStyle = "rgba(10, 20, 30, 0.95)";
     ctx.strokeStyle = "#00e676";
@@ -1289,7 +1273,6 @@ function renderScatterCanvas(events) {
     ctx.fillStyle = "#ffffff";
     ctx.fillText(labelText, lx, ly + 11);
   });
-
 
   // ── 8. RICH INTERACTIVE TOOLTIP ──────────────────────────────────────
   if (!isScatterHoverAttached) {
@@ -1311,37 +1294,63 @@ function renderScatterCanvas(events) {
       }
 
       if (found && tooltip) {
-        const ev = found.event;
-        const isActive = found.isActive;
-        const baseFmt = ev.pre_pump_price < 0.001 ? ev.pre_pump_price.toFixed(8) : ev.pre_pump_price < 1 ? ev.pre_pump_price.toFixed(5) : ev.pre_pump_price.toFixed(2);
-        const peakFmt = ev.peak_price < 0.001 ? ev.peak_price.toFixed(8) : ev.peak_price < 1 ? ev.peak_price.toFixed(5) : ev.peak_price.toFixed(2);
+        if (found.campaign) {
+          const c = found.campaign;
+          const baseFmt = c.origin_bottom_price < 0.001 ? c.origin_bottom_price.toFixed(8) : c.origin_bottom_price < 1 ? c.origin_bottom_price.toFixed(5) : c.origin_bottom_price.toFixed(2);
+          const peakFmt = c.highest_peak_price < 0.001 ? c.highest_peak_price.toFixed(8) : c.highest_peak_price < 1 ? c.highest_peak_price.toFixed(5) : c.highest_peak_price.toFixed(2);
+          const currFmt = c.current_price < 0.001 ? c.current_price.toFixed(8) : c.current_price < 1 ? c.current_price.toFixed(5) : c.current_price.toFixed(2);
 
-        tooltip.innerHTML = `
-          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
-            <span style="font-weight: 800; font-size: 1.02rem; color: #fff;">${ev.symbol}</span>
-            <span style="font-size: 0.68rem; padding: 2px 6px; border-radius: 4px; font-weight: 700; background: ${isActive ? 'rgba(0,230,118,0.15)' : 'rgba(255,255,255,0.08)'}; color: ${isActive ? '#00e676' : 'var(--text-dim)'}; border: 1px solid ${isActive ? '#00e676' : 'rgba(255,255,255,0.15)'};">
-              ${isActive ? '🟢 ĐANG CHẠY' : '⚪ ĐÃ HOÀN TẤT'}
-            </span>
-          </div>
-          <div style="font-family: var(--font-mono); font-size: 0.76rem; color: #fff; margin-bottom: 3px; display: flex; justify-content: space-between;">
-            <span style="color: var(--text-dim);">Đáy Gốc (Base):</span>
-            <strong style="color: var(--accent-cyan);">$${baseFmt}</strong>
-          </div>
-          <div style="font-family: var(--font-mono); font-size: 0.76rem; color: #fff; margin-bottom: 3px; display: flex; justify-content: space-between;">
-            <span style="color: var(--text-dim);">Đỉnh Cao Nhất:</span>
-            <strong style="color: var(--accent-yellow);">$${peakFmt}</strong>
-          </div>
-          <div style="font-family: var(--font-mono); font-size: 0.82rem; margin-bottom: 6px; display: flex; justify-content: space-between; background: rgba(0,0,0,0.35); padding: 4px 6px; border-radius: 4px; border: 1px solid rgba(255,255,255,0.06);">
-            <span style="color: var(--text-dim);">Bội Số Thực Tế n:</span>
-            <strong style="color: ${ev.n_actual >= 30 ? '#ff0055' : ev.n_actual >= 10 ? '#ffb800' : '#00e5ff'}; font-size: 0.92rem;">${ev.n_actual.toFixed(2)}x</strong>
-          </div>
-          <div style="font-size: 0.70rem; color: var(--text-dim); line-height: 1.4; border-top: 1px solid rgba(255,255,255,0.08); padding-top: 5px;">
-            Tầng: <strong style="color: var(--accent-cyan);">${ev.tier_code || 'Tiers'}</strong> &bull; Vol Spike: <strong style="color: #fff;">${ev.vol_spike_ratio ? ev.vol_spike_ratio.toFixed(1) + 'x' : '—'}</strong> &bull; Ngày: ${ev.event_date}
-          </div>
-          <div style="margin-top: 6px; text-align: right;">
-            <a href="/?symbol=${ev.symbol}" style="font-size: 0.70rem; color: var(--accent-cyan); text-decoration: none; font-weight: 700;">Soi Nến Live ↗</a>
-          </div>
-        `;
+          tooltip.innerHTML = `
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+              <span style="font-weight: 800; font-size: 1.05rem; color: #fff;">${c.symbol}</span>
+              <span style="font-size: 0.68rem; padding: 2px 6px; border-radius: 4px; font-weight: 700; background: rgba(0,230,118,0.15); color: #00e676; border: 1px solid #00e676;">
+                🟢 ${c.stage_label_vi || c.stage}
+              </span>
+            </div>
+            <div style="font-family: var(--font-mono); font-size: 0.76rem; color: #fff; margin-bottom: 3px; display: flex; justify-content: space-between;">
+              <span style="color: var(--text-dim);">Đáy Gốc (Base):</span>
+              <strong style="color: var(--accent-cyan);">$${baseFmt}</strong>
+            </div>
+            <div style="font-family: var(--font-mono); font-size: 0.76rem; color: #fff; margin-bottom: 3px; display: flex; justify-content: space-between;">
+              <span style="color: var(--text-dim);">Đỉnh Cao (Peak):</span>
+              <strong style="color: var(--accent-yellow);">$${peakFmt} (${c.max_n}x)</strong>
+            </div>
+            <div style="font-family: var(--font-mono); font-size: 0.76rem; color: #fff; margin-bottom: 4px; display: flex; justify-content: space-between;">
+              <span style="color: var(--text-dim);">Giá Hiện Tại:</span>
+              <strong style="color: #fff;">$${currFmt} (${c.current_n}x)</strong>
+            </div>
+            <div style="font-size: 0.70rem; color: var(--text-dim); line-height: 1.4; border-top: 1px solid rgba(255,255,255,0.08); padding-top: 5px;">
+              Khởi phát: ${c.origin_date} (${c.pump_age_days || 1} ngày) &bull; Sụt đỉnh: -${c.drawdown_from_peak_pct}%
+            </div>
+            <div style="margin-top: 6px; text-align: right;">
+              <a href="/?symbol=${c.symbol}" style="font-size: 0.70rem; color: var(--accent-cyan); text-decoration: none; font-weight: 700;">Soi Nến Live ↗</a>
+            </div>
+          `;
+        } else if (found.event) {
+          const ev = found.event;
+          const baseFmt = ev.pre_pump_price < 0.001 ? ev.pre_pump_price.toFixed(8) : ev.pre_pump_price < 1 ? ev.pre_pump_price.toFixed(5) : ev.pre_pump_price.toFixed(2);
+          const peakFmt = ev.peak_price < 0.001 ? ev.peak_price.toFixed(8) : ev.peak_price < 1 ? ev.peak_price.toFixed(5) : ev.peak_price.toFixed(2);
+
+          tooltip.innerHTML = `
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+              <span style="font-weight: 800; font-size: 1.02rem; color: #fff;">${ev.symbol}</span>
+              <span style="font-size: 0.68rem; padding: 2px 6px; border-radius: 4px; font-weight: 700; background: rgba(255,255,255,0.08); color: var(--text-dim); border: 1px solid rgba(255,255,255,0.15);">
+                ⚪ LỊCH SỬ ĐÃ HOÀN TẤT
+              </span>
+            </div>
+            <div style="font-family: var(--font-mono); font-size: 0.76rem; color: #fff; margin-bottom: 3px; display: flex; justify-content: space-between;">
+              <span style="color: var(--text-dim);">Đáy Gốc (Base):</span>
+              <strong style="color: var(--accent-cyan);">$${baseFmt}</strong>
+            </div>
+            <div style="font-family: var(--font-mono); font-size: 0.76rem; color: #fff; margin-bottom: 3px; display: flex; justify-content: space-between;">
+              <span style="color: var(--text-dim);">Đỉnh Cao Nhất:</span>
+              <strong style="color: var(--accent-yellow);">$${peakFmt} (${ev.n_actual.toFixed(2)}x)</strong>
+            </div>
+            <div style="font-size: 0.70rem; color: var(--text-dim); line-height: 1.4; border-top: 1px solid rgba(255,255,255,0.08); padding-top: 5px;">
+              Tầng: ${ev.tier_code || 'Tiers'} &bull; Vol Spike: ${ev.vol_spike_ratio ? ev.vol_spike_ratio.toFixed(1) + 'x' : '—'} &bull; Ngày: ${ev.event_date}
+            </div>
+          `;
+        }
         tooltip.style.left = `${Math.min(cRect.width - 240, Math.max(10, mouseX + 15))}px`;
         tooltip.style.top = `${Math.max(10, mouseY - 85)}px`;
         tooltip.style.display = "block";
@@ -1355,6 +1364,7 @@ function renderScatterCanvas(events) {
     });
   }
 }
+
 
 
 function renderTiersGrid(tiers) {
