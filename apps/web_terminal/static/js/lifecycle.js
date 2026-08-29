@@ -1204,55 +1204,92 @@ function renderScatterCanvas(events) {
     }
   });
 
-  // ── 7. SMART LANDMARK BADGES ─────────────────────────────────────────
-  const landmarkPositions = {
-    "AKEUSDT":    { dx: 10,  dy: -10, align: "left" },
-    "BEATUSDT":   { dx: 10,  dy: -10, align: "left" },
-    "VELVETUSDT": { dx: 12,  dy: -8,  align: "left" },
-    "TUTUSDT":    { dx: -12, dy: -8,  align: "right" },
-    "DEXEUSDT":   { dx: 12,  dy: -6,  align: "left" },
-    "BANKUSDT":   { dx: -12, dy: 14,  align: "right" },
-    "SYNUSDT":    { dx: 12,  dy: 14,  align: "left" },
-    "BTRUSDT":    { dx: 12,  dy: -8,  align: "left" },
-    "MAGMAUSDT":  { dx: 12,  dy: -10, align: "left" },
-    "ZECUSDT":    { dx: -12, dy: -8,  align: "right" },
-    "PROMUSDT":   { dx: 10,  dy: 12,  align: "left" },
-    "BULLAUSDT":  { dx: 10,  dy: -8,  align: "left" },
-    "PUMPUSDT":   { dx: 10,  dy: 12,  align: "left" },
-    "HEMIUSDT":   { dx: 10,  dy: -8,  align: "left" },
-    "SNXXUSDT":   { dx: 10,  dy: -8,  align: "left" },
+  // ── 7. RENDER LABELS ONLY FOR ACTIVE (IN-FLIGHT) COINS ────────────────
+  const activeLandmarkOffsets = {
+    "AKEUSDT":     { dx: 12,  dy: -10, align: "left" },
+    "BTRUSDT":     { dx: 12,  dy: -8,  align: "left" },
+    "龙虾USDT":    { dx: 12,  dy: -12, align: "left" },
+    "PROMUSDT":    { dx: 12,  dy: -10, align: "left" },
+    "MAGMAUSDT":   { dx: 12,  dy: -10, align: "left" },
+    "BULLAUSDT":   { dx: 10,  dy: -10, align: "left" },
+    "ZECUSDT":     { dx: -12, dy: -8,  align: "right" },
+    "PUMPUSDT":    { dx: -12, dy: -8,  align: "right" },
+    "HEMIUSDT":    { dx: 10,  dy: 12,  align: "left" },
+    "MORPHOUSDT":  { dx: 10,  dy: -8,  align: "left" },
+    "MUBARAKUSDT": { dx: -12, dy: 14,  align: "right" },
+    "ENAUSDT":     { dx: 10,  dy: 12,  align: "left" },
+    "TRUMPUSDT":   { dx: 10,  dy: -10, align: "left" },
+    "NEARUSDT":    { dx: -10, dy: 14,  align: "right" },
+    "SNXXUSDT":    { dx: 10,  dy: -8,  align: "left" },
+    "AAVEUSDT":    { dx: 10,  dy: 12,  align: "left" },
+    "HUMAUSDT":    { dx: 10,  dy: -10, align: "left" },
+    "COTIUSDT":    { dx: 10,  dy: 12,  align: "left" },
+    "GIGGLEUSDT":  { dx: 10,  dy: -10, align: "left" },
+    "CETUSUSDT":   { dx: -12, dy: 12,  align: "right" },
+    "TAOUSDT":     { dx: 10,  dy: -12, align: "left" },
+    "ACTUSDT":     { dx: 10,  dy: -8,  align: "left" },
+    "VIRTUALUSDT": { dx: 10,  dy: 10,  align: "left" },
   };
 
+  const activeEventsToLabel = [];
+
+  // 1. From filtered events matching active set
   filteredEvents.forEach(e => {
-    const pos = landmarkPositions[e.symbol];
-    if (pos) {
-      const x = toScreenX(e.pre_pump_price);
-      const y = toScreenY(e.n_actual);
-      const isActive = activeSymbols.has(e.symbol);
-
-      const labelText = `${e.symbol.replace("USDT", "")} (${e.n_actual.toFixed(0)}x)${isActive ? ' 🔥' : ''}`;
-      ctx.font = "bold 11px Inter, sans-serif";
-      const textMetrics = ctx.measureText(labelText);
-      const textW = textMetrics.width;
-      const textH = 15;
-
-      const lx = pos.align === "right" ? x + pos.dx - textW - 4 : x + pos.dx;
-      const ly = y + pos.dy - 10;
-
-      // Draw pill badge
-      ctx.fillStyle = "rgba(10, 15, 29, 0.92)";
-      ctx.strokeStyle = isActive ? "#00e676" : e.n_actual >= 30 ? "#ff0055" : e.n_actual >= 10 ? "#ffb800" : "#00f0ff";
-      ctx.lineWidth = isActive ? 1.8 : 1.2;
-      ctx.beginPath();
-      ctx.roundRect(lx - 4, ly - 2, textW + 8, textH + 4, 4);
-      ctx.fill();
-      ctx.stroke();
-
-      // Draw text
-      ctx.fillStyle = "#ffffff";
-      ctx.fillText(labelText, lx, ly + 11);
+    if (activeSymbols.has(e.symbol)) {
+      activeEventsToLabel.push({
+        symbol: e.symbol,
+        price: e.pre_pump_price,
+        n: e.n_actual
+      });
     }
   });
+
+  // 2. From active coins list to ensure all current in-flight coins are labeled
+  activeCoinsList.forEach(c => {
+    if (!activeEventsToLabel.some(x => x.symbol === c.symbol)) {
+      activeEventsToLabel.push({
+        symbol: c.symbol,
+        price: c.origin_bottom_price,
+        n: c.max_n || c.current_n || 2.0
+      });
+    }
+  });
+
+  // Render badges strictly for active coins
+  activeEventsToLabel.forEach(item => {
+    const sym = item.symbol;
+    const offset = activeLandmarkOffsets[sym] || { dx: 10, dy: -8, align: "left" };
+    const x = toScreenX(item.price);
+    const y = toScreenY(item.n);
+
+    const cleanSym = sym.endsWith("USDT") ? sym.slice(0, -4) : sym;
+    const labelText = `${cleanSym} (${item.n.toFixed(0)}x) 🔥`;
+
+    ctx.font = "bold 11px 'JetBrains Mono', Inter, sans-serif";
+    const textMetrics = ctx.measureText(labelText);
+    const textW = textMetrics.width;
+    const textH = 16;
+
+    const lx = offset.align === "right" ? x + offset.dx - textW - 6 : x + offset.dx;
+    const ly = y + offset.dy - 10;
+
+    // Glowing Pill badge for Active Coin
+    ctx.shadowColor = "rgba(0, 230, 118, 0.4)";
+    ctx.shadowBlur = 8;
+    ctx.fillStyle = "rgba(10, 20, 30, 0.95)";
+    ctx.strokeStyle = "#00e676";
+    ctx.lineWidth = 1.6;
+    ctx.beginPath();
+    ctx.roundRect(lx - 4, ly - 2, textW + 8, textH + 2, 4);
+    ctx.fill();
+    ctx.stroke();
+    ctx.shadowBlur = 0;
+
+    // Text
+    ctx.fillStyle = "#ffffff";
+    ctx.fillText(labelText, lx, ly + 11);
+  });
+
 
   // ── 8. RICH INTERACTIVE TOOLTIP ──────────────────────────────────────
   if (!isScatterHoverAttached) {
