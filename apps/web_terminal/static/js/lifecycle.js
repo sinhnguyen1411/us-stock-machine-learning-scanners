@@ -1324,17 +1324,25 @@ function renderTiersGrid(tiers) {
   const container = document.getElementById("tiers-grid");
   if (!container) return;
 
-  container.innerHTML = tiers.map(t => `
-    <div style="background: rgba(18, 24, 36, 0.7); border: 1px solid var(--border-color); border-radius: 6px; padding: 10px; font-size: 0.78rem;">
-      <div style="font-weight: 700; color: var(--accent-cyan); margin-bottom: 4px;">${t.label}</div>
-      <div style="font-family: var(--font-mono); color: var(--text-dim); font-size: 0.72rem; margin-bottom: 6px;">$${t.min_price} &rarr; $${t.max_price >= 1000000 ? '&infin;' : t.max_price}</div>
-      <div style="display: flex; justify-content: space-between; font-family: var(--font-mono);">
-        <span style="color: var(--text-muted);">Biên độ n:</span>
-        <strong style="color: var(--accent-yellow);">${t.n_expected_low}x &rarr; ${t.n_expected_high}x (Med: ${t.n_median}x)</strong>
+  container.innerHTML = tiers.map(t => {
+    const minP = t.price_min !== undefined ? t.price_min : (t.min_price || 0);
+    const maxP = t.price_max !== undefined ? t.price_max : (t.max_price || 1000000);
+    const minFmt = minP === 0 ? '$0.00' : (minP < 0.001 ? `$${minP.toFixed(6)}` : `$${minP}`);
+    const maxFmt = maxP >= 100000 ? '&infin;' : (maxP < 0.001 ? `$${maxP.toFixed(6)}` : `$${maxP}`);
+
+    return `
+      <div style="background: rgba(18, 24, 36, 0.75); border: 1px solid rgba(0, 240, 255, 0.2); border-radius: 6px; padding: 10px; font-size: 0.78rem;">
+        <div style="font-weight: 700; color: var(--accent-cyan); margin-bottom: 4px;">${t.label}</div>
+        <div style="font-family: var(--font-mono); color: var(--text-dim); font-size: 0.72rem; margin-bottom: 6px;">${minFmt} &rarr; ${maxFmt}</div>
+        <div style="display: flex; justify-content: space-between; font-family: var(--font-mono);">
+          <span style="color: var(--text-muted);">Biên độ n:</span>
+          <strong style="color: var(--accent-yellow);">${t.n_expected_low}x &rarr; ${t.n_expected_high}x (Med: ${t.n_median}x)</strong>
+        </div>
       </div>
-    </div>
-  `).join("");
+    `;
+  }).join("");
 }
+
 
 function renderDatasetTable(events) {
   const tbody = document.getElementById("dataset-tbody");
