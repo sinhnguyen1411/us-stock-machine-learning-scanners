@@ -110,6 +110,10 @@ class AutonomousSuperPumpScanner:
         - Base bottom price from registry or 120D klines
         - Volume spike ratio (24h volume vs 30D average)
         """
+        symbol = str(symbol).strip().upper()
+        if not symbol.endswith("USDT") and not symbol.endswith("BUSD") and not symbol.endswith("USDC"):
+            symbol = f"{symbol}USDT"
+
         headers = {
             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36",
             "Accept": "application/json",
@@ -126,7 +130,16 @@ class AutonomousSuperPumpScanner:
                 curr_price = float(tick.get("lastPrice", 0.0))
                 vol_24h_quote = float(tick.get("quoteVolume", 1_000_000.0))
         except Exception as ex:
-            logger.debug(f"Ticker fetch failed for {symbol}: {ex}")
+            logger.debug(f"24hr Ticker fetch failed for {symbol}: {ex}")
+            # Fallback to simple price ticker
+            try:
+                url_p = f"https://fapi.binance.com/fapi/v1/ticker/price?symbol={symbol}"
+                req = urllib.request.Request(url_p, headers=headers)
+                with urllib.request.urlopen(req, timeout=3) as resp:
+                    p_data = json.loads(resp.read().decode())
+                    curr_price = float(p_data.get("price", 0.0))
+            except Exception:
+                pass
 
         # 2. Fetch live funding rate
         funding_rate = 0.0

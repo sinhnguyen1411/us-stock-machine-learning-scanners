@@ -59,9 +59,33 @@ async function fetchCampaignsData() {
     const dumpedEl = document.getElementById("stat-dumped-count");
     if (dumpedEl) dumpedEl.innerText = dumpedCount;
 
+    populateMLSymbolSelect(all);
     renderCampaignsGrid();
   } catch (e) {
     console.debug("Error fetching campaigns data:", e);
+  }
+}
+
+function populateMLSymbolSelect(campaigns) {
+  const sel = document.getElementById("ml-pred-symbol-select");
+  if (!sel) return;
+  const currentVal = sel.value;
+  
+  const active = (campaigns || []).filter(c => c.is_active && c.stage !== "DUMP_CONFIRMED");
+  active.sort((a, b) => (b.current_n || 0) - (a.current_n || 0));
+  if (active.length === 0) return;
+  
+  if (sel.options.length <= 7) {
+    let html = "";
+    active.forEach(c => {
+      const stageTxt = c.stage === "ACTIVE_EXPANSION" ? "Đang đẩy" : c.stage === "HIGH_CONSOLIDATION" ? "Neo đỉnh" : "Tích lũy";
+      html += `<option value="${c.symbol}">${c.symbol} (${c.current_n || 1.0}x - ${stageTxt})</option>`;
+    });
+    html += `<option value="CUSTOM">Nhập Mã Khác...</option>`;
+    sel.innerHTML = html;
+    if (currentVal && Array.from(sel.options).some(o => o.value === currentVal)) {
+      sel.value = currentVal;
+    }
   }
 }
 
@@ -256,6 +280,9 @@ async function runInteractiveMLPrediction() {
     if (sym === "CUSTOM") {
       const customIn = document.getElementById("ml-pred-custom-sym");
       sym = (customIn && customIn.value.trim()) ? customIn.value.trim().toUpperCase() : "BTRUSDT";
+    }
+    if (!sym.endsWith("USDT") && !sym.endsWith("BUSD") && !sym.endsWith("USDC")) {
+      sym += "USDT";
     }
 
     const res = await fetch(`/api/ml/predict_pump_multiplier?symbol=${encodeURIComponent(sym)}`);
