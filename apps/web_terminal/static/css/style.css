@@ -1430,5 +1430,26 @@ body {
   }
 }
 
+/* ─── Campaign List Table Styles ────────────────────────────────────── */
+.campaign-list-table {
+  border-collapse: collapse;
+  width: 100%;
+}
 
+.campaign-list-table th {
+  user-select: none;
+  transition: color 0.15s ease;
+}
 
+.campaign-list-table th:hover {
+  color: #fff !important;
+}
+
+.campaign-list-table tr:hover td {
+  background: rgba(0, 240, 255, 0.05);
+}
+
+#campaign-search-input:focus {
+  border-color: var(--accent-cyan) !important;
+  box-shadow: 0 0 10px rgba(0, 240, 255, 0.25);
+}

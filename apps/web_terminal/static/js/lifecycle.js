@@ -1,10 +1,12 @@
 /**
  * DeepAlpha — ML Super-Pump Lifecycle & CRISP-DM Research Engine (lifecycle.js)
- * Standalone dedicated controller for Multi-Month Campaigns, 2-Way CRISP-DM Scatter Chart, and 126 USD-M Event DB.
+ * Standalone dedicated controller for Multi-Month Campaigns, 2-Way CRISP-DM Scatter Chart, and Multi-Year Empirical Event DB.
  */
 
 let currentCampaignFilter = "ACTIVE";
 let currentCampaignSort = "PROGRESS_DESC";
+let currentCampaignViewMode = "LIST"; // Default: LIST view for better readability
+let currentCampaignSearchQuery = "";
 let cachedCampaignsData = null;
 let cachedResearchData = null;
 
@@ -21,6 +23,27 @@ function predictInFlight() {
   return runInteractiveMLPrediction();
 }
 
+function setCampaignViewMode(mode) {
+  currentCampaignViewMode = mode;
+  const listBtn = document.getElementById("campaign-view-list");
+  const gridBtn = document.getElementById("campaign-view-grid");
+  if (listBtn && gridBtn) {
+    if (mode === "LIST") {
+      listBtn.classList.add("active");
+      gridBtn.classList.remove("active");
+    } else {
+      gridBtn.classList.add("active");
+      listBtn.classList.remove("active");
+    }
+  }
+  renderCampaignsView();
+}
+
+function setCampaignSearch(query) {
+  currentCampaignSearchQuery = (query || "").trim().toUpperCase();
+  renderCampaignsView();
+}
+
 function setCampaignFilter(filter) {
   currentCampaignFilter = filter;
   ["active", "dumped", "all"].forEach(t => {
@@ -33,12 +56,34 @@ function setCampaignFilter(filter) {
       }
     }
   });
-  renderCampaignsGrid();
+  renderCampaignsView();
 }
 
 function setCampaignSort(sortBy) {
   currentCampaignSort = sortBy;
-  renderCampaignsGrid();
+  const sel = document.getElementById("campaign-sort-select");
+  if (sel && sel.value !== sortBy) {
+    for (let opt of sel.options) {
+      if (opt.value === sortBy) {
+        sel.value = sortBy;
+        break;
+      }
+    }
+  }
+  renderCampaignsView();
+}
+
+function toggleCampaignDetails(rowId) {
+  const detailsRow = document.getElementById(`details-${rowId}`);
+  const icon = document.getElementById(`icon-${rowId}`);
+  if (!detailsRow) return;
+  if (detailsRow.style.display === "none" || detailsRow.style.display === "") {
+    detailsRow.style.display = "table-row";
+    if (icon) icon.innerText = "▲";
+  } else {
+    detailsRow.style.display = "none";
+    if (icon) icon.innerText = "▼";
+  }
 }
 
 async function fetchCampaignsData() {
@@ -60,7 +105,7 @@ async function fetchCampaignsData() {
     if (dumpedEl) dumpedEl.innerText = dumpedCount;
 
     populateMLSymbolSelect(all);
-    renderCampaignsGrid();
+    renderCampaignsView();
   } catch (e) {
     console.debug("Error fetching campaigns data:", e);
   }
@@ -90,6 +135,10 @@ function populateMLSymbolSelect(campaigns) {
 }
 
 function renderCampaignsGrid() {
+  renderCampaignsView();
+}
+
+function renderCampaignsView() {
   if (!cachedCampaignsData) return;
 
   const all = cachedCampaignsData.all_campaigns || [];
@@ -101,6 +150,15 @@ function renderCampaignsGrid() {
     displayCampaigns = all.filter(c => !c.is_active || c.stage === "DUMP_CONFIRMED");
   } else {
     displayCampaigns = all;
+  }
+
+  // Apply Quick Search Filter if present
+  if (currentCampaignSearchQuery) {
+    displayCampaigns = displayCampaigns.filter(c => 
+      (c.symbol || "").toUpperCase().includes(currentCampaignSearchQuery) ||
+      (c.notes || "").toUpperCase().includes(currentCampaignSearchQuery) ||
+      (c.origin_date || "").includes(currentCampaignSearchQuery)
+    );
   }
 
   // Precompute metrics & sorting keys
@@ -115,152 +173,343 @@ function renderCampaignsGrid() {
     
     c._progressPct = progressPct;
     c._maxN = c.max_n || c.current_n || 1.0;
+    c._currentN = c.current_n || 1.0;
+    c._drawdown = c.drawdown_from_peak_pct || 0.0;
     c._nExp = nExp;
     c._nLow = nLow;
     c._nHigh = nHigh;
   });
 
-  // Sort by selected criteria (Default: % Tiến độ đạt mục tiêu ML giảm dần)
+  // Sort by selected criteria
   if (currentCampaignSort === "PROGRESS_DESC") {
     displayCampaigns.sort((a, b) => b._progressPct - a._progressPct);
   } else if (currentCampaignSort === "PROGRESS_ASC") {
     displayCampaigns.sort((a, b) => a._progressPct - b._progressPct);
   } else if (currentCampaignSort === "MAX_N_DESC") {
     displayCampaigns.sort((a, b) => b._maxN - a._maxN);
+  } else if (currentCampaignSort === "CURRENT_N_DESC") {
+    displayCampaigns.sort((a, b) => b._currentN - a._currentN);
+  } else if (currentCampaignSort === "DRAWDOWN_DESC" || currentCampaignSort === "DRAWDOWN") {
+    displayCampaigns.sort((a, b) => b._drawdown - a._drawdown);
+  } else if (currentCampaignSort === "SYMBOL") {
+    displayCampaigns.sort((a, b) => a.symbol.localeCompare(b.symbol));
   } else if (currentCampaignSort === "DATE_DESC") {
     displayCampaigns.sort((a, b) => (b.origin_date || '').localeCompare(a.origin_date || ''));
   }
 
-  const grid = document.getElementById("campaigns-grid");
-  if (!grid) return;
+  const container = document.getElementById("campaigns-container") || document.getElementById("campaigns-grid");
+  if (!container) return;
 
   if (displayCampaigns.length === 0) {
-    grid.innerHTML = `
-      <div style="grid-column: 1/-1; text-align: center; color: var(--text-dim); padding: 30px; background: rgba(0,0,0,0.2); border-radius: 8px;">
-        ${currentCampaignFilter === 'ACTIVE' ? 'Hiện tại chưa có thêm siêu sóng nào khác đang trong pha đẩy/neo đỉnh.' : 'Chưa có chiến dịch nào trong mục này.'}
+    container.innerHTML = `
+      <div style="text-align: center; color: var(--text-dim); padding: 36px; background: rgba(0,0,0,0.25); border-radius: 8px; border: 1px dashed rgba(0,240,255,0.2);">
+        ${currentCampaignSearchQuery ? `Không tìm thấy coin nào khớp với từ khóa "<strong>${currentCampaignSearchQuery}</strong>".` : (currentCampaignFilter === 'ACTIVE' ? 'Hiện tại chưa có thêm siêu sóng nào khác đang trong pha đẩy/neo đỉnh.' : 'Chưa có chiến dịch nào trong mục này.')}
       </div>
     `;
     return;
   }
 
-  grid.innerHTML = displayCampaigns.map(c => {
-    const bottomFmt = c.origin_bottom_price < 0.001 ? c.origin_bottom_price.toFixed(8) : c.origin_bottom_price < 1 ? c.origin_bottom_price.toFixed(4) : c.origin_bottom_price.toFixed(2);
-    const peakFmt = c.highest_peak_price < 0.001 ? c.highest_peak_price.toFixed(8) : c.highest_peak_price < 1 ? c.highest_peak_price.toFixed(4) : c.highest_peak_price.toFixed(2);
-    const currFmt = c.current_price < 0.001 ? c.current_price.toFixed(8) : c.current_price < 1 ? c.current_price.toFixed(4) : c.current_price.toFixed(2);
-    const dumpFmt = c.dump_threshold_price < 0.001 ? c.dump_threshold_price.toFixed(8) : c.dump_threshold_price < 1 ? c.dump_threshold_price.toFixed(4) : c.dump_threshold_price.toFixed(2);
+  // ── RENDER DENSE LIST VIEW (DEFAULT) ─────────────────────────────────
+  if (currentCampaignViewMode === "LIST") {
+    container.innerHTML = `
+      <div style="overflow-x: auto; border-radius: 8px; border: 1px solid rgba(0, 240, 255, 0.25); background: rgba(11, 15, 23, 0.9); box-shadow: 0 4px 20px rgba(0,0,0,0.4);">
+        <table class="styled-table" style="width: 100%; border-collapse: collapse; min-width: 1100px; font-size: 0.84rem;">
+          <thead>
+            <tr style="background: linear-gradient(90deg, rgba(0, 240, 255, 0.12) 0%, rgba(18, 24, 36, 0.8) 100%); border-bottom: 2px solid rgba(0, 240, 255, 0.35);">
+              <th style="padding: 10px 12px; color: var(--accent-cyan); font-weight: 700; width: 45px; text-align: center;">#</th>
+              <th style="padding: 10px 14px; color: var(--accent-cyan); font-weight: 700; cursor: pointer;" onclick="setCampaignSort('SYMBOL')" title="Bấm để sắp xếp">MÃ COIN / KHỞI PHÁT ⬍</th>
+              <th style="padding: 10px 14px; color: var(--accent-cyan); font-weight: 700; text-align: center;">TRẠNG THÁI</th>
+              <th style="padding: 10px 14px; color: var(--accent-cyan); font-weight: 700; text-align: right;">ĐÁY GỐC (BASE)</th>
+              <th style="padding: 10px 14px; color: var(--accent-cyan); font-weight: 700; text-align: right; cursor: pointer;" onclick="setCampaignSort('MAX_N_DESC')" title="Bấm để sắp xếp">ĐỈNH CAO (PEAK) ⬍</th>
+              <th style="padding: 10px 14px; color: var(--accent-cyan); font-weight: 700; text-align: right; cursor: pointer;" onclick="setCampaignSort('CURRENT_N_DESC')" title="Bấm để sắp xếp">GIÁ HIỆN TẠI ⬍</th>
+              <th style="padding: 10px 14px; color: var(--accent-cyan); font-weight: 700; text-align: right; cursor: pointer;" onclick="setCampaignSort('DRAWDOWN_DESC')" title="Bấm để sắp xếp">SỤT TỪ ĐỈNH ⬍</th>
+              <th style="padding: 10px 14px; color: var(--accent-cyan); font-weight: 700; text-align: center;">DẢI ĐỈNH ML (90% CI)</th>
+              <th style="padding: 10px 14px; color: var(--accent-cyan); font-weight: 700; min-width: 190px; cursor: pointer;" onclick="setCampaignSort('PROGRESS_DESC')" title="Bấm để sắp xếp">TIẾN ĐỘ ML &amp; DƯ ĐỊA ⬍</th>
+              <th style="padding: 10px 14px; color: var(--accent-cyan); font-weight: 700; text-align: center;">CẮT DUMP</th>
+              <th style="padding: 10px 12px; color: var(--accent-cyan); font-weight: 700; text-align: center; width: 110px;">THAO TÁC</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${displayCampaigns.map((c, idx) => {
+              const bottomFmt = c.origin_bottom_price < 0.001 ? c.origin_bottom_price.toFixed(8) : c.origin_bottom_price < 1 ? c.origin_bottom_price.toFixed(5) : c.origin_bottom_price.toFixed(2);
+              const peakFmt = c.highest_peak_price < 0.001 ? c.highest_peak_price.toFixed(8) : c.highest_peak_price < 1 ? c.highest_peak_price.toFixed(5) : c.highest_peak_price.toFixed(2);
+              const currFmt = c.current_price < 0.001 ? c.current_price.toFixed(8) : c.current_price < 1 ? c.current_price.toFixed(5) : c.current_price.toFixed(2);
+              const dumpFmt = c.dump_threshold_price < 0.001 ? c.dump_threshold_price.toFixed(8) : c.dump_threshold_price < 1 ? c.dump_threshold_price.toFixed(5) : c.dump_threshold_price.toFixed(2);
 
-    let stageColor = "var(--accent-cyan)";
-    let borderGlow = "border: 1px solid rgba(0, 240, 255, 0.3);";
-    if (c.stage === "ACTIVE_EXPANSION") {
-      stageColor = "var(--accent-yellow)";
-      borderGlow = "border: 1px solid rgba(255, 184, 0, 0.4); box-shadow: 0 0 15px rgba(255, 184, 0, 0.1);";
-    } else if (c.stage === "HIGH_CONSOLIDATION") {
-      stageColor = "var(--accent-green)";
-      borderGlow = "border: 1px solid rgba(0, 230, 118, 0.35);";
-    } else if (c.stage === "EXHAUSTION_WARNING") {
-      stageColor = "var(--accent-orange)";
-      borderGlow = "border: 1px solid rgba(255, 102, 0, 0.4);";
-    } else if (c.stage === "DUMP_CONFIRMED") {
-      stageColor = "var(--accent-red)";
-      borderGlow = "border: 1px solid rgba(255, 51, 102, 0.4); background: rgba(255, 51, 102, 0.02);";
-    }
+              let stageColor = "var(--accent-cyan)";
+              let stageBg = "rgba(0, 240, 255, 0.08)";
+              if (c.stage === "ACTIVE_EXPANSION") {
+                stageColor = "var(--accent-yellow)";
+                stageBg = "rgba(255, 184, 0, 0.12)";
+              } else if (c.stage === "HIGH_CONSOLIDATION") {
+                stageColor = "var(--accent-green)";
+                stageBg = "rgba(0, 230, 118, 0.12)";
+              } else if (c.stage === "EXHAUSTION_WARNING") {
+                stageColor = "var(--accent-orange)";
+                stageBg = "rgba(255, 102, 0, 0.12)";
+              } else if (c.stage === "DUMP_CONFIRMED") {
+                stageColor = "var(--accent-red)";
+                stageBg = "rgba(255, 51, 102, 0.12)";
+              }
 
-    const mlPred = c.ml_prediction || {};
-    const nLow = mlPred.n_low || c.expected_n_low || 5.0;
-    const nHigh = mlPred.n_high || c.expected_n_high || 20.0;
-    const nExp = mlPred.n_expected || c.expected_n_ml || ((nLow + nHigh) / 2);
+              const mlPred = c.ml_prediction || {};
+              const nLow = mlPred.n_low || c.expected_n_low || 5.0;
+              const nHigh = mlPred.n_high || c.expected_n_high || 20.0;
+              const nExp = mlPred.n_expected || c.expected_n_ml || ((nLow + nHigh) / 2);
 
-    const priceLow = mlPred.target_price_low || (c.origin_bottom_price * nLow);
-    const priceHigh = mlPred.target_price_high || (c.origin_bottom_price * nHigh);
-    const priceExp = mlPred.target_peak_price || (c.origin_bottom_price * nExp);
+              const priceLow = mlPred.target_price_low || (c.origin_bottom_price * nLow);
+              const priceHigh = mlPred.target_price_high || (c.origin_bottom_price * nHigh);
+              const priceExp = mlPred.target_peak_price || (c.origin_bottom_price * nExp);
 
-    const priceLowFmt = priceLow < 0.001 ? priceLow.toFixed(8) : priceLow < 1 ? priceLow.toFixed(5) : priceLow.toFixed(2);
-    const priceHighFmt = priceHigh < 0.001 ? priceHigh.toFixed(8) : priceHigh < 1 ? priceHigh.toFixed(5) : priceHigh.toFixed(2);
-    const priceExpFmt = priceExp < 0.001 ? priceExp.toFixed(8) : priceExp < 1 ? priceExp.toFixed(5) : priceExp.toFixed(2);
+              const priceLowFmt = priceLow < 0.001 ? priceLow.toFixed(6) : priceLow < 1 ? priceLow.toFixed(4) : priceLow.toFixed(2);
+              const priceHighFmt = priceHigh < 0.001 ? priceHigh.toFixed(6) : priceHigh < 1 ? priceHigh.toFixed(4) : priceHigh.toFixed(2);
 
-    const progressPct = mlPred.progress_pct || Math.min(100, Math.round((c.current_n / nExp) * 100));
-    const upsidePct = mlPred.remaining_upside_pct !== undefined ? mlPred.remaining_upside_pct : Math.max(0, Math.round(((priceExp - c.current_price) / c.current_price) * 100));
+              const progressPct = mlPred.progress_pct || Math.min(100, Math.round(((c.is_active ? c.current_n : c.max_n) / nExp) * 100));
+              const upsidePct = mlPred.remaining_upside_pct !== undefined ? mlPred.remaining_upside_pct : Math.max(0, Math.round(((priceExp - c.current_price) / c.current_price) * 100));
 
-    return `
-      <div style="background: rgba(11, 15, 23, 0.85); border-radius: 8px; padding: 16px; ${borderGlow} display: flex; flex-direction: column; justify-content: space-between;">
-        <div>
-          <!-- Header -->
-          <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 10px;">
-            <div>
-              <a href="/?symbol=${c.symbol}" style="font-size: 1.2rem; font-weight: 800; color: #fff; text-decoration: none;" title="Soi Nến ${c.symbol}">
-                ${c.symbol}
-              </a>
-              <div style="font-size: 0.74rem; color: var(--text-dim);">Khởi phát: ${c.origin_date} (${c.pump_age_days || 1} ngày trước)</div>
-            </div>
-            <span style="font-size: 0.74rem; padding: 4px 9px; border-radius: 4px; background: rgba(255, 255, 255, 0.05); color: ${stageColor}; font-weight: 700; border: 1px solid ${stageColor};">
-              ${c.stage_label_vi || c.stage}
-            </span>
-          </div>
+              const rowId = `camp-row-${idx}`;
+              const isEven = idx % 2 === 0;
 
-          <!-- Multipliers Grid -->
-          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; background: rgba(0, 0, 0, 0.28); padding: 12px; border-radius: 6px; margin-bottom: 10px; font-family: var(--font-mono); font-size: 0.82rem;">
-            <div>
-              <span style="font-size: 0.68rem; color: var(--text-dim); display: block;">ĐÁY GỐC (BASE):</span>
-              <strong style="color: var(--accent-cyan); font-size: 0.9rem;">$${bottomFmt}</strong>
-            </div>
-            <div>
-              <span style="font-size: 0.68rem; color: var(--text-dim); display: block;">ĐỈNH CAO NHẤT (PEAK):</span>
-              <strong style="color: var(--accent-yellow); font-size: 0.9rem;">$${peakFmt} (${c.max_n}x)</strong>
-            </div>
-            <div>
-              <span style="font-size: 0.68rem; color: var(--text-dim); display: block;">GIÁ HIỆN TẠI:</span>
-              <strong style="color: #fff; font-size: 0.9rem;">$${currFmt} (${c.current_n}x)</strong>
-            </div>
-            <div>
-              <span style="font-size: 0.68rem; color: var(--text-dim); display: block;">SỤT TỪ ĐỈNH:</span>
-              <strong style="color: ${c.drawdown_from_peak_pct >= 35 ? 'var(--accent-red)' : 'var(--accent-green)'}; font-size: 0.9rem;">-${c.drawdown_from_peak_pct}%</strong>
-            </div>
-          </div>
+              return `
+                <tr style="background: ${isEven ? 'rgba(255,255,255,0.015)' : 'transparent'}; border-bottom: 1px solid rgba(255,255,255,0.04); transition: background 0.15s ease;"
+                    onmouseover="this.style.background='rgba(0, 240, 255, 0.07)'"
+                    onmouseout="this.style.background='${isEven ? 'rgba(255,255,255,0.015)' : 'transparent'}'">
+                  <!-- Index -->
+                  <td style="padding: 11px 12px; text-align: center; color: var(--text-dim); font-family: var(--font-mono); font-size: 0.78rem;">
+                    ${idx + 1}
+                  </td>
 
-          <!-- ML Training Target Range & Progress Row -->
-          <div style="background: rgba(0, 240, 255, 0.04); border: 1px dashed ${c.is_active ? 'rgba(0, 240, 255, 0.35)' : 'rgba(255, 255, 255, 0.15)'}; padding: 12px; border-radius: 6px; margin-bottom: 12px; font-size: 0.78rem;">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
-              <div>
-                <span style="color: var(--text-dim); display: block; font-size: 0.68rem;">DẢI ĐỈNH KỲ VỌNG ML (90% CI):</span>
-                <strong style="color: var(--accent-yellow); font-family: var(--font-mono); font-size: 0.92rem;">${nLow.toFixed(1)}x &rarr; ${nHigh.toFixed(1)}x</strong>
-                <span style="color: var(--accent-cyan); font-size: 0.72rem; font-family: var(--font-mono); margin-left: 4px;">(Med: ${nExp.toFixed(1)}x)</span>
-              </div>
-              <div style="text-align: right;">
-                <span style="color: var(--text-dim); display: block; font-size: 0.68rem;">VÙNG GIÁ MỤC TIÊU:</span>
-                <strong style="color: #fff; font-family: var(--font-mono); font-size: 0.82rem;">$${priceLowFmt} &rarr; $${priceHighFmt}</strong>
-              </div>
-            </div>
+                  <!-- Symbol & Launch Date -->
+                  <td style="padding: 11px 14px;">
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                      <a href="/?symbol=${c.symbol}" style="font-weight: 800; font-size: 0.96rem; color: #fff; text-decoration: none; font-family: var(--font-mono);" title="Mở biểu đồ TradingView Live">
+                        ${c.symbol}
+                      </a>
+                      ${c.is_active ? '<span style="display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: #00e676; box-shadow: 0 0 6px #00e676;"></span>' : ''}
+                    </div>
+                    <div style="font-size: 0.72rem; color: var(--text-dim);">
+                      ${c.origin_date} • ${c.pump_age_days || 1} ngày
+                    </div>
+                  </td>
 
-            <div style="display: flex; justify-content: space-between; font-size: 0.73rem; margin-bottom: 4px;">
-              <span style="color: var(--text-muted);">
-                ${c.is_active ? 'Tiến Độ Đạt Mục Tiêu ML:' : 'Đỉnh Thực Tế Đạt:'} 
-                <strong style="color: var(--accent-cyan); font-family: var(--font-mono); font-size: 0.85rem;">${progressPct}%</strong>
-                <span style="color: var(--text-dim); font-size: 0.7rem;">(${c.is_active ? c.current_n : c.max_n}x / ${nExp.toFixed(1)}x)</span>
-              </span>
-              <span style="color: ${c.is_active ? (upsidePct > 0 ? 'var(--accent-green)' : 'var(--accent-red)') : (progressPct >= 100 ? 'var(--accent-green)' : 'var(--accent-yellow)')}; font-weight: 700; font-family: var(--font-mono);">
-                ${c.is_active ? (upsidePct > 0 ? '+' + upsidePct + '% Dư Địa Đến Đỉnh' : 'Đã Chạm Vùng Đỉnh ML') : (progressPct >= 100 ? 'ĐẠT VƯỢT MỤC TIÊU' : 'HOÀN TẤT CHU KỲ')}
-              </span>
-            </div>
-            <div style="width: 100%; height: 6px; background: rgba(255,255,255,0.08); border-radius: 3px; overflow: hidden;">
-              <div style="width: ${Math.min(100, progressPct)}%; height: 100%; background: ${progressPct >= 100 ? 'linear-gradient(90deg, #00e676 0%, #00f0ff 100%)' : 'linear-gradient(90deg, #00e676 0%, #00f0ff 70%, #ffb800 100%)'}; border-radius: 3px;"></div>
-            </div>
-          </div>
+                  <!-- Stage Badge -->
+                  <td style="padding: 11px 14px; text-align: center;">
+                    <span style="display: inline-block; font-size: 0.72rem; padding: 3px 8px; border-radius: 4px; background: ${stageBg}; color: ${stageColor}; font-weight: 700; border: 1px solid ${stageColor}; white-space: nowrap;">
+                      ${c.stage_label_vi || c.stage}
+                    </span>
+                  </td>
 
-          <div style="font-size: 0.76rem; color: var(--text-dim); line-height: 1.4; margin-bottom: 10px;">
-            ${c.notes || ''}
-          </div>
-        </div>
+                  <!-- Base Price -->
+                  <td style="padding: 11px 14px; text-align: right; font-family: var(--font-mono);">
+                    <strong style="color: var(--accent-cyan); font-size: 0.88rem;">$${bottomFmt}</strong>
+                  </td>
 
-        <!-- Bottom Warning / Trailing -->
-        <div style="font-size: 0.75rem; color: var(--text-muted); border-top: 1px solid rgba(255, 255, 255, 0.06); padding-top: 10px; display: flex; justify-content: space-between; align-items: center;">
-          <span>Ngưỡng Cắt Dump: <strong style="color: var(--accent-red);">$${dumpFmt}</strong></span>
-          <a href="/?symbol=${c.symbol}" class="btn-inspect" style="padding: 4px 10px; font-size: 0.74rem;" title="Mở biểu đồ TradingView">
-            Soi Nến
-          </a>
-        </div>
+                  <!-- Peak Price & Max Multiplier -->
+                  <td style="padding: 11px 14px; text-align: right; font-family: var(--font-mono);">
+                    <strong style="color: var(--accent-yellow); font-size: 0.88rem;">$${peakFmt}</strong>
+                    <div style="font-size: 0.74rem; color: var(--accent-yellow); font-weight: 700;">${c.max_n}x</div>
+                  </td>
+
+                  <!-- Current Price & Multiplier -->
+                  <td style="padding: 11px 14px; text-align: right; font-family: var(--font-mono);">
+                    <strong style="color: #fff; font-size: 0.88rem;">$${currFmt}</strong>
+                    <div style="font-size: 0.74rem; color: var(--accent-cyan);">${c.current_n}x</div>
+                  </td>
+
+                  <!-- Drawdown -->
+                  <td style="padding: 11px 14px; text-align: right; font-family: var(--font-mono);">
+                    <strong style="color: ${c.drawdown_from_peak_pct >= 35 ? 'var(--accent-red)' : 'var(--accent-green)'}; font-size: 0.88rem;">
+                      -${c.drawdown_from_peak_pct}%
+                    </strong>
+                  </td>
+
+                  <!-- ML Expected Range (90% CI) -->
+                  <td style="padding: 11px 14px; text-align: center; font-family: var(--font-mono);">
+                    <div style="color: var(--accent-yellow); font-weight: 700; font-size: 0.86rem;">
+                      ${nLow.toFixed(1)}x &rarr; ${nHigh.toFixed(1)}x
+                    </div>
+                    <div style="font-size: 0.71rem; color: var(--text-dim);">
+                      Med: <strong style="color: var(--accent-cyan);">${nExp.toFixed(1)}x</strong> ($${priceLowFmt}-$${priceHighFmt})
+                    </div>
+                  </td>
+
+                  <!-- ML Progress Bar & Upside -->
+                  <td style="padding: 11px 14px; min-width: 190px;">
+                    <div style="display: flex; justify-content: space-between; font-size: 0.72rem; margin-bottom: 3px; font-family: var(--font-mono);">
+                      <span style="color: #fff; font-weight: 700;">
+                        ${progressPct}% <span style="color: var(--text-dim); font-weight: normal;">(${c.is_active ? c.current_n : c.max_n}x / ${nExp.toFixed(1)}x)</span>
+                      </span>
+                      <span style="color: ${c.is_active ? (upsidePct > 0 ? 'var(--accent-green)' : 'var(--accent-red)') : (progressPct >= 100 ? 'var(--accent-green)' : 'var(--accent-yellow)')}; font-weight: 700;">
+                        ${c.is_active ? (upsidePct > 0 ? `+${upsidePct}%` : 'Chạm đỉnh') : (progressPct >= 100 ? 'Đạt Target' : 'Hoàn tất')}
+                      </span>
+                    </div>
+                    <div style="width: 100%; height: 5px; background: rgba(255,255,255,0.08); border-radius: 3px; overflow: hidden;">
+                      <div style="width: ${Math.min(100, progressPct)}%; height: 100%; background: ${progressPct >= 100 ? 'linear-gradient(90deg, #00e676 0%, #00f0ff 100%)' : 'linear-gradient(90deg, #00e676 0%, #00f0ff 70%, #ffb800 100%)'}; border-radius: 3px;"></div>
+                    </div>
+                  </td>
+
+                  <!-- Dump Stop Price -->
+                  <td style="padding: 11px 14px; text-align: center; font-family: var(--font-mono); font-size: 0.82rem;">
+                    <strong style="color: var(--accent-red);">$${dumpFmt}</strong>
+                  </td>
+
+                  <!-- Actions -->
+                  <td style="padding: 11px 12px; text-align: center;">
+                    <div style="display: flex; align-items: center; justify-content: center; gap: 4px;">
+                      <a href="/?symbol=${c.symbol}" class="btn-inspect" style="padding: 4px 8px; font-size: 0.72rem;" title="Mở biểu đồ TradingView">
+                        Soi Nến
+                      </a>
+                      <button onclick="toggleCampaignDetails('${rowId}')" style="background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.15); color: var(--accent-cyan); padding: 4px 6px; border-radius: 4px; cursor: pointer; font-size: 0.68rem;" title="Xem chi tiết phân tích">
+                        <span id="icon-${rowId}">▼</span>
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+
+                <!-- Collapsible Detailed Notes Row -->
+                <tr id="details-${rowId}" style="display: none; background: rgba(0, 240, 255, 0.03); border-bottom: 1px solid rgba(0, 240, 255, 0.2);">
+                  <td colspan="11" style="padding: 10px 18px; font-size: 0.78rem; color: var(--text-dim); line-height: 1.5;">
+                    <div style="display: flex; gap: 16px; flex-wrap: wrap;">
+                      <div style="flex: 1; min-width: 280px;">
+                        <strong style="color: var(--accent-cyan);">Phân Tích Sóng &amp; Động Lực:</strong> ${c.notes || 'Không có ghi chú thêm.'}
+                      </div>
+                      <div style="font-family: var(--font-mono); font-size: 0.74rem; background: rgba(0,0,0,0.3); padding: 6px 12px; border-radius: 4px; border: 1px solid rgba(255,255,255,0.08);">
+                        Vùng Giá Mục Tiêu ML: <strong style="color: var(--accent-yellow);">$${priceLowFmt} &rarr; $${priceHighFmt}</strong> (Kỳ vọng: <strong style="color: #fff;">$${priceExp < 0.001 ? priceExp.toFixed(6) : priceExp < 1 ? priceExp.toFixed(4) : priceExp.toFixed(2)}</strong>)
+                      </div>
+                    </div>
+                  </td>
+                </tr>
+              `;
+            }).join("")}
+          </tbody>
+        </table>
       </div>
     `;
-  }).join("");
+    return;
+  }
+
+  // ── RENDER CARD GRID VIEW (ALTERNATIVE) ──────────────────────────────
+  container.innerHTML = `
+    <div id="campaigns-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 16px;">
+      ${displayCampaigns.map(c => {
+        const bottomFmt = c.origin_bottom_price < 0.001 ? c.origin_bottom_price.toFixed(8) : c.origin_bottom_price < 1 ? c.origin_bottom_price.toFixed(4) : c.origin_bottom_price.toFixed(2);
+        const peakFmt = c.highest_peak_price < 0.001 ? c.highest_peak_price.toFixed(8) : c.highest_peak_price < 1 ? c.highest_peak_price.toFixed(4) : c.highest_peak_price.toFixed(2);
+        const currFmt = c.current_price < 0.001 ? c.current_price.toFixed(8) : c.current_price < 1 ? c.current_price.toFixed(4) : c.current_price.toFixed(2);
+        const dumpFmt = c.dump_threshold_price < 0.001 ? c.dump_threshold_price.toFixed(8) : c.dump_threshold_price < 1 ? c.dump_threshold_price.toFixed(4) : c.dump_threshold_price.toFixed(2);
+
+        let stageColor = "var(--accent-cyan)";
+        let borderGlow = "border: 1px solid rgba(0, 240, 255, 0.3);";
+        if (c.stage === "ACTIVE_EXPANSION") {
+          stageColor = "var(--accent-yellow)";
+          borderGlow = "border: 1px solid rgba(255, 184, 0, 0.4); box-shadow: 0 0 15px rgba(255, 184, 0, 0.1);";
+        } else if (c.stage === "HIGH_CONSOLIDATION") {
+          stageColor = "var(--accent-green)";
+          borderGlow = "border: 1px solid rgba(0, 230, 118, 0.35);";
+        } else if (c.stage === "EXHAUSTION_WARNING") {
+          stageColor = "var(--accent-orange)";
+          borderGlow = "border: 1px solid rgba(255, 102, 0, 0.4);";
+        } else if (c.stage === "DUMP_CONFIRMED") {
+          stageColor = "var(--accent-red)";
+          borderGlow = "border: 1px solid rgba(255, 51, 102, 0.4); background: rgba(255, 51, 102, 0.02);";
+        }
+
+        const mlPred = c.ml_prediction || {};
+        const nLow = mlPred.n_low || c.expected_n_low || 5.0;
+        const nHigh = mlPred.n_high || c.expected_n_high || 20.0;
+        const nExp = mlPred.n_expected || c.expected_n_ml || ((nLow + nHigh) / 2);
+
+        const priceLow = mlPred.target_price_low || (c.origin_bottom_price * nLow);
+        const priceHigh = mlPred.target_price_high || (c.origin_bottom_price * nHigh);
+        const priceExp = mlPred.target_peak_price || (c.origin_bottom_price * nExp);
+
+        const priceLowFmt = priceLow < 0.001 ? priceLow.toFixed(8) : priceLow < 1 ? priceLow.toFixed(5) : priceLow.toFixed(2);
+        const priceHighFmt = priceHigh < 0.001 ? priceHigh.toFixed(8) : priceHigh < 1 ? priceHigh.toFixed(5) : priceHigh.toFixed(2);
+
+        const progressPct = mlPred.progress_pct || Math.min(100, Math.round((c.current_n / nExp) * 100));
+        const upsidePct = mlPred.remaining_upside_pct !== undefined ? mlPred.remaining_upside_pct : Math.max(0, Math.round(((priceExp - c.current_price) / c.current_price) * 100));
+
+        return `
+          <div style="background: rgba(11, 15, 23, 0.85); border-radius: 8px; padding: 16px; ${borderGlow} display: flex; flex-direction: column; justify-content: space-between;">
+            <div>
+              <!-- Header -->
+              <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 10px;">
+                <div>
+                  <a href="/?symbol=${c.symbol}" style="font-size: 1.2rem; font-weight: 800; color: #fff; text-decoration: none;" title="Soi Nến ${c.symbol}">
+                    ${c.symbol}
+                  </a>
+                  <div style="font-size: 0.74rem; color: var(--text-dim);">Khởi phát: ${c.origin_date} (${c.pump_age_days || 1} ngày trước)</div>
+                </div>
+                <span style="font-size: 0.74rem; padding: 4px 9px; border-radius: 4px; background: rgba(255, 255, 255, 0.05); color: ${stageColor}; font-weight: 700; border: 1px solid ${stageColor};">
+                  ${c.stage_label_vi || c.stage}
+                </span>
+              </div>
+
+              <!-- Multipliers Grid -->
+              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; background: rgba(0, 0, 0, 0.28); padding: 12px; border-radius: 6px; margin-bottom: 10px; font-family: var(--font-mono); font-size: 0.82rem;">
+                <div>
+                  <span style="font-size: 0.68rem; color: var(--text-dim); display: block;">ĐÁY GỐC (BASE):</span>
+                  <strong style="color: var(--accent-cyan); font-size: 0.9rem;">$${bottomFmt}</strong>
+                </div>
+                <div>
+                  <span style="font-size: 0.68rem; color: var(--text-dim); display: block;">ĐỈNH CAO NHẤT (PEAK):</span>
+                  <strong style="color: var(--accent-yellow); font-size: 0.9rem;">$${peakFmt} (${c.max_n}x)</strong>
+                </div>
+                <div>
+                  <span style="font-size: 0.68rem; color: var(--text-dim); display: block;">GIÁ HIỆN TẠI:</span>
+                  <strong style="color: #fff; font-size: 0.9rem;">$${currFmt} (${c.current_n}x)</strong>
+                </div>
+                <div>
+                  <span style="font-size: 0.68rem; color: var(--text-dim); display: block;">SỤT TỪ ĐỈNH:</span>
+                  <strong style="color: ${c.drawdown_from_peak_pct >= 35 ? 'var(--accent-red)' : 'var(--accent-green)'}; font-size: 0.9rem;">-${c.drawdown_from_peak_pct}%</strong>
+                </div>
+              </div>
+
+              <!-- ML Training Target Range & Progress Row -->
+              <div style="background: rgba(0, 240, 255, 0.04); border: 1px dashed ${c.is_active ? 'rgba(0, 240, 255, 0.35)' : 'rgba(255, 255, 255, 0.15)'}; padding: 12px; border-radius: 6px; margin-bottom: 12px; font-size: 0.78rem;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                  <div>
+                    <span style="color: var(--text-dim); display: block; font-size: 0.68rem;">DẢI ĐỈNH KỲ VỌNG ML (90% CI):</span>
+                    <strong style="color: var(--accent-yellow); font-family: var(--font-mono); font-size: 0.92rem;">${nLow.toFixed(1)}x &rarr; ${nHigh.toFixed(1)}x</strong>
+                    <span style="color: var(--accent-cyan); font-size: 0.72rem; font-family: var(--font-mono); margin-left: 4px;">(Med: ${nExp.toFixed(1)}x)</span>
+                  </div>
+                  <div style="text-align: right;">
+                    <span style="color: var(--text-dim); display: block; font-size: 0.68rem;">VÙNG GIÁ MỤC TIÊU:</span>
+                    <strong style="color: #fff; font-family: var(--font-mono); font-size: 0.82rem;">$${priceLowFmt} &rarr; $${priceHighFmt}</strong>
+                  </div>
+                </div>
+
+                <div style="display: flex; justify-content: space-between; font-size: 0.73rem; margin-bottom: 4px;">
+                  <span style="color: var(--text-muted);">
+                    ${c.is_active ? 'Tiến Độ Đạt Mục Tiêu ML:' : 'Đỉnh Thực Tế Đạt:'} 
+                    <strong style="color: var(--accent-cyan); font-family: var(--font-mono); font-size: 0.85rem;">${progressPct}%</strong>
+                    <span style="color: var(--text-dim); font-size: 0.7rem;">(${c.is_active ? c.current_n : c.max_n}x / ${nExp.toFixed(1)}x)</span>
+                  </span>
+                  <span style="color: ${c.is_active ? (upsidePct > 0 ? 'var(--accent-green)' : 'var(--accent-red)') : (progressPct >= 100 ? 'var(--accent-green)' : 'var(--accent-yellow)')}; font-weight: 700; font-family: var(--font-mono);">
+                    ${c.is_active ? (upsidePct > 0 ? '+' + upsidePct + '% Dư Địa Đến Đỉnh' : 'Đã Chạm Vùng Đỉnh ML') : (progressPct >= 100 ? 'ĐẠT VƯỢT MỤC TIÊU' : 'HOÀN TẤT CHU KỲ')}
+                  </span>
+                </div>
+                <div style="width: 100%; height: 6px; background: rgba(255,255,255,0.08); border-radius: 3px; overflow: hidden;">
+                  <div style="width: ${Math.min(100, progressPct)}%; height: 100%; background: ${progressPct >= 100 ? 'linear-gradient(90deg, #00e676 0%, #00f0ff 100%)' : 'linear-gradient(90deg, #00e676 0%, #00f0ff 70%, #ffb800 100%)'}; border-radius: 3px;"></div>
+                </div>
+              </div>
+
+              <div style="font-size: 0.76rem; color: var(--text-dim); line-height: 1.4; margin-bottom: 10px;">
+                ${c.notes || ''}
+              </div>
+            </div>
+
+            <!-- Bottom Warning / Trailing -->
+            <div style="font-size: 0.75rem; color: var(--text-muted); border-top: 1px solid rgba(255, 255, 255, 0.06); padding-top: 10px; display: flex; justify-content: space-between; align-items: center;">
+              <span>Ngưỡng Cắt Dump: <strong style="color: var(--accent-red);">$${dumpFmt}</strong></span>
+              <a href="/?symbol=${c.symbol}" class="btn-inspect" style="padding: 4px 10px; font-size: 0.74rem;" title="Mở biểu đồ TradingView">
+                Soi Nến
+              </a>
+            </div>
+          </div>
+        `;
+      }).join("")}
+    </div>
+  `;
 }
 
 function onMLSelectCampaign(symbol) {

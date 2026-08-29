@@ -98,25 +98,48 @@
           <div style="font-size: 0.78rem; color: var(--text-dim);">Theo dõi liên tục từ đáy gốc đến đỉnh và cảnh báo xả hàng khi gãy ngưỡng dump (-45% từ đỉnh)</div>
         </div>
         
-        <!-- Filter Tabs & Sort Controls -->
+        <!-- Filter Tabs, Search & Sort Controls -->
         <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+          <!-- Quick Search -->
+          <div style="position: relative; display: flex; align-items: center;">
+            <input type="text" id="campaign-search-input" placeholder="🔍 Tìm mã coin (vd: BTR, ZEC)..." 
+                   style="background: rgba(0,0,0,0.5); border: 1px solid rgba(0,240,255,0.3); color: #fff; padding: 5px 10px; border-radius: 6px; font-size: 0.78rem; outline: none; width: 170px;"
+                   oninput="setCampaignSearch(this.value)">
+          </div>
+
+          <!-- Sort Select -->
           <div style="display: flex; align-items: center; gap: 6px; background: rgba(0,0,0,0.4); padding: 4px 10px; border-radius: 6px; border: 1px solid rgba(0,240,255,0.3);">
             <label style="font-size: 0.74rem; color: var(--text-dim);">Sắp xếp:</label>
             <select id="campaign-sort-select" style="background: transparent; border: none; color: var(--accent-cyan); font-size: 0.78rem; font-weight: 700; cursor: pointer; outline: none;" onchange="setCampaignSort(this.value)">
               <option value="PROGRESS_DESC" selected style="background: #0b0f17; color: #fff;">% Tiến Độ Đạt Mục Tiêu ML (Cao &rarr; Thấp)</option>
               <option value="PROGRESS_ASC" style="background: #0b0f17; color: #fff;">% Tiến Độ (Thấp &rarr; Cao - Mới Gom)</option>
               <option value="MAX_N_DESC" style="background: #0b0f17; color: #fff;">Bội Số Đỉnh n Thực Tế (Cao &rarr; Thấp)</option>
+              <option value="CURRENT_N_DESC" style="background: #0b0f17; color: #fff;">Bội Số Hiện Tại (Cao &rarr; Thấp)</option>
+              <option value="DRAWDOWN_DESC" style="background: #0b0f17; color: #fff;">Sụt Giảm Từ Đỉnh (Nhiều &rarr; Ít)</option>
               <option value="DATE_DESC" style="background: #0b0f17; color: #fff;">Ngày Khởi Phát (Mới Nhất)</option>
             </select>
           </div>
+
+          <!-- Status Filters -->
           <button id="campaign-filter-active" class="filter-btn active" style="font-size: 0.8rem; padding: 5px 12px;" onclick="setCampaignFilter('ACTIVE')">Đang Chạy (Active)</button>
           <button id="campaign-filter-dumped" class="filter-btn" style="font-size: 0.8rem; padding: 5px 12px; border-color: rgba(255, 51, 102, 0.4); color: var(--accent-red);" onclick="setCampaignFilter('DUMPED')">Lịch Sử Đã Dump</button>
           <button id="campaign-filter-all" class="filter-btn" style="font-size: 0.8rem; padding: 5px 12px;" onclick="setCampaignFilter('ALL')">Tất Cả</button>
+
+          <!-- View Mode Toggle (List vs Grid) -->
+          <div style="display: flex; gap: 2px; background: rgba(0,0,0,0.5); padding: 2px; border-radius: 6px; border: 1px solid rgba(0,240,255,0.25);">
+            <button id="campaign-view-list" class="filter-btn active" style="padding: 4px 10px; font-size: 0.78rem; border: none; border-radius: 4px;" onclick="setCampaignViewMode('LIST')" title="Hiển thị dạng danh sách (List View)">
+              📋 Danh Sách
+            </button>
+            <button id="campaign-view-grid" class="filter-btn" style="padding: 4px 10px; font-size: 0.78rem; border: none; border-radius: 4px;" onclick="setCampaignViewMode('GRID')" title="Hiển thị dạng khối (Cards View)">
+              🔲 Khối
+            </button>
+          </div>
         </div>
       </div>
 
-      <div id="campaigns-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 16px;">
-        <!-- Dynamically rendered via JS -->
+      <!-- Container: List Table or Grid Cards -->
+      <div id="campaigns-container">
+        <!-- Dynamically rendered via JS (Default: List View) -->
       </div>
     </section>
 
