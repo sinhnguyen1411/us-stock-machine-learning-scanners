@@ -78,6 +78,8 @@ class PumpCampaign:
     is_super_pump_in_progress: bool = False      # True when n_current >= n_expected_ml * 0.95
     super_pump_detected_at:    Optional[str] = None  # ISO timestamp when super-pump flagged
     correction_finalized:      bool = False      # True after ACE has written corrected peak to DB
+    pattern_type:              str = "SUPER_PUMP" # SUPER_PUMP | VOLUME_IGNITION | STEALTH_CLIMBER
+
 
 
     def __post_init__(self):
@@ -801,6 +803,7 @@ class PumpLifecycleRegistry:
         expected_n_low:      float = 0.0,
         expected_n_high:     float = 0.0,
         notes:               str = "",
+        pattern_type:        str = "SUPER_PUMP",
     ) -> PumpCampaign:
         """Register a newly detected pump campaign into persistent tracking with unique campaign_id."""
         symbol = symbol.upper()
@@ -833,11 +836,13 @@ class PumpLifecycleRegistry:
             expected_n_high=expected_n_high,
             stage=init_stage,
             is_active=not is_delisted,
+            pattern_type=pattern_type,
             notes=notes or f"Khởi phát sóng bơm mới ngày {orig_d}.",
         )
         self.campaigns[cid] = campaign
         self.save()
         return campaign
+
 
     def get_active_campaigns(self) -> List[PumpCampaign]:
         """Return all currently active pump campaigns sorted by current_n descending."""

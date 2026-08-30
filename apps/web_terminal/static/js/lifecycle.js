@@ -553,16 +553,19 @@ function renderCampaignsView() {
 
                   <!-- Symbol & Launch Date -->
                   <td style="padding: 11px 14px;">
-                    <div style="display: flex; align-items: center; gap: 8px;">
+                    <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
                       <a href="/?symbol=${c.symbol}" style="font-weight: 800; font-size: 0.96rem; color: #fff; text-decoration: none; font-family: var(--font-mono);" title="Mở biểu đồ TradingView Live">
                         ${c.symbol}
                       </a>
                       ${c.is_active ? '<span style="display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: #00e676; box-shadow: 0 0 6px #00e676;"></span>' : ''}
+                      ${c.pattern_type === 'VOLUME_IGNITION' ? '<span style="font-size: 0.65rem; padding: 1px 5px; border-radius: 3px; background: rgba(255,102,0,0.2); color: #ff6600; border: 1px solid rgba(255,102,0,0.4); font-weight: 700;">🔥 IGNITION</span>' : ''}
+                      ${c.pattern_type === 'STEALTH_CLIMBER' ? '<span style="font-size: 0.65rem; padding: 1px 5px; border-radius: 3px; background: rgba(0,230,118,0.2); color: #00e676; border: 1px solid rgba(0,230,118,0.4); font-weight: 700;">🐢 STEALTH</span>' : ''}
                     </div>
                     <div style="font-size: 0.72rem; color: var(--text-dim);">
                       ${c.origin_date} • ${c.pump_age_days || 1} ngày
                     </div>
                   </td>
+
 
                   <!-- Stage Badge -->
                   <td style="padding: 11px 14px; text-align: center;">

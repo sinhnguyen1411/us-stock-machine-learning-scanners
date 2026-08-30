@@ -1267,9 +1267,10 @@ def autonomous_cycle_scanner_loop():
         scanner = AutonomousSuperPumpScanner()
         while True:
             try:
-                scanner.scan_all_markets(max_symbols=120)
+                scanner.scan_all_markets(max_symbols=None)
             except Exception as ex:
                 logger.debug(f"Autonomous cycle scan error: {ex}")
+
             time.sleep(600.0)  # Run every 10 minutes
     except Exception as e:
         logger.error(f"Error in autonomous cycle loop: {e}")

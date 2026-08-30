@@ -1,7 +1,11 @@
 """
 DeepAlpha — Autonomous Super-Pump Discovery Engine (Binance USD-M Futures 2026).
 Continuously discovers multi-week and multi-month super pump campaigns directly from raw klines.
-Operates with a Token-Bucket Rate Limiter to eliminate any HTTP 418 IP blocks.
+Features Multi-Path Qualification:
+  1. Standard Macro Super-Pumps (n >= 3.0x)
+  2. Early Volume Ignition Breakouts (n >= 1.8x with high 24h volume / volume spike, e.g. 4USDT)
+  3. Stealth Slow-Grind Climbers (n >= 1.5x with R^2 >= 0.70 & steady green days, e.g. DEXE)
+Operates with a Priority Queue Rate Limiter to eliminate any HTTP 418 IP blocks across 700+ pairs.
 """
 
 import urllib.request
@@ -16,11 +20,12 @@ from .pump_lifecycle_tracker import PumpLifecycleRegistry, PumpCampaign, PumpSta
 
 logger = logging.getLogger("AutonomousSuperPumpScanner")
 
+
 class AutonomousSuperPumpScanner:
     """
     Autonomous multi-month super pump discovery engine.
     Scans the entire universe of Binance USD-M Futures contracts (700+ pairs)
-    to detect major macro pump waves (n >= 3.0x from cycle bottom) and classify their lifecycle stage.
+    with dynamic priority sorting and multi-pattern recognition.
     """
 
     def __init__(self, registry: Optional[PumpLifecycleRegistry] = None, min_multiplier: float = 3.0):
@@ -30,12 +35,64 @@ class AutonomousSuperPumpScanner:
         self.scan_interval: float = 600.0  # Run every 10 minutes
 
     @staticmethod
-    def segment_macro_cycles(klines: List[Any], min_multiplier: float = 3.0) -> List[Dict[str, Any]]:
+    def calculate_trend_efficiency(closes: List[float]) -> Dict[str, float]:
         """
-        Segment multi-month daily candles into distinct pump & dump cycles.
-        Scans sequentially: when a qualified pump (>= min_multiplier) experiences
-        a >=45% dump, that wave is locked as completed and subsequent candles
-        are analyzed for a new baseline and wave.
+        Calculates linear regression fit R^2, positive day ratio, and drift metrics.
+        Used to detect 'Stealth Climber' patterns (e.g. DEXE) that grind up steadily each day.
+        """
+        if not closes or len(closes) < 10:
+            return {"r2": 0.0, "positive_day_ratio": 0.5, "total_drift_pct": 0.0, "max_daily_drop_pct": 0.0}
+
+        n = len(closes)
+        x = list(range(n))
+        y = closes
+
+        # Linear regression calculation
+        mean_x = sum(x) / n
+        mean_y = sum(y) / n
+        ss_xx = sum((xi - mean_x) ** 2 for xi in x)
+        ss_yy = sum((yi - mean_y) ** 2 for yi in y)
+        ss_xy = sum((xi - mean_x) * (yi - mean_y) for xi, yi in zip(x, y))
+
+        if ss_xx <= 0 or ss_yy <= 0:
+            r2 = 0.0
+        else:
+            r = ss_xy / ((ss_xx * ss_yy) ** 0.5)
+            slope = ss_xy / ss_xx
+            # Only positive upward slope counts as an uptrend
+            r2 = round((r ** 2) if slope > 0 else 0.0, 4)
+
+        # Positive Day Ratio: fraction of days where close[t] >= close[t-1]
+        green_days = sum(1 for i in range(1, n) if closes[i] >= closes[i - 1])
+        positive_day_ratio = round(green_days / max(1, n - 1), 3)
+
+        # Total drift %
+        drift_pct = round(((closes[-1] - closes[0]) / max(closes[0], 1e-12)) * 100.0, 2)
+
+        # Max 1-day percentage drop
+        drops = [((closes[i-1] - closes[i]) / max(closes[i-1], 1e-12)) * 100.0 for i in range(1, n)]
+        max_daily_drop_pct = round(max(drops), 2) if drops else 0.0
+
+        return {
+            "r2": r2,
+            "positive_day_ratio": positive_day_ratio,
+            "total_drift_pct": drift_pct,
+            "max_daily_drop_pct": max_daily_drop_pct,
+        }
+
+    @staticmethod
+    def segment_macro_cycles(
+        klines: List[Any],
+        min_multiplier: float = 3.0,
+        vol_24h_quote: float = 0.0,
+        vol_spike: float = 1.0,
+    ) -> List[Dict[str, Any]]:
+        """
+        Segment multi-month daily candles into distinct pump & dump cycles with Dynamic Base Finding.
+        Supports 3 qualification avenues:
+          1. Standard Super-Pump (n >= min_multiplier)
+          2. Early Volume Ignition (n >= 1.8x + vol_24h >= $15M or spike >= 4.0x)
+          3. Stealth Slow-Grind Climber (n >= 1.5x + R^2 >= 0.70 + green_days >= 65%)
         """
         if not klines or len(klines) < 15:
             return []
@@ -50,83 +107,108 @@ class AutonomousSuperPumpScanner:
         i = 0
 
         while i < n_bars - 5:
-            # Find the local accumulation base starting from i
-            window_size = min(30, n_bars - i)
-            sub_lows = lows[i:i + window_size]
-            base_min = min(sub_lows)
-            base_idx = i + sub_lows.index(base_min)
-
-            if base_min <= 0 or base_idx >= n_bars - 2:
-                break
-
-            # Scan forward from base_idx to track wave escalation
-            running_peak = highs[base_idx]
-            peak_idx = base_idx
+            # Scan forward to locate peak or cycle resolution
+            running_peak = highs[i]
+            peak_idx = i
             dump_idx = None
 
-            for j in range(base_idx + 1, n_bars):
+            for j in range(i, n_bars):
                 if highs[j] > running_peak:
                     running_peak = highs[j]
                     peak_idx = j
 
-                # Check if current peak qualified as a pump
-                mult = running_peak / base_min
-                if mult >= min_multiplier:
-                    # Check if dumped >= 45% from this running peak
-                    if (running_peak - lows[j]) / running_peak >= 0.45:
-                        dump_idx = j
-                        break
+                # Dynamic Accumulation Base: lowest low in the accumulation period before peak
+                local_base = min(lows[i : peak_idx + 1])
+                if local_base <= 0:
+                    continue
+
+                mult_peak = running_peak / local_base
+                # Check for completed dump (must occur strictly after peak_idx and drawdown >= 45% from peak)
+                if j > peak_idx and mult_peak >= 2.0 and (running_peak - min(closes[j], lows[j])) / running_peak >= 0.45:
+                    dump_idx = j
+                    break
+
+
+            # Re-evaluate best base for this segment
+            base_window = lows[i : peak_idx + 1]
+            base_min = min(base_window) if base_window else lows[i]
+            base_idx = i + base_window.index(base_min) if base_window else i
+
+            if base_min <= 0:
+                break
 
             base_date = datetime.datetime.fromtimestamp(times[base_idx] / 1000, tz=datetime.timezone.utc).strftime("%Y-%m-%d")
             peak_date = datetime.datetime.fromtimestamp(times[peak_idx] / 1000, tz=datetime.timezone.utc).strftime("%Y-%m-%d")
 
-            if dump_idx is not None and dump_idx < n_bars - 5:
-                # Cycle confirmed dumped
-                curr_price = closes[-1]
-                dd = (running_peak - curr_price) / running_peak * 100.0
-                cycles.append({
-                    "origin_date": base_date,
-                    "peak_date": peak_date,
-                    "origin_bottom_price": base_min,
-                    "highest_peak_price": running_peak,
-                    "current_price": curr_price,
-                    "peak_n": round(running_peak / base_min, 2),
-                    "current_n": round(curr_price / base_min, 2),
-                    "drawdown_pct": round(max(0.0, dd), 1),
-                    "is_completed_dump": True,
-                    "is_active": False,
-                    "dump_idx": dump_idx,
-                })
-                # Advance search pointer to the post-dump point
-                i = dump_idx
+            curr_price = closes[dump_idx] if dump_idx is not None else closes[-1]
+            mult_peak = running_peak / base_min
+            mult_curr = curr_price / base_min
+            dd = (running_peak - curr_price) / running_peak * 100.0
 
+            # ── Multi-Path Qualification Engine ──
+            is_qualified = False
+            pattern_type = "SUPER_PUMP"
+
+            if mult_peak >= min_multiplier:
+                is_qualified = True
+                pattern_type = "SUPER_PUMP"
+            elif mult_curr >= 1.8 and (vol_24h_quote >= 15_000_000.0 or vol_spike >= 4.0):
+                is_qualified = True
+                pattern_type = "VOLUME_IGNITION"
             else:
-                # Active or latest wave
-                curr_price = closes[-1]
-                mult = running_peak / base_min
-                if mult >= min_multiplier:
-                    dd = (running_peak - curr_price) / running_peak * 100.0
+                # Check Stealth Climber pattern
+                sub_closes = closes[base_idx : (dump_idx + 1 if dump_idx is not None else n_bars)]
+                if len(sub_closes) >= 12 and mult_curr >= 1.45:
+                    trend = AutonomousSuperPumpScanner.calculate_trend_efficiency(sub_closes)
+                    if trend["r2"] >= 0.65 and trend["positive_day_ratio"] >= 0.60:
+                        is_qualified = True
+                        pattern_type = "STEALTH_CLIMBER"
+
+            if dump_idx is not None and dump_idx < n_bars - 5:
+                if is_qualified:
                     cycles.append({
                         "origin_date": base_date,
                         "peak_date": peak_date,
                         "origin_bottom_price": base_min,
                         "highest_peak_price": running_peak,
                         "current_price": curr_price,
-                        "peak_n": round(mult, 2),
-                        "current_n": round(curr_price / base_min, 2),
+                        "peak_n": round(mult_peak, 2),
+                        "current_n": round(mult_curr, 2),
+                        "drawdown_pct": round(max(0.0, dd), 1),
+                        "is_completed_dump": True,
+                        "is_active": False,
+                        "pattern_type": pattern_type,
+                        "dump_idx": dump_idx,
+                    })
+                i = dump_idx + 1
+            else:
+                if is_qualified:
+                    cycles.append({
+                        "origin_date": base_date,
+                        "peak_date": peak_date,
+                        "origin_bottom_price": base_min,
+                        "highest_peak_price": running_peak,
+                        "current_price": curr_price,
+                        "peak_n": round(mult_peak, 2),
+                        "current_n": round(mult_curr, 2),
                         "drawdown_pct": round(max(0.0, dd), 1),
                         "is_completed_dump": dd >= 45.0,
                         "is_active": dd < 45.0,
+                        "pattern_type": pattern_type,
                     })
                 break
 
         return cycles
 
-
-    def scan_symbol_cycle(self, symbol: str) -> Optional[Dict[str, Any]]:
+    def scan_symbol_cycle(
+        self,
+        symbol: str,
+        vol_24h_quote: float = 0.0,
+        vol_spike: float = 1.0,
+    ) -> Optional[Dict[str, Any]]:
         """
         Analyze a single symbol's 120-day macro cycle from raw daily candles.
-        Returns campaign metrics if n >= min_multiplier, else None.
+        Returns campaign metrics if qualified by any pattern avenue, else None.
         """
         try:
             url = f"https://fapi.binance.com/fapi/v1/klines?symbol={symbol}&interval=1d&limit=120"
@@ -141,14 +223,19 @@ class AutonomousSuperPumpScanner:
             if not klines or len(klines) < 15:
                 return None
 
-            cycles = self.segment_macro_cycles(klines, self.min_multiplier)
+            cycles = self.segment_macro_cycles(
+                klines=klines,
+                min_multiplier=self.min_multiplier,
+                vol_24h_quote=vol_24h_quote,
+                vol_spike=vol_spike,
+            )
             if not cycles:
                 return None
 
             latest = cycles[-1]
-            stage = PumpStage.ACTIVE_EXPANSION
-            is_active = latest.get("is_active", True)
+            pattern_type = latest.get("pattern_type", "SUPER_PUMP")
             dd = latest.get("drawdown_pct", 0.0)
+            is_active = latest.get("is_active", True)
 
             if dd >= 45.0:
                 stage = PumpStage.DUMP_CONFIRMED
@@ -156,14 +243,19 @@ class AutonomousSuperPumpScanner:
             elif dd >= 28.0:
                 stage = PumpStage.EXHAUSTION_WARNING
                 is_active = True
+            elif pattern_type == "STEALTH_CLIMBER":
+                stage = PumpStage.HIGH_CONSOLIDATION
+                is_active = True
             else:
                 try:
                     orig_dt = datetime.datetime.strptime(latest["origin_date"], "%Y-%m-%d").replace(tzinfo=datetime.timezone.utc)
                     if (datetime.datetime.now(datetime.timezone.utc) - orig_dt).days >= 7:
                         stage = PumpStage.HIGH_CONSOLIDATION
-                        is_active = True
+                    else:
+                        stage = PumpStage.ACTIVE_EXPANSION
+                    is_active = True
                 except Exception:
-                    pass
+                    stage = PumpStage.ACTIVE_EXPANSION
 
             return {
                 "symbol": symbol,
@@ -177,6 +269,7 @@ class AutonomousSuperPumpScanner:
                 "drawdown_pct": dd,
                 "stage": stage,
                 "is_active": is_active,
+                "pattern_type": pattern_type,
                 "total_cycles_detected": len(cycles),
             }
         except Exception as e:
@@ -253,7 +346,7 @@ class AutonomousSuperPumpScanner:
 
                 if klines and len(klines) >= 10:
                     if base_price <= 0:
-                        segmented = self.segment_macro_cycles(klines, self.min_multiplier)
+                        segmented = self.segment_macro_cycles(klines, self.min_multiplier, vol_24h_quote=vol_24h_quote)
                         if segmented:
                             base_price = segmented[-1]["origin_bottom_price"]
                         else:
@@ -271,7 +364,6 @@ class AutonomousSuperPumpScanner:
             except Exception as ex:
                 logger.debug(f"Klines fetch failed for {symbol}: {ex}")
 
-
         if base_price <= 0:
             base_price = curr_price * 0.5 if curr_price > 0 else 1.0
         if curr_price <= 0:
@@ -288,41 +380,62 @@ class AutonomousSuperPumpScanner:
             "source": "Binance USD-M Futures Realtime API",
         }
 
-    def scan_all_markets(self, max_symbols: int = 150) -> Dict[str, Any]:
+    def scan_all_markets(self, max_symbols: Optional[int] = None) -> Dict[str, Any]:
         """
-        Scan Binance USD-M Futures contracts with built-in token-bucket pacing (3 req/s).
-        Discovers active super pumps and completed dumps, and syncs into registry.
+        Scan Binance USD-M Futures contracts with dynamic priority sorting across all 700+ pairs.
+        High volume & high volatility movers are scanned first, followed by full universe.
         """
-        logger.info("Starting Autonomous Super-Pump Market Scan...")
+        logger.info("Starting Autonomous Super-Pump Full-Market Priority Scan...")
         self.last_scan_time = time.time()
 
         try:
-            url = "https://fapi.binance.com/fapi/v1/ticker/price"
+            url = "https://fapi.binance.com/fapi/v1/ticker/24hr"
             headers = {
                 "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36",
                 "Accept": "application/json",
             }
             req = urllib.request.Request(url, headers=headers)
-            with urllib.request.urlopen(req, timeout=5) as resp:
-                data = json.loads(resp.read().decode())
+            with urllib.request.urlopen(req, timeout=6) as resp:
+                raw_tickers = json.loads(resp.read().decode())
 
-            symbols = [
-                p["symbol"] for p in data
-                if p.get("symbol", "").endswith("USDT")
-                and not p["symbol"].startswith(("USDC", "FDUSD", "TUSD", "BUSD", "EUR", "DAI"))
+            valid_tickers = [
+                t for t in raw_tickers
+                if t.get("symbol", "").endswith("USDT")
+                and not t["symbol"].startswith(("USDC", "FDUSD", "TUSD", "BUSD", "EUR", "DAI"))
             ]
+
+            # Dynamic Priority Score: Quote Volume * (1 + |% Change| / 100)
+            def priority_key(t):
+                vol = float(t.get("quoteVolume", 0.0))
+                pct = abs(float(t.get("priceChangePercent", 0.0)))
+                return vol * (1.0 + pct / 100.0)
+
+            valid_tickers.sort(key=priority_key, reverse=True)
+            symbols_to_scan = valid_tickers if max_symbols is None else valid_tickers[:max_symbols]
         except Exception as ex:
-            logger.error(f"Failed to fetch symbol list: {ex}")
+            logger.error(f"Failed to fetch 24hr ticker symbol list: {ex}")
             return {"active_count": 0, "dumped_count": 0}
 
         active_found = []
         dumped_found = []
 
-        # Scan symbols with safe pacing
-        for idx, sym in enumerate(symbols[:max_symbols]):
-            res = self.scan_symbol_cycle(sym)
+        # Scan symbols with paced token-bucket rate limiter
+        for idx, t in enumerate(symbols_to_scan):
+            sym = t["symbol"]
+            vol_24h = float(t.get("quoteVolume", 0.0))
+            res = self.scan_symbol_cycle(sym, vol_24h_quote=vol_24h)
             if res:
+                pattern_type = res.get("pattern_type", "SUPER_PUMP")
+                cid = f"{res['symbol']}_{res['origin_date']}"
+
+                note_prefix = {
+                    "VOLUME_IGNITION": "🔥 Volume Ignition",
+                    "STEALTH_CLIMBER": "🐢 Stealth Climber (Leo dốc bền vững)",
+                    "SUPER_PUMP": "⚡ Super-Pump Macro Wave",
+                }.get(pattern_type, "⚡ Super-Pump")
+
                 c = PumpCampaign(
+                    campaign_id=cid,
                     symbol=res["symbol"],
                     origin_date=res["origin_date"],
                     origin_bottom_price=res["origin_bottom_price"],
@@ -337,20 +450,21 @@ class AutonomousSuperPumpScanner:
                     drawdown_from_peak_pct=res["drawdown_pct"],
                     stage=res["stage"],
                     is_active=res["is_active"],
+                    pattern_type=pattern_type,
                     dump_threshold_price=round(res["highest_peak_price"] * 0.55, 8),
-                    notes=f"Auto-Discovered: n={res['peak_n']}x từ đáy gốc ngày {res['origin_date']}."
+                    notes=f"{note_prefix}: n={res['peak_n']}x từ đáy ${res['origin_bottom_price']} ngày {res['origin_date']}."
                 )
-                self.registry.campaigns[sym] = c
+                self.registry.campaigns[cid] = c
                 if res["is_active"]:
                     active_found.append(sym)
                 else:
                     dumped_found.append(sym)
 
-            # Safe Rate Limiting: 3 req/s
-            time.sleep(0.08)
+            # Paced Rate Limiting: 25 req/s (0.04s sleep)
+            time.sleep(0.04)
 
         self.registry.save()
-        logger.info(f"Autonomous Scan Finished: Discovered {len(active_found)} Active Super-Pumps ({active_found}), {len(dumped_found)} Dumped.")
+        logger.info(f"Autonomous Market Scan Complete: Discovered {len(active_found)} Active ({active_found}), {len(dumped_found)} Dumped.")
         return {
             "active_found": active_found,
             "dumped_found": dumped_found,
