@@ -38,6 +38,65 @@ from .pump_multiplier_classifier import (
 
 
 @dataclass
+class HillSaturationModel:
+    """
+    Generalized Hill Saturation Decay Model with Heteroscedastic Quantile Funnel.
+    Formula: n(P) = n_floor + (n_ceiling - n_floor) / (1 + (P / P0)^gamma)
+    """
+    n_floor: float = 1.85
+    n_ceiling: float = 145.0
+    p0: float = 0.045
+    gamma: float = 0.42
+    sigma_max: float = 0.58
+    sigma_min: float = 0.18
+    p_sigma0: float = 0.050
+    gamma_sigma: float = 0.45
+
+    def eval_median(self, price: float) -> float:
+        p = max(float(price), 1e-12)
+        ratio = (p / self.p0) ** self.gamma
+        n_val = self.n_floor + (self.n_ceiling - self.n_floor) / (1.0 + ratio)
+        return round(float(n_val), 2)
+
+    def eval_sigma(self, price: float) -> float:
+        p = max(float(price), 1e-12)
+        ratio = (p / self.p_sigma0) ** self.gamma_sigma
+        sig = self.sigma_min + (self.sigma_max - self.sigma_min) / (1.0 + ratio)
+        return float(sig)
+
+    def eval_bounds(self, price: float) -> Tuple[float, float]:
+        n_med = self.eval_median(price)
+        sig = self.eval_sigma(price)
+        # 90% Confidence Interval: z_0.95 = 1.645
+        n_high = round(float(n_med * math.exp(1.645 * sig)), 2)
+        n_low = round(max(1.15, float(n_med * math.exp(-1.645 * sig))), 2)
+        return n_low, n_high
+
+    def decompose_multivariate(
+        self,
+        base_price: float,
+        funding_rate: float = 0.0,
+        vol_spike_ratio: float = 1.0,
+    ) -> Dict[str, Any]:
+        n_base = self.eval_median(base_price)
+        funding_boost = max(0.0, -35.0 * funding_rate) if funding_rate < 0 else 0.0
+        vol_boost = max(0.0, 0.22 * math.log(max(vol_spike_ratio, 1.0) / 4.0)) if vol_spike_ratio > 4.0 else 0.0
+        
+        total_boost = funding_boost + vol_boost
+        n_target = round(n_base * (1.0 + total_boost), 2)
+        return {
+            "n_curve_baseline": n_base,
+            "funding_boost_pct": round(funding_boost * 100.0, 1),
+            "volume_boost_pct": round(vol_boost * 100.0, 1),
+            "total_boost_pct": round(total_boost * 100.0, 1),
+            "n_multivariate_target": n_target,
+        }
+
+    def to_dict(self) -> Dict[str, Any]:
+        return asdict(self)
+
+
+@dataclass
 class PumpMultiplierPrediction:
     symbol: str
     pre_pump_price: float
@@ -53,7 +112,7 @@ class PumpMultiplierPrediction:
     in_pump_wave: bool
     wave_reason: str
     confidence: str
-    model_version: str = "v3_crisp_dm_ensemble"
+    model_version: str = "v4_crisp_dm_hill_ensemble"
     features_used: Dict[str, float] = None
 
     def to_dict(self) -> Dict[str, Any]:
@@ -70,6 +129,7 @@ class PumpMultiplierRegressor:
         self.clf = PriceTierClassifier()
         self.dataset_builder = PumpDatasetBuilder()
         self.events = self.dataset_builder.load_all()
+        self.hill_model = HillSaturationModel()
         self.ridge_model = None
         self.rf_model = None
         self.gb_model = None
@@ -78,6 +138,7 @@ class PumpMultiplierRegressor:
         self.is_trained = False
         self.cv_metrics = {}
         self._auto_train()
+
 
     def _auto_train(self) -> None:
         try:
@@ -277,10 +338,18 @@ class PumpMultiplierRegressor:
         )
         tier = self.clf.classify(base_price)
 
-        # Anchor in-flight prediction with Bayesian empirical price-tier distribution
-        n_expected = round(max(base_pred.n_expected, tier.n_median), 2)
-        n_low = round(min(base_pred.n_low, tier.n_expected_low), 2)
-        n_high = round(max(base_pred.n_high, tier.n_expected_high), 2)
+        # Anchor in-flight prediction with Bayesian empirical price-tier distribution & Hill Saturation Model
+        hill_decomp = self.hill_model.decompose_multivariate(
+            base_price=base_price,
+            funding_rate=funding_rate,
+            vol_spike_ratio=vol_spike_ratio,
+        )
+        hill_n_base = hill_decomp["n_curve_baseline"]
+        hill_low, hill_high = self.hill_model.eval_bounds(base_price)
+
+        n_expected = round(max(base_pred.n_expected, tier.n_median, hill_n_base), 2)
+        n_low = round(min(base_pred.n_low, tier.n_expected_low, hill_low), 2)
+        n_high = round(max(base_pred.n_high, tier.n_expected_high, hill_high), 2)
 
         # Squeeze adjustment for negative funding pressure
         if funding_rate <= -0.005:
@@ -328,7 +397,9 @@ class PumpMultiplierRegressor:
             "price_tier_code": base_pred.price_tier_code,
             "price_tier_label": base_pred.price_tier_label,
             "features_used": base_pred.features_used,
+            "multivariate_decomp": hill_decomp,
         }
+
 
     def append_verified_event(
         self,
