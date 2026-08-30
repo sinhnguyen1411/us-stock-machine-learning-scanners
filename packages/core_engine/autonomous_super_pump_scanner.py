@@ -29,6 +29,100 @@ class AutonomousSuperPumpScanner:
         self.last_scan_time: float = 0.0
         self.scan_interval: float = 600.0  # Run every 10 minutes
 
+    @staticmethod
+    def segment_macro_cycles(klines: List[Any], min_multiplier: float = 3.0) -> List[Dict[str, Any]]:
+        """
+        Segment multi-month daily candles into distinct pump & dump cycles.
+        Scans sequentially: when a qualified pump (>= min_multiplier) experiences
+        a >=45% dump, that wave is locked as completed and subsequent candles
+        are analyzed for a new baseline and wave.
+        """
+        if not klines or len(klines) < 15:
+            return []
+
+        highs = [float(k[2]) for k in klines]
+        lows = [float(k[3]) for k in klines]
+        closes = [float(k[4]) for k in klines]
+        times = [k[0] for k in klines]
+        n_bars = len(klines)
+
+        cycles = []
+        i = 0
+
+        while i < n_bars - 5:
+            # Find the local accumulation base starting from i
+            window_size = min(30, n_bars - i)
+            sub_lows = lows[i:i + window_size]
+            base_min = min(sub_lows)
+            base_idx = i + sub_lows.index(base_min)
+
+            if base_min <= 0 or base_idx >= n_bars - 2:
+                break
+
+            # Scan forward from base_idx to track wave escalation
+            running_peak = highs[base_idx]
+            peak_idx = base_idx
+            dump_idx = None
+
+            for j in range(base_idx + 1, n_bars):
+                if highs[j] > running_peak:
+                    running_peak = highs[j]
+                    peak_idx = j
+
+                # Check if current peak qualified as a pump
+                mult = running_peak / base_min
+                if mult >= min_multiplier:
+                    # Check if dumped >= 45% from this running peak
+                    if (running_peak - lows[j]) / running_peak >= 0.45:
+                        dump_idx = j
+                        break
+
+            base_date = datetime.datetime.fromtimestamp(times[base_idx] / 1000, tz=datetime.timezone.utc).strftime("%Y-%m-%d")
+            peak_date = datetime.datetime.fromtimestamp(times[peak_idx] / 1000, tz=datetime.timezone.utc).strftime("%Y-%m-%d")
+
+            if dump_idx is not None and dump_idx < n_bars - 5:
+                # Cycle confirmed dumped
+                curr_price = closes[-1]
+                dd = (running_peak - curr_price) / running_peak * 100.0
+                cycles.append({
+                    "origin_date": base_date,
+                    "peak_date": peak_date,
+                    "origin_bottom_price": base_min,
+                    "highest_peak_price": running_peak,
+                    "current_price": curr_price,
+                    "peak_n": round(running_peak / base_min, 2),
+                    "current_n": round(curr_price / base_min, 2),
+                    "drawdown_pct": round(max(0.0, dd), 1),
+                    "is_completed_dump": True,
+                    "is_active": False,
+                    "dump_idx": dump_idx,
+                })
+                # Advance search pointer to the post-dump point
+                i = dump_idx
+
+            else:
+                # Active or latest wave
+                curr_price = closes[-1]
+                mult = running_peak / base_min
+                if mult >= min_multiplier:
+                    dd = (running_peak - curr_price) / running_peak * 100.0
+                    cycles.append({
+                        "origin_date": base_date,
+                        "peak_date": peak_date,
+                        "origin_bottom_price": base_min,
+                        "highest_peak_price": running_peak,
+                        "current_price": curr_price,
+                        "peak_n": round(mult, 2),
+                        "current_n": round(curr_price / base_min, 2),
+                        "drawdown_pct": round(max(0.0, dd), 1),
+                        "is_completed_dump": dd >= 45.0,
+                        "is_active": dd < 45.0,
+                    })
+                break
+
+        return cycles
+
+
     def scan_symbol_cycle(self, symbol: str) -> Optional[Dict[str, Any]]:
         """
         Analyze a single symbol's 120-day macro cycle from raw daily candles.
@@ -47,60 +141,47 @@ class AutonomousSuperPumpScanner:
             if not klines or len(klines) < 15:
                 return None
 
-            highs = [float(k[2]) for k in klines]
-            lows = [float(k[3]) for k in klines]
-            closes = [float(k[4]) for k in klines]
-            times = [k[0] for k in klines]
-
-            min_low = min(lows)
-            min_idx = lows.index(min_low)
-
-            # Macro peak must occur at or after cycle bottom
-            sub_highs = highs[min_idx:]
-            peak_high = max(sub_highs)
-            peak_idx = min_idx + sub_highs.index(peak_high)
-            curr_price = closes[-1]
-
-            if min_low <= 0 or peak_high <= 0:
+            cycles = self.segment_macro_cycles(klines, self.min_multiplier)
+            if not cycles:
                 return None
 
-            n_peak = peak_high / min_low
-            n_curr = curr_price / min_low
-            dd = (peak_high - curr_price) / peak_high * 100.0
+            latest = cycles[-1]
+            stage = PumpStage.ACTIVE_EXPANSION
+            is_active = latest.get("is_active", True)
+            dd = latest.get("drawdown_pct", 0.0)
 
-            min_date = datetime.datetime.fromtimestamp(times[min_idx] / 1000, tz=datetime.timezone.utc).strftime("%Y-%m-%d")
-            peak_date = datetime.datetime.fromtimestamp(times[peak_idx] / 1000, tz=datetime.timezone.utc).strftime("%Y-%m-%d")
-
-            if n_peak >= self.min_multiplier:
-                stage = PumpStage.ACTIVE_EXPANSION
+            if dd >= 45.0:
+                stage = PumpStage.DUMP_CONFIRMED
+                is_active = False
+            elif dd >= 28.0:
+                stage = PumpStage.EXHAUSTION_WARNING
                 is_active = True
-                if dd >= 45.0:
-                    stage = PumpStage.DUMP_CONFIRMED
-                    is_active = False
-                elif dd >= 28.0:
-                    stage = PumpStage.EXHAUSTION_WARNING
-                    is_active = True
-                elif (datetime.datetime.now(datetime.timezone.utc) - datetime.datetime.strptime(min_date, "%Y-%m-%d").replace(tzinfo=datetime.timezone.utc)).days >= 7:
-                    stage = PumpStage.HIGH_CONSOLIDATION
-                    is_active = True
+            else:
+                try:
+                    orig_dt = datetime.datetime.strptime(latest["origin_date"], "%Y-%m-%d").replace(tzinfo=datetime.timezone.utc)
+                    if (datetime.datetime.now(datetime.timezone.utc) - orig_dt).days >= 7:
+                        stage = PumpStage.HIGH_CONSOLIDATION
+                        is_active = True
+                except Exception:
+                    pass
 
-                return {
-                    "symbol": symbol,
-                    "origin_date": min_date,
-                    "peak_date": peak_date,
-                    "origin_bottom_price": min_low,
-                    "highest_peak_price": peak_high,
-                    "current_price": curr_price,
-                    "peak_n": round(n_peak, 2),
-                    "current_n": round(n_curr, 2),
-                    "drawdown_pct": round(dd, 1),
-                    "stage": stage,
-                    "is_active": is_active,
-                }
+            return {
+                "symbol": symbol,
+                "origin_date": latest["origin_date"],
+                "peak_date": latest["peak_date"],
+                "origin_bottom_price": latest["origin_bottom_price"],
+                "highest_peak_price": latest["highest_peak_price"],
+                "current_price": latest.get("current_price", float(klines[-1][4])),
+                "peak_n": latest.get("peak_n", round(latest["highest_peak_price"] / latest["origin_bottom_price"], 2)),
+                "current_n": latest.get("current_n", 1.0),
+                "drawdown_pct": dd,
+                "stage": stage,
+                "is_active": is_active,
+                "total_cycles_detected": len(cycles),
+            }
         except Exception as e:
             logger.debug(f"Error scanning cycle for {symbol}: {e}")
             return None
-        return None
 
     def fetch_live_binance_metrics(self, symbol: str) -> Dict[str, Any]:
         """
@@ -131,7 +212,6 @@ class AutonomousSuperPumpScanner:
                 vol_24h_quote = float(tick.get("quoteVolume", 1_000_000.0))
         except Exception as ex:
             logger.debug(f"24hr Ticker fetch failed for {symbol}: {ex}")
-            # Fallback to simple price ticker
             try:
                 url_p = f"https://fapi.binance.com/fapi/v1/ticker/price?symbol={symbol}"
                 req = urllib.request.Request(url_p, headers=headers)
@@ -156,14 +236,14 @@ class AutonomousSuperPumpScanner:
         base_price = 0.0
         vol_spike_ratio = 10.0
 
-        # Check registry first for curated macro base price
-        if symbol in self.registry.campaigns:
-            camp = self.registry.campaigns[symbol]
+        # Check registry first for curated macro base price (prefer active wave)
+        camp = self.registry.get_campaign(symbol)
+        if camp:
             base_price = camp.origin_bottom_price
             if curr_price <= 0:
                 curr_price = camp.current_price
 
-        # If not in registry or base_price missing, compute from 120D klines
+        # If not in registry or base_price missing, compute from 120D segmented klines
         if base_price <= 0 or vol_spike_ratio == 10.0:
             try:
                 url_klines = f"https://fapi.binance.com/fapi/v1/klines?symbol={symbol}&interval=1d&limit=120"
@@ -172,22 +252,25 @@ class AutonomousSuperPumpScanner:
                     klines = json.loads(resp.read().decode())
 
                 if klines and len(klines) >= 10:
-                    lows = [float(k[3]) for k in klines]
                     if base_price <= 0:
-                        base_price = min(lows)
+                        segmented = self.segment_macro_cycles(klines, self.min_multiplier)
+                        if segmented:
+                            base_price = segmented[-1]["origin_bottom_price"]
+                        else:
+                            lows = [float(k[3]) for k in klines]
+                            base_price = min(lows)
                     if curr_price <= 0:
                         curr_price = float(klines[-1][4])
 
                     quote_vols = [float(k[7]) for k in klines]
                     if len(quote_vols) >= 15:
-                        # Baseline volume: average volume of early 30-day baseline before breakout
                         baseline_window = quote_vols[:min(30, len(quote_vols) // 2)]
                         baseline_vol = sum(baseline_window) / max(len(baseline_window), 1)
-                        # Current surge volume
                         recent_vol = max(quote_vols[-5:])
                         vol_spike_ratio = round(max(1.0, min(100.0, recent_vol / max(baseline_vol, 1.0))), 2)
             except Exception as ex:
                 logger.debug(f"Klines fetch failed for {symbol}: {ex}")
+
 
         if base_price <= 0:
             base_price = curr_price * 0.5 if curr_price > 0 else 1.0

@@ -92,25 +92,29 @@ class TestLifecycleStateMachineTransitions(unittest.TestCase):
             current_price=10.0,
             origin_date="2026-08-01",
         )
-        camp = tracker.campaigns["TESTUSDT"]
+        camp = tracker.get_campaign("TESTUSDT")
+        assert camp is not None
         camp.highest_peak_price = 10.0
         camp.max_n = 10.0
 
         # Case 1: Healthy consolidation (-20% from peak) -> HIGH_CONSOLIDATION or ACTIVE
         tracker.update_price_and_stage("TESTUSDT", current_price=8.0)
-        self.assertTrue(tracker.campaigns["TESTUSDT"].is_active)
-        self.assertIn(tracker.campaigns["TESTUSDT"].stage, [PumpStage.HIGH_CONSOLIDATION, PumpStage.ACTIVE_EXPANSION, PumpStage.EXHAUSTION_WARNING])
+        camp = tracker.get_campaign("TESTUSDT")
+        self.assertTrue(camp.is_active)
+        self.assertIn(camp.stage, [PumpStage.HIGH_CONSOLIDATION, PumpStage.ACTIVE_EXPANSION, PumpStage.EXHAUSTION_WARNING])
 
         # Case 2: Exhaustion Warning (-30% from peak) -> EXHAUSTION_WARNING
         tracker.update_price_and_stage("TESTUSDT", current_price=7.0)
-        self.assertEqual(tracker.campaigns["TESTUSDT"].stage, PumpStage.EXHAUSTION_WARNING)
-        self.assertTrue(tracker.campaigns["TESTUSDT"].is_active)
+        camp = tracker.get_campaign("TESTUSDT")
+        self.assertEqual(camp.stage, PumpStage.EXHAUSTION_WARNING)
+        self.assertTrue(camp.is_active)
 
         # Case 3: Confirmed Dump (-50% from peak >= 45%) -> DUMP_CONFIRMED
         tracker.update_price_and_stage("TESTUSDT", current_price=5.0)
-        self.assertEqual(tracker.campaigns["TESTUSDT"].stage, PumpStage.DUMP_CONFIRMED)
-        self.assertFalse(tracker.campaigns["TESTUSDT"].is_active)
-        self.assertIsNotNone(tracker.campaigns["TESTUSDT"].dump_date)
+        camp = tracker.get_campaign("TESTUSDT")
+        self.assertEqual(camp.stage, PumpStage.DUMP_CONFIRMED)
+        self.assertFalse(camp.is_active)
+        self.assertGreaterEqual(camp.drawdown_from_peak_pct, 45.0)
 
 
 class TestTemplateZeroMockLeak(unittest.TestCase):

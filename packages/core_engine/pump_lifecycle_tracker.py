@@ -57,6 +57,7 @@ class PumpCampaign:
     origin_bottom_price:  float               # True macro base low that ignited the pump
     highest_peak_price:   float               # All-time high price of this campaign
     highest_peak_date:    str                 # Date when highest peak was recorded
+    campaign_id:          str = ""            # Unique cycle ID (e.g. TRBUSDT_2026-01-10)
     current_price:        float = 0.0
     current_n:            float = 1.0         # current_price / origin_bottom_price
     max_n:                float = 1.0         # highest_peak_price / origin_bottom_price
@@ -80,8 +81,11 @@ class PumpCampaign:
 
 
     def __post_init__(self):
+        if not self.campaign_id:
+            self.campaign_id = f"{self.symbol}_{self.origin_date}"
         if not self.stage_label_vi:
             self.stage_label_vi = STAGE_LABELS_VI.get(self.stage, self.stage)
+
         if self.highest_peak_price <= 0 and self.current_price > 0:
             self.highest_peak_price = self.current_price
         if not self.highest_peak_date:
@@ -187,9 +191,8 @@ class PumpLifecycleRegistry:
         Mark any campaign whose symbol is confirmed delisted from Binance Futures.
         These are preserved as historical ML training data but hidden from active tracking.
         """
-        for sym in self._KNOWN_DELISTED:
-            if sym in self.campaigns:
-                c = self.campaigns[sym]
+        for c in self.campaigns.values():
+            if c.symbol in self._KNOWN_DELISTED:
                 c.is_active = False
                 c.stage = PumpStage.DELISTED
                 c.stage_label_vi = STAGE_LABELS_VI[PumpStage.DELISTED]
@@ -222,7 +225,7 @@ class PumpLifecycleRegistry:
                 data = json.load(f)
                 for item in data.get("campaigns", []):
                     c = PumpCampaign(**item)
-                    self.campaigns[c.symbol] = c
+                    self.campaigns[c.campaign_id] = c
         except Exception:
             pass
 
@@ -576,24 +579,29 @@ class PumpLifecycleRegistry:
             ),
         ]
         for s in seeds:
-            if s.symbol not in self.campaigns:
+            cid = s.campaign_id
+            if cid not in self.campaigns:
                 # Only insert if not already loaded from persistent JSON storage
-                self.campaigns[s.symbol] = s
+                self.campaigns[cid] = s
             else:
                 # Campaign exists in JSON — preserve any confirmed real-peak data.
                 # Only update fields that are fresh: current_price, stage, notes.
                 # NEVER regress expected_n_ml back to a lower seed value.
-                existing = self.campaigns[s.symbol]
+                existing = self.campaigns[cid]
                 if s.current_price > 0:
                     existing.current_price = s.current_price
                 if s.highest_peak_price > existing.highest_peak_price:
                     existing.highest_peak_price = s.highest_peak_price
+                if existing.highest_peak_price > 0 and existing.current_price > 0:
+                    dd = (existing.highest_peak_price - existing.current_price) / existing.highest_peak_price * 100.0
+                    existing.drawdown_from_peak_pct = round(max(0.0, dd), 1)
                 # If confirmed real peak > seed ML target, promote expected_n_ml
                 if existing.origin_bottom_price > 0:
                     real_n = round(existing.highest_peak_price / existing.origin_bottom_price, 2)
                     if real_n > existing.expected_n_ml:
                         existing.expected_n_ml = real_n
                         existing.expected_n_high = max(existing.expected_n_high, round(real_n * 1.5, 2))
+
 
         # Auto-load all verified completed dump events from empirical dataset
         try:
@@ -602,7 +610,8 @@ class PumpLifecycleRegistry:
             clf = PriceTierClassifier()
             events = db.load_all()
             for e in events:
-                if e.symbol in self.campaigns:
+                cid = f"{e.symbol}_{e.event_date}"
+                if cid in self.campaigns:
                     continue  # already registered
 
                 tier = clf.classify(e.pre_pump_price)
@@ -619,6 +628,7 @@ class PumpLifecycleRegistry:
                 n_high_est = max(tier.n_expected_high, round(confirmed_n * 1.50, 2))
 
                 camp = PumpCampaign(
+                    campaign_id=cid,
                     symbol=e.symbol,
                     origin_date=e.event_date,
                     origin_bottom_price=e.pre_pump_price,
@@ -639,9 +649,10 @@ class PumpLifecycleRegistry:
                     dump_date=e.event_date,
                     notes=e.notes or f"Chu kỳ hoàn tất: Đỉnh ${e.peak_price} ({confirmed_n:.2f}x xác nhận), xả hàng dump.",
                 )
-                self.campaigns[e.symbol] = camp
+                self.campaigns[cid] = camp
         except Exception as ex:
             logger.debug(f"Error auto-populating dump dataset into campaigns: {ex}")
+
 
         self.save(update_heartbeat=False)
 
@@ -656,14 +667,13 @@ class PumpLifecycleRegistry:
         Real-time update called on each tick/scanner loop.
         Evaluates stage transitions and dump confirmation.
         """
-        symbol = symbol.upper()
-        if symbol not in self.campaigns:
+        c = self.get_campaign(symbol)
+        if not c:
             return None
 
-        c = self.campaigns[symbol]
-        if symbol in self._KNOWN_DELISTED or c.stage in (PumpStage.ARCHIVED, PumpStage.DELISTED):
+        if c.symbol in self._KNOWN_DELISTED or c.stage in (PumpStage.ARCHIVED, PumpStage.DELISTED):
             c.is_active = False
-            c.stage = PumpStage.DELISTED if symbol in self._KNOWN_DELISTED else c.stage
+            c.stage = PumpStage.DELISTED if c.symbol in self._KNOWN_DELISTED else c.stage
             c.stage_label_vi = STAGE_LABELS_VI.get(c.stage, c.stage)
             return c
 
@@ -721,9 +731,6 @@ class PumpLifecycleRegistry:
                 if was_active and c.max_n >= 2.0:
                     try:
                         # ── ACE: Verify true ATH before writing to training DB ──
-                        # This is the KEY fix: ensures we record the REAL highest peak,
-                        # not a stale value captured while the machine was offline or
-                        # before the coin finished its super-pump extension.
                         from .accuracy_correction_engine import get_accuracy_correction_engine
                         ace = get_accuracy_correction_engine()
                         verified_peak, was_corrected = ace.verify_and_correct_peak_before_finalize(
@@ -733,7 +740,6 @@ class PumpLifecycleRegistry:
                             stored_peak_price=c.highest_peak_price,
                         )
                         if was_corrected and verified_peak > c.highest_peak_price:
-                            # Update campaign with the true ATH before logging
                             old_peak = c.highest_peak_price
                             c.highest_peak_price = verified_peak
                             c.max_n = round(verified_peak / c.origin_bottom_price, 2)
@@ -796,15 +802,26 @@ class PumpLifecycleRegistry:
         expected_n_high:     float = 0.0,
         notes:               str = "",
     ) -> PumpCampaign:
-        """Register a newly detected pump campaign into persistent tracking."""
+        """Register a newly detected pump campaign into persistent tracking with unique campaign_id."""
         symbol = symbol.upper()
         now_str = datetime.now(timezone.utc).strftime("%Y-%m-%d")
         orig_d  = origin_date or now_str
+        cid = f"{symbol}_{orig_d}"
+
+        # If an active campaign exists for this symbol with a different origin_date,
+        # cleanly close/archive it so Wave 2 can take over active tracking without data collision.
+        for existing in list(self.campaigns.values()):
+            if existing.symbol == symbol and existing.campaign_id != cid and existing.is_active:
+                existing.is_active = False
+                if existing.stage not in (PumpStage.DUMP_CONFIRMED, PumpStage.ARCHIVED, PumpStage.DELISTED):
+                    existing.stage = PumpStage.ARCHIVED
+                    existing.stage_label_vi = STAGE_LABELS_VI[PumpStage.ARCHIVED]
 
         is_delisted = symbol in self._KNOWN_DELISTED
         init_stage = PumpStage.DELISTED if is_delisted else PumpStage.IGNITION
 
         campaign = PumpCampaign(
+            campaign_id=cid,
             symbol=symbol,
             origin_date=orig_d,
             origin_bottom_price=origin_bottom_price,
@@ -818,7 +835,7 @@ class PumpLifecycleRegistry:
             is_active=not is_delisted,
             notes=notes or f"Khởi phát sóng bơm mới ngày {orig_d}.",
         )
-        self.campaigns[symbol] = campaign
+        self.campaigns[cid] = campaign
         self.save()
         return campaign
 
@@ -847,8 +864,42 @@ class PumpLifecycleRegistry:
         all_c.sort(key=lambda c: c.current_n, reverse=True)
         return all_c
 
-    def get_campaign(self, symbol: str) -> Optional[PumpCampaign]:
-        return self.campaigns.get(symbol.upper())
+    def get_campaign(self, symbol_or_id: str) -> Optional[PumpCampaign]:
+        """
+        Lookup campaign by campaign_id or symbol.
+        If symbol is provided:
+          - Returns the currently active campaign if one exists.
+          - Otherwise returns the most recent campaign (by origin_date).
+        """
+        if not symbol_or_id:
+            return None
+        key = symbol_or_id.strip().upper()
+        if key in self.campaigns:
+            return self.campaigns[key]
+
+        matches = [c for c in self.campaigns.values() if c.symbol.upper() == key]
+        if not matches:
+            return None
+
+        # Return active match if available
+        active_matches = [
+            c for c in matches
+            if c.is_active and c.symbol not in self._KNOWN_DELISTED and c.stage not in (PumpStage.DUMP_CONFIRMED, PumpStage.ARCHIVED, PumpStage.DELISTED)
+        ]
+        if active_matches:
+            return active_matches[0]
+
+        # Otherwise return most recent by origin_date
+        matches.sort(key=lambda x: x.origin_date, reverse=True)
+        return matches[0]
+
+    def get_campaign_history(self, symbol: str) -> List[PumpCampaign]:
+        """Return all historical and active cycles for a symbol sorted by origin_date descending."""
+        sym = symbol.strip().upper()
+        matches = [c for c in self.campaigns.values() if c.symbol.upper() == sym]
+        matches.sort(key=lambda x: x.origin_date, reverse=True)
+        return matches
+
 
 
 

@@ -104,6 +104,7 @@ class AccuracyCorrectionEngine:
         origin_date: str,
         origin_bottom_price: float,
         stored_peak_price: float,
+        end_date: Optional[str] = None,
     ) -> Tuple[float, bool]:
         """
         Before finalizing a completed campaign into training data,
@@ -120,11 +121,19 @@ class AccuracyCorrectionEngine:
             except Exception:
                 start_ms = int((datetime.now(timezone.utc) - timedelta(days=90)).timestamp() * 1000)
 
-            end_ms = int(datetime.now(timezone.utc).timestamp() * 1000)
+            if end_date:
+                try:
+                    end_dt = datetime.strptime(end_date, "%Y-%m-%d").replace(tzinfo=timezone.utc) + timedelta(days=2)
+                    end_ms = int(end_dt.timestamp() * 1000)
+                except Exception:
+                    end_ms = int(datetime.now(timezone.utc).timestamp() * 1000)
+            else:
+                end_ms = int(datetime.now(timezone.utc).timestamp() * 1000)
 
             klines = self._fetch_klines_range(symbol, start_ms, end_ms, interval="1d")
             if not klines:
                 return stored_peak_price, False
+
 
             binance_ath = max(float(k[2]) for k in klines)  # k[2] = high
 
