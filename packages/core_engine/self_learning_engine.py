@@ -16,7 +16,7 @@ import json
 import logging
 import time
 from typing import Dict, List, Any, Optional
-from datetime import datetime
+from datetime import datetime, timezone
 
 logger = logging.getLogger("SelfLearningEngine")
 if not logger.handlers:
@@ -35,8 +35,9 @@ class AutonomousSelfLearningEngine:
         self._ensure_data_dir()
         self.snapshots: Dict[str, Dict[str, Any]] = {}
         self.ledger: List[Dict[str, Any]] = self._load_ledger()
-        self.last_retrain_time = datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S UTC")
+        self.last_retrain_time = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
         self.model_version = "Tri-Ensemble v4.2 (Closed-Loop Autonomous)"
+
 
     def _ensure_data_dir(self):
         data_dir = os.path.dirname(LEDGER_FILE)
@@ -122,7 +123,7 @@ class AutonomousSelfLearningEngine:
         """
         self.snapshots[symbol] = {
             "symbol": symbol,
-            "recorded_at": datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S UTC"),
+            "recorded_at": datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC"),
             "base_price": base_price,
             "n_predicted": float(prediction_payload.get("n_expected", 10.0)),
             "n_low": float(prediction_payload.get("n_low", 5.0)),
@@ -177,7 +178,7 @@ class AutonomousSelfLearningEngine:
 
         record = {
             "symbol": symbol,
-            "event_date": event_date or datetime.utcnow().strftime("%Y-%m-%d"),
+            "event_date": event_date or datetime.now(timezone.utc).strftime("%Y-%m-%d"),
             "base_price": base_price,
             "peak_price_actual": peak_price_actual,
             "n_actual": n_actual,
@@ -188,7 +189,7 @@ class AutonomousSelfLearningEngine:
             "ape_pct": ape,
             "is_in_range": is_in_range,
             "outcome_status": outcome_status,
-            "completion_timestamp": datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S UTC"),
+            "completion_timestamp": datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC"),
             "notes": notes or f"Hoàn tất chu kỳ sóng {n_actual}x. Đáy ${base_price} -> Đỉnh ${peak_price_actual} -> Dump ${dump_price}."
         }
 
@@ -223,9 +224,10 @@ class AutonomousSelfLearningEngine:
 
             # Perform Retraining
             metrics = reg.retrain()
-            self.last_retrain_time = datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S UTC")
+            self.last_retrain_time = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
             logger.info(f"Automated Online Retraining complete: MAPE={metrics.get('mape')}%, R2={metrics.get('r2')} (Dataset: {metrics.get('total_events')} events)")
             return metrics
+
         except Exception as ex:
             logger.error(f"Error during online retraining: {ex}", exc_info=True)
             return {"status": "error", "message": str(ex)}

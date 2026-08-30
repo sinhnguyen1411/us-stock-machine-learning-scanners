@@ -678,8 +678,8 @@ class PumpLifecycleRegistry:
         except Exception:
             c.pump_age_days = 1
 
-        # Check for new High
-        if current_price > c.highest_peak_price:
+        # Check for new High only if campaign is still actively expanding
+        if c.is_active and current_price > c.highest_peak_price:
             c.highest_peak_price = current_price
             c.highest_peak_date = now_ts.strftime("%Y-%m-%d")
             c.stage = PumpStage.ACTIVE_EXPANSION
@@ -706,8 +706,8 @@ class PumpLifecycleRegistry:
             except Exception:
                 pass
 
-        # ── State Machine Transitions ──
-        if c.stage not in (PumpStage.ARCHIVED, PumpStage.DELISTED):
+        # ── State Machine Transitions (Active Campaigns Only) ──
+        if c.is_active and c.stage not in (PumpStage.DUMP_CONFIRMED, PumpStage.ARCHIVED, PumpStage.DELISTED):
             # Condition 1: Dump Confirmed
             if current_price < c.dump_threshold_price or c.drawdown_from_peak_pct >= 45.0:
                 was_active = c.is_active
@@ -801,6 +801,9 @@ class PumpLifecycleRegistry:
         now_str = datetime.now(timezone.utc).strftime("%Y-%m-%d")
         orig_d  = origin_date or now_str
 
+        is_delisted = symbol in self._KNOWN_DELISTED
+        init_stage = PumpStage.DELISTED if is_delisted else PumpStage.IGNITION
+
         campaign = PumpCampaign(
             symbol=symbol,
             origin_date=orig_d,
@@ -811,7 +814,8 @@ class PumpLifecycleRegistry:
             expected_n_ml=expected_n_ml,
             expected_n_low=expected_n_low,
             expected_n_high=expected_n_high,
-            stage=PumpStage.IGNITION,
+            stage=init_stage,
+            is_active=not is_delisted,
             notes=notes or f"Khởi phát sóng bơm mới ngày {orig_d}.",
         )
         self.campaigns[symbol] = campaign
@@ -829,6 +833,15 @@ class PumpLifecycleRegistry:
         active.sort(key=lambda c: c.current_n, reverse=True)
         return active
 
+    def get_dumped_campaigns(self) -> List[PumpCampaign]:
+        """Return all completed/dumped campaigns."""
+        dumped = [
+            c for c in self.campaigns.values()
+            if not c.is_active or c.stage in (PumpStage.DUMP_CONFIRMED, PumpStage.ARCHIVED)
+        ]
+        dumped.sort(key=lambda c: c.max_n, reverse=True)
+        return dumped
+
     def get_all_campaigns(self) -> List[PumpCampaign]:
         all_c = list(self.campaigns.values())
         all_c.sort(key=lambda c: c.current_n, reverse=True)
@@ -836,6 +849,7 @@ class PumpLifecycleRegistry:
 
     def get_campaign(self, symbol: str) -> Optional[PumpCampaign]:
         return self.campaigns.get(symbol.upper())
+
 
 
 # Global Singleton Registry

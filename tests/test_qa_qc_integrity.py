@@ -200,6 +200,85 @@ class TestFlaskAPIContracts(unittest.TestCase):
         self.assertEqual(data["live_metrics"]["symbol"], "BTRUSDT")
         self.assertGreater(data["live_metrics"]["current_price"], 0)
 
+    def test_api_gap_fill_status(self):
+        res = self.client.get("/api/ml/gap_fill_status")
+        self.assertEqual(res.status_code, 200)
+        data = json.loads(res.data.decode())
+        self.assertEqual(data["status"], "success")
+        self.assertIn("downtime_seconds", data)
+        self.assertIn("downtime_hours", data)
+        self.assertIn("status", data)
+
+    def test_api_accuracy_correction_status(self):
+        res = self.client.get("/api/ml/accuracy_correction_status")
+        self.assertEqual(res.status_code, 200)
+        data = json.loads(res.data.decode())
+        self.assertEqual(data["status"], "success")
+        self.assertIn("total_corrections_applied", data)
+        self.assertIn("audit", data)
+        self.assertIn("data_quality_score_pct", data["audit"])
+
+    def test_api_pump_multiplier_research(self):
+        res = self.client.get("/api/ml/pump_multiplier_research")
+        self.assertEqual(res.status_code, 200)
+        data = json.loads(res.data.decode())
+        self.assertEqual(data["status"], "success")
+        self.assertIn("events", data)
+        self.assertIn("model_summary", data)
+        self.assertIn("tiers", data)
+        self.assertGreater(len(data["events"]), 0)
+
+    def test_api_pre_pump_radar(self):
+        res = self.client.get("/api/pre_pump_radar")
+        self.assertEqual(res.status_code, 200)
+        data = json.loads(res.data.decode())
+        self.assertIn("candidates", data)
+        self.assertIsInstance(data["candidates"], list)
+
+    def test_api_live_signals(self):
+        res = self.client.get("/api/live_signals")
+        self.assertEqual(res.status_code, 200)
+        data = json.loads(res.data.decode())
+        self.assertIn("signals", data)
+
+    def test_api_top_pump_candidates(self):
+        res = self.client.get("/api/top_pump_candidates")
+        self.assertEqual(res.status_code, 200)
+        data = json.loads(res.data.decode())
+        self.assertIn("candidates", data)
+
+    def test_api_portfolio(self):
+        res = self.client.get("/api/portfolio")
+        self.assertEqual(res.status_code, 200)
+        data = json.loads(res.data.decode())
+        self.assertIn("active_positions", data)
+        self.assertIn("equity", data)
+
+    def test_api_tradfi_endpoints(self):
+        res_stocks = self.client.get("/api/tradfi/stocks")
+        self.assertEqual(res_stocks.status_code, 200)
+        data_stocks = json.loads(res_stocks.data.decode())
+        self.assertIn("data", data_stocks)
+
+        res_sectors = self.client.get("/api/tradfi/sectors")
+        self.assertEqual(res_sectors.status_code, 200)
+
+        res_ml = self.client.get("/api/tradfi/ml_signals")
+        self.assertEqual(res_ml.status_code, 200)
+
+
+    def test_html_pages_render_successfully(self):
+        pages = ["/", "/lifecycle", "/pre-pump", "/presentation", "/stocks", "/top"]
+        for p in pages:
+            res = self.client.get(p)
+            self.assertEqual(res.status_code, 200, f"Page {p} failed to render")
+
+    def test_api_retroactive_correct_method_guard(self):
+        # GET on POST-only endpoint must return 405
+        res = self.client.get("/api/ml/retroactive_correct")
+        self.assertEqual(res.status_code, 405)
+
 
 if __name__ == "__main__":
     unittest.main()
+
