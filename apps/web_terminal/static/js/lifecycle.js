@@ -543,13 +543,16 @@ function renderCampaignsView() {
               const isEven = idx % 2 === 0;
 
               return `
-                <tr style="background: ${isEven ? 'rgba(255,255,255,0.015)' : 'transparent'}; border-bottom: 1px solid rgba(255,255,255,0.04); transition: background 0.15s ease;"
+                <tr style="background: ${isEven ? 'rgba(255,255,255,0.015)' : 'transparent'}; border-bottom: 1px solid rgba(255,255,255,0.04); transition: background 0.15s ease; cursor: pointer;"
+                    onclick="window.selectScatterSymbol('${c.symbol}')"
+                    title="Click để định vị tâm ngắm ML trên biểu đồ phân tán"
                     onmouseover="this.style.background='rgba(0, 240, 255, 0.07)'"
                     onmouseout="this.style.background='${isEven ? 'rgba(255,255,255,0.015)' : 'transparent'}'">
                   <!-- Index -->
                   <td style="padding: 11px 12px; text-align: center; color: var(--text-dim); font-family: var(--font-mono); font-size: 0.78rem;">
                     ${rowNumber}
                   </td>
+
 
                   <!-- Symbol & Launch Date -->
                   <td style="padding: 11px 14px;">
@@ -1159,22 +1162,52 @@ function renderScatterCanvas(events) {
     ctx.fillText(t.lbl, x - 18, H - 18);
   });
 
-  // ── 4. SHADED 90% CONFIDENCE INTERVAL BAND (CI CONE) ────────────────
-  const ciSteps = 120;
+  // ── 4. GENERALIZED HILL SATURATION DECAY & DYNAMIC HETEROSCEDASTIC FUNNEL ────
+  const hp = (cachedResearchData && cachedResearchData.hill_model_parameters) || {
+    n_floor: 1.85,
+    n_ceiling: 145.0,
+    p0: 0.045,
+    gamma: 0.42,
+    sigma_max: 0.58,
+    sigma_min: 0.18,
+    p_sigma0: 0.050,
+    gamma_sigma: 0.45
+  };
+
+  function evalHillMedian(p) {
+    const pSafe = Math.max(p, 1e-12);
+    const ratio = Math.pow(pSafe / hp.p0, hp.gamma);
+    return hp.n_floor + (hp.n_ceiling - hp.n_floor) / (1.0 + ratio);
+  }
+
+  function evalHillSigma(p) {
+    const pSafe = Math.max(p, 1e-12);
+    const ratio = Math.pow(pSafe / hp.p_sigma0, hp.gamma_sigma);
+    return hp.sigma_min + (hp.sigma_max - hp.sigma_min) / (1.0 + ratio);
+  }
+
+  function evalHillBounds(p) {
+    const med = evalHillMedian(p);
+    const sig = evalHillSigma(p);
+    const high = med * Math.exp(1.645 * sig);
+    const low = Math.max(1.15, med * Math.exp(-1.645 * sig));
+    return { high, low, med };
+  }
+
+  const ciSteps = 140;
   const highPoints = [];
   const lowPoints = [];
+  const medPoints = [];
 
   for (let s = 0; s <= ciSteps; s++) {
     const pVal = Math.exp(minLogP + (s / ciSteps) * (maxLogP - minLogP));
-    const nMed = Math.min(85.0, Math.max(1.8, 6.2 * Math.pow(pVal, -0.22)));
-    const nHigh = Math.min(125.0, nMed * 1.95);
-    const nLow = Math.max(1.15, nMed * 0.52);
-
-    highPoints.push({ x: toScreenX(pVal), y: toScreenY(nHigh) });
-    lowPoints.push({ x: toScreenX(pVal), y: toScreenY(nLow) });
+    const b = evalHillBounds(pVal);
+    medPoints.push({ x: toScreenX(pVal), y: toScreenY(b.med) });
+    highPoints.push({ x: toScreenX(pVal), y: toScreenY(b.high) });
+    lowPoints.push({ x: toScreenX(pVal), y: toScreenY(b.low) });
   }
 
-  // Fill Shaded CI Polygon
+  // Fill Shaded Heteroscedastic Funnel Polygon
   ctx.beginPath();
   highPoints.forEach((pt, idx) => {
     if (idx === 0) ctx.moveTo(pt.x, pt.y);
@@ -1185,13 +1218,13 @@ function renderScatterCanvas(events) {
   }
   ctx.closePath();
   const ciGrad = ctx.createLinearGradient(0, padTop, 0, padTop + plotH);
-  ciGrad.addColorStop(0, "rgba(0, 240, 255, 0.12)");
+  ciGrad.addColorStop(0, "rgba(0, 240, 255, 0.14)");
   ciGrad.addColorStop(1, "rgba(0, 240, 255, 0.02)");
   ctx.fillStyle = ciGrad;
   ctx.fill();
 
   // Upper & Lower dashed boundary lines
-  ctx.strokeStyle = "rgba(0, 240, 255, 0.35)";
+  ctx.strokeStyle = "rgba(0, 240, 255, 0.40)";
   ctx.lineWidth = 1.2;
   ctx.setLineDash([4, 4]);
 
@@ -1210,28 +1243,24 @@ function renderScatterCanvas(events) {
   ctx.stroke();
   ctx.setLineDash([]);
 
-  // ── 5. MAIN POWER LAW REGRESSION CURVE ───────────────────────────────
+  // ── 5. MAIN SMOOTH HILL SATURATION MEDIAN CURVE ─────────────────────
   ctx.strokeStyle = "rgba(0, 240, 255, 0.95)";
-  ctx.lineWidth = 2.8;
-  ctx.shadowColor = "rgba(0, 240, 255, 0.5)";
-  ctx.shadowBlur = 10;
+  ctx.lineWidth = 3.0;
+  ctx.shadowColor = "rgba(0, 240, 255, 0.6)";
+  ctx.shadowBlur = 12;
   ctx.beginPath();
-  for (let s = 0; s <= ciSteps; s++) {
-    const pVal = Math.exp(minLogP + (s / ciSteps) * (maxLogP - minLogP));
-    const nMed = Math.min(85.0, Math.max(1.8, 6.2 * Math.pow(pVal, -0.22)));
-    const x = toScreenX(pVal);
-    const y = toScreenY(nMed);
-    if (s === 0) ctx.moveTo(x, y);
-    else ctx.lineTo(x, y);
-  }
+  medPoints.forEach((pt, idx) => {
+    if (idx === 0) ctx.moveTo(pt.x, pt.y);
+    else ctx.lineTo(pt.x, pt.y);
+  });
   ctx.stroke();
   ctx.shadowBlur = 0;
 
-  // CI Label watermark
+  // Mathematical Watermark
   ctx.font = "italic 10px Inter, sans-serif";
-  ctx.fillStyle = "rgba(0, 240, 255, 0.7)";
-  ctx.fillText("Dải Phân Phối Chuẩn 90% CI (Power Law Cone)", toScreenX(0.0003), toScreenY(65));
-  ctx.fillText("Đường Hồi Quy Trung Vị: n ≈ 6.2 · P_base^-0.22", toScreenX(0.03), toScreenY(7));
+  ctx.fillStyle = "rgba(0, 240, 255, 0.85)";
+  ctx.fillText("Dải Phân Phối Chuẩn 90% CI (Heteroscedastic Funnel)", toScreenX(0.0003), toScreenY(68));
+  ctx.fillText("Hàm Bão Hòa Bậc Cao: n(P) = 1.85 + 143.15 / [1 + (P/0.045)^0.42]", toScreenX(0.015), toScreenY(6.5));
 
   // ── 6. DATA POINTS WITH Z-ORDERING ──────────────────────────────────
   scatterPoints = [];
@@ -1313,6 +1342,7 @@ function renderScatterCanvas(events) {
     "龙虾USDT":    { dx: 12,  dy: -14, align: "left" },
     "PROMUSDT":    { dx: 12,  dy: -10, align: "left" },
     "MAGMAUSDT":   { dx: 12,  dy: -10, align: "left" },
+    "4USDT":       { dx: 12,  dy: -12, align: "left" },
     "BULLAUSDT":   { dx: -12, dy: -8,  align: "right" },
     "ZECUSDT":     { dx: -12, dy: -8,  align: "right" },
     "PUMPUSDT":    { dx: -12, dy: -8,  align: "right" },
@@ -1333,6 +1363,11 @@ function renderScatterCanvas(events) {
     "VIRTUALUSDT": { dx: 12,  dy: 10,  align: "left" },
   };
 
+  // Default interactive symbol if not set
+  if (!window.selectedScatterSymbol && activeCoinsList.length > 0) {
+    window.selectedScatterSymbol = activeCoinsList[0].symbol;
+  }
+
   // Render each active campaign from Section 1 exactly ONCE
   activeCoinsList.forEach(c => {
     const sym = c.symbol;
@@ -1343,7 +1378,7 @@ function renderScatterCanvas(events) {
     const x = toScreenX(basePrice);
     const y = toScreenY(maxN);
 
-    // Push to scatterPoints for interactive hover
+    // Push to scatterPoints for interactive hover and click
     scatterPoints.push({
       x, y,
       isActive: true,
@@ -1396,10 +1431,130 @@ function renderScatterCanvas(events) {
     ctx.fillText(labelText, lx, ly + 11);
   });
 
-  // ── 8. RICH INTERACTIVE TOOLTIP ──────────────────────────────────────
+  // ── 7.5. INTERACTIVE MULTIVARIATE RETICLE & LIFT VECTOR ──────────────────
+  if (window.selectedScatterSymbol) {
+    const selSym = window.selectedScatterSymbol.toUpperCase();
+    const selCamp = activeCoinsList.find(c => c.symbol.toUpperCase() === selSym || c.symbol.toUpperCase() === `${selSym}USDT`);
+    
+    if (selCamp) {
+      const bPrice = selCamp.origin_bottom_price;
+      const xPos = toScreenX(bPrice);
+      const nBase1D = evalHillMedian(bPrice);
+      const yBase1D = toScreenY(nBase1D);
+      
+      const mlPred = selCamp.ml_prediction || {};
+      const decomp = selCamp.multivariate_decomp || mlPred.multivariate_decomp || {};
+      const nTarget = mlPred.n_expected || decomp.n_multivariate_target || selCamp.expected_n_ml || (nBase1D * 1.35);
+      const yTarget = toScreenY(nTarget);
+      const targetPrice = bPrice * nTarget;
+
+      // 1. Draw Dashed Drift Vector (Connecting 1D curve baseline to Multivariate ML Target)
+      ctx.beginPath();
+      ctx.setLineDash([5, 4]);
+      ctx.moveTo(xPos, yBase1D);
+      ctx.lineTo(xPos, yTarget);
+      ctx.strokeStyle = "#ffd700";
+      ctx.lineWidth = 2.4;
+      ctx.shadowColor = "#ffd700";
+      ctx.shadowBlur = 10;
+      ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.shadowBlur = 0;
+
+      // 2. Draw Vector Arrow Head at Target
+      ctx.beginPath();
+      ctx.moveTo(xPos - 5, yTarget + 8);
+      ctx.lineTo(xPos, yTarget);
+      ctx.lineTo(xPos + 5, yTarget + 8);
+      ctx.fillStyle = "#ffd700";
+      ctx.fill();
+
+      // 3. Draw Target Reticle at (xPos, yTarget)
+      ctx.beginPath();
+      ctx.arc(xPos, yTarget, 14, 0, 2 * Math.PI);
+      ctx.strokeStyle = "rgba(255, 215, 0, 0.85)";
+      ctx.lineWidth = 1.8;
+      ctx.stroke();
+
+      ctx.beginPath();
+      ctx.arc(xPos, yTarget, 5, 0, 2 * Math.PI);
+      ctx.fillStyle = "#ffd700";
+      ctx.fill();
+
+      // Crosshairs
+      ctx.beginPath();
+      ctx.moveTo(xPos - 20, yTarget); ctx.lineTo(xPos - 8, yTarget);
+      ctx.moveTo(xPos + 8, yTarget);  ctx.lineTo(xPos + 20, yTarget);
+      ctx.moveTo(xPos, yTarget - 20); ctx.lineTo(xPos, yTarget - 8);
+      ctx.moveTo(xPos, yTarget + 8);  ctx.lineTo(xPos, yTarget + 20);
+      ctx.strokeStyle = "#ffd700";
+      ctx.lineWidth = 1.5;
+      ctx.stroke();
+
+      // 4. Draw Rich Target Callout Pill
+      const cleanTargetSym = selCamp.symbol.endsWith("USDT") ? selCamp.symbol.slice(0, -4) : selCamp.symbol;
+      const targetTxt = `🎯 ${cleanTargetSym} ML Target: ${nTarget.toFixed(1)}x ($${targetPrice < 0.01 ? targetPrice.toFixed(6) : targetPrice.toFixed(4)})`;
+      const fBoost = decomp.funding_boost_pct ? `⚡ Funding +${decomp.funding_boost_pct}%` : "";
+      const vBoost = decomp.volume_boost_pct ? `🌊 Vol +${decomp.volume_boost_pct}%` : "";
+      const subTxt = [fBoost, vBoost].filter(Boolean).join(" &bull; ");
+
+      ctx.font = "bold 11px 'JetBrains Mono', Inter, sans-serif";
+      const tMetrics = ctx.measureText(targetTxt);
+      const cardW = Math.max(tMetrics.width + 16, 220);
+      const cardH = subTxt ? 36 : 22;
+      const cardX = Math.min(W - padRight - cardW - 10, xPos + 18);
+      const cardY = Math.max(padTop + 10, yTarget - cardH / 2);
+
+      // Glassmorphic Card Background
+      ctx.shadowColor = "rgba(255, 215, 0, 0.4)";
+      ctx.shadowBlur = 12;
+      ctx.fillStyle = "rgba(15, 23, 42, 0.96)";
+      ctx.strokeStyle = "#ffd700";
+      ctx.lineWidth = 1.6;
+      ctx.beginPath();
+      ctx.roundRect(cardX, cardY, cardW, cardH, 6);
+      ctx.fill();
+      ctx.stroke();
+      ctx.shadowBlur = 0;
+
+      // Header Text
+      ctx.fillStyle = "#ffd700";
+      ctx.fillText(targetTxt, cardX + 8, cardY + 15);
+
+      // Subtext breakdown if present
+      if (subTxt) {
+        ctx.font = "10px Inter, sans-serif";
+        ctx.fillStyle = "#94a3b8";
+        ctx.fillText(subTxt.replace("&bull;", "•"), cardX + 8, cardY + 29);
+      }
+    }
+  }
+
+  // ── 8. RICH INTERACTIVE TOOLTIP & CLICK SELECTION ─────────────────────
   if (!isScatterHoverAttached) {
     isScatterHoverAttached = true;
     const tooltip = document.getElementById("ml-scatter-tooltip");
+
+    canvas.addEventListener("click", (evt) => {
+      const cRect = canvas.getBoundingClientRect();
+      const clickX = evt.clientX - cRect.left;
+      const clickY = evt.clientY - cRect.top;
+
+      let clicked = null;
+      for (const pt of scatterPoints) {
+        const dist = Math.hypot(pt.x - clickX, pt.y - clickY);
+        if (dist <= pt.radius + 12) {
+          clicked = pt;
+          break;
+        }
+      }
+      if (clicked) {
+        const targetSym = clicked.campaign ? clicked.campaign.symbol : (clicked.event ? clicked.event.symbol : null);
+        if (targetSym) {
+          window.selectScatterSymbol(targetSym);
+        }
+      }
+    });
 
     canvas.addEventListener("mousemove", (evt) => {
       const cRect = canvas.getBoundingClientRect();
@@ -1421,6 +1576,8 @@ function renderScatterCanvas(events) {
           const baseFmt = c.origin_bottom_price < 0.001 ? c.origin_bottom_price.toFixed(8) : c.origin_bottom_price < 1 ? c.origin_bottom_price.toFixed(5) : c.origin_bottom_price.toFixed(2);
           const peakFmt = c.highest_peak_price < 0.001 ? c.highest_peak_price.toFixed(8) : c.highest_peak_price < 1 ? c.highest_peak_price.toFixed(5) : c.highest_peak_price.toFixed(2);
           const currFmt = c.current_price < 0.001 ? c.current_price.toFixed(8) : c.current_price < 1 ? c.current_price.toFixed(5) : c.current_price.toFixed(2);
+          const decomp = c.multivariate_decomp || {};
+          const mlTargetN = c.ml_prediction ? c.ml_prediction.n_expected : (decomp.n_multivariate_target || c.expected_n_ml || 5.0);
 
           tooltip.innerHTML = `
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
@@ -1437,14 +1594,19 @@ function renderScatterCanvas(events) {
               <span style="color: var(--text-dim);">Đỉnh Cao (Peak):</span>
               <strong style="color: var(--accent-yellow);">$${peakFmt} (${c.max_n}x)</strong>
             </div>
-            <div style="font-family: var(--font-mono); font-size: 0.76rem; color: #fff; margin-bottom: 4px; display: flex; justify-content: space-between;">
+            <div style="font-family: var(--font-mono); font-size: 0.76rem; color: #fff; margin-bottom: 3px; display: flex; justify-content: space-between;">
               <span style="color: var(--text-dim);">Giá Hiện Tại:</span>
               <strong style="color: #fff;">$${currFmt} (${c.current_n}x)</strong>
+            </div>
+            <div style="font-family: var(--font-mono); font-size: 0.76rem; color: #ffd700; margin-bottom: 4px; display: flex; justify-content: space-between; border-top: 1px dashed rgba(255,215,0,0.25); padding-top: 4px;">
+              <span>🎯 Mục Tiêu ML Đa Biến:</span>
+              <strong>${mlTargetN.toFixed(1)}x ($${(c.origin_bottom_price * mlTargetN).toFixed(4)})</strong>
             </div>
             <div style="font-size: 0.70rem; color: var(--text-dim); line-height: 1.4; border-top: 1px solid rgba(255,255,255,0.08); padding-top: 5px;">
               Khởi phát: ${c.origin_date} (${c.pump_age_days || 1} ngày) &bull; Sụt đỉnh: -${c.drawdown_from_peak_pct}%
             </div>
-            <div style="margin-top: 6px; text-align: right;">
+            <div style="margin-top: 6px; display: flex; justify-content: space-between; align-items: center;">
+              <span style="font-size: 0.68rem; color: var(--accent-yellow);">💡 Click để khóa tâm ngắm</span>
               <a href="/?symbol=${c.symbol}" style="font-size: 0.70rem; color: var(--accent-cyan); text-decoration: none; font-weight: 700;">Soi Nến Live ↗</a>
             </div>
           `;
@@ -1486,6 +1648,16 @@ function renderScatterCanvas(events) {
     });
   }
 }
+
+// Global selector for interactive scatter focus
+window.selectedScatterSymbol = "4USDT";
+window.selectScatterSymbol = function(sym) {
+  window.selectedScatterSymbol = sym;
+  if (cachedResearchData && cachedResearchData.events) {
+    renderScatterCanvas(cachedResearchData.events);
+  }
+};
+
 
 
 
