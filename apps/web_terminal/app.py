@@ -542,7 +542,40 @@ def api_benchmark_ledger():
         return jsonify({"status": "error", "message": str(ex)}), 500
 
 
+@app.route("/api/ml/accuracy_correction_status")
+def api_accuracy_correction_status():
+    try:
+        from core_engine.accuracy_correction_engine import get_accuracy_correction_engine
+        ace = get_accuracy_correction_engine()
+        audit = ace.audit_training_data_quality()
+        return jsonify({
+            "status": "success",
+            "total_corrections_applied": ace.total_corrections_applied,
+            "audit": audit,
+        })
+    except Exception as ex:
+        logger.error(f"Error in api_accuracy_correction_status: {ex}")
+        return jsonify({"status": "error", "message": str(ex)}), 500
+
+
+@app.route("/api/ml/retroactive_correct", methods=["POST"])
+def api_retroactive_correct():
+    """
+    One-shot batch correction: verify Binance ATH for all events in training DB.
+    WARNING: Slow operation (~5-10 minutes for 388 events). Run once manually.
+    """
+    try:
+        from core_engine.accuracy_correction_engine import get_accuracy_correction_engine
+        ace = get_accuracy_correction_engine()
+        result = ace.retroactive_correct_all(max_events=500)
+        return jsonify({"status": "success", "result": result})
+    except Exception as ex:
+        logger.error(f"Error in api_retroactive_correct: {ex}", exc_info=True)
+        return jsonify({"status": "error", "message": str(ex)}), 500
+
+
 @app.route("/api/ml/retrain_models", methods=["POST", "GET"])
+
 def api_retrain_models():
     try:
         from core_engine.self_learning_engine import get_self_learning_engine

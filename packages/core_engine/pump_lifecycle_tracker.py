@@ -73,6 +73,11 @@ class PumpCampaign:
     dump_date:            Optional[str] = None
     last_updated:         str = ""
     notes:                str = ""
+    # ── Adaptive Ground Truth Correction (ACE) fields ────────
+    is_super_pump_in_progress: bool = False      # True when n_current >= n_expected_ml * 0.95
+    super_pump_detected_at:    Optional[str] = None  # ISO timestamp when super-pump flagged
+    correction_finalized:      bool = False      # True after ACE has written corrected peak to DB
+
 
     def __post_init__(self):
         if not self.stage_label_vi:
@@ -692,6 +697,15 @@ class PumpLifecycleRegistry:
         # Dynamic Trailing Stop (EMA20 or -30% from peak)
         c.trailing_stop_price = round(c.highest_peak_price * 0.70, 8)
 
+        # ── ACE: Super-Pump Real-Time Detection ──
+        # Flag when n_current >= 95% of n_expected_ml → system must NOT exit early
+        if c.is_active and c.expected_n_ml > 0 and not c.is_super_pump_in_progress:
+            try:
+                from .accuracy_correction_engine import get_accuracy_correction_engine
+                get_accuracy_correction_engine().flag_super_pump_in_progress(c)
+            except Exception:
+                pass
+
         # ── State Machine Transitions ──
         if c.stage not in (PumpStage.ARCHIVED, PumpStage.DELISTED):
             # Condition 1: Dump Confirmed
@@ -706,12 +720,45 @@ class PumpLifecycleRegistry:
                 # ── CRISP-DM Autonomous Self-Learning & Verification Ledger ──
                 if was_active and c.max_n >= 2.0:
                     try:
+                        # ── ACE: Verify true ATH before writing to training DB ──
+                        # This is the KEY fix: ensures we record the REAL highest peak,
+                        # not a stale value captured while the machine was offline or
+                        # before the coin finished its super-pump extension.
+                        from .accuracy_correction_engine import get_accuracy_correction_engine
+                        ace = get_accuracy_correction_engine()
+                        verified_peak, was_corrected = ace.verify_and_correct_peak_before_finalize(
+                            symbol=c.symbol,
+                            origin_date=c.origin_date,
+                            origin_bottom_price=c.origin_bottom_price,
+                            stored_peak_price=c.highest_peak_price,
+                        )
+                        if was_corrected and verified_peak > c.highest_peak_price:
+                            # Update campaign with the true ATH before logging
+                            old_peak = c.highest_peak_price
+                            c.highest_peak_price = verified_peak
+                            c.max_n = round(verified_peak / c.origin_bottom_price, 2)
+                            logger.info(
+                                f"[ACE] {c.symbol}: ATH corrected ${old_peak:.6f} → "
+                                f"${verified_peak:.6f} ({c.max_n:.2f}x) before finalize"
+                            )
+
+                        # Upsert corrected peak into training DB
+                        ace.correct_peak_and_upsert_to_db(
+                            symbol=c.symbol,
+                            origin_date=c.origin_date,
+                            origin_bottom_price=c.origin_bottom_price,
+                            corrected_peak_price=c.highest_peak_price,
+                            original_peak_price=c.highest_peak_price,
+                            reason="DUMP_CONFIRMED_FINALIZE",
+                        )
+                        c.correction_finalized = True
+
                         from .self_learning_engine import get_self_learning_engine
                         learning_engine = get_self_learning_engine()
                         learning_engine.finalize_completed_cycle(
                             symbol=c.symbol,
                             base_price=c.origin_bottom_price,
-                            peak_price_actual=c.highest_peak_price,
+                            peak_price_actual=c.highest_peak_price,  # ← always the verified ATH
                             dump_price=current_price,
                             event_date=c.origin_date,
                             notes=c.notes,

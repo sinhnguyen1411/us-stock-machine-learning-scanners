@@ -27,11 +27,101 @@ document.addEventListener("DOMContentLoaded", () => {
   fetchCampaignsData();
   fetchResearchData();
   fetchBenchmarkLedger();
+  fetchCorrectionStatus();
   runInteractiveMLPrediction(); // Immediately fetch live Binance Futures metrics on load
   setInterval(fetchCampaignsData, 5000);
   setInterval(fetchBenchmarkLedger, 10000);
   setInterval(fetchGapFillStatus, 15000);
+  setInterval(fetchCorrectionStatus, 30000);
 });
+
+async function fetchCorrectionStatus() {
+  try {
+    const res = await fetch("/api/ml/accuracy_correction_status");
+    if (!res.ok) return;
+    const data = await res.json();
+    if (data.status !== "success") return;
+
+    const audit = data.audit || {};
+    const qualityScore = audit.data_quality_score_pct;
+    const corrections = data.total_corrections_applied || 0;
+    const totalEvents = audit.total_events || 388;
+    const superPumps = audit.super_pumps_beyond_tier_ceiling || 0;
+
+    const qualityEl = document.getElementById("stat-data-quality");
+    const subEl = document.getElementById("ace-quality-sub");
+    const cardEl = document.getElementById("ace-quality-card");
+    const trainingEl = document.getElementById("stat-training-events");
+
+    if (trainingEl) trainingEl.innerText = `${totalEvents} Event`;
+
+    if (qualityEl && qualityScore !== undefined) {
+      qualityEl.innerText = `${qualityScore}%`;
+      // Color grade: green ≥ 99%, yellow ≥ 95%, red < 95%
+      const color = qualityScore >= 99 ? "#00e676" : qualityScore >= 95 ? "#ffb300" : "#ff3366";
+      qualityEl.style.color = color;
+      if (cardEl) cardEl.style.borderLeftColor = color;
+    }
+
+    if (subEl) {
+      if (corrections > 0) {
+        subEl.innerText = `✅ ${corrections} đỉnh đã hiệu chỉnh | ${superPumps} super-pump`;
+      } else if (superPumps > 0) {
+        subEl.innerText = `⚠️ ${superPumps} đỉnh cần kiểm tra (bấm để sửa)`;
+        subEl.style.color = "#ffb300";
+      } else {
+        subEl.innerText = `✅ Dữ liệu nhất quán – không cần sửa`;
+        subEl.style.color = "#00e676";
+      }
+    }
+  } catch (e) {
+    console.debug("Error fetching correction status:", e);
+  }
+}
+
+async function triggerRetroactiveCorrect() {
+  const confirmed = confirm(
+    "⚠️ Chạy Retroactive Correction trên toàn bộ 388+ sự kiện?\n\n" +
+    "Quá trình này sẽ:\n" +
+    "• Truy vấn Binance ATH cho mỗi sự kiện\n" +
+    "• Cập nhật đỉnh sai vào training database\n" +
+    "• Tự động retrain mô hình ML Tri-Ensemble v4\n\n" +
+    "⏱ Thời gian ước tính: 5-10 phút\n\n" +
+    "Tiếp tục?"
+  );
+  if (!confirmed) return;
+
+  const subEl = document.getElementById("ace-quality-sub");
+  const qualityEl = document.getElementById("stat-data-quality");
+  if (subEl) subEl.innerText = "⏳ Đang chạy retroactive correction...";
+  if (qualityEl) qualityEl.innerText = "...";
+
+  try {
+    const res = await fetch("/api/ml/retroactive_correct", { method: "POST" });
+    if (!res.ok) {
+      if (subEl) subEl.innerText = "❌ Lỗi server";
+      return;
+    }
+    const data = await res.json();
+    if (data.status === "success") {
+      const r = data.result || {};
+      alert(
+        `✅ Retroactive Correction Hoàn Tất!\n\n` +
+        `• Đã quét: ${r.total_events_scanned || 0} sự kiện\n` +
+        `• Đỉnh đã sửa: ${r.corrections_applied || 0}\n` +
+        `• Bỏ qua: ${r.skipped || 0}\n` +
+        `• Retrain status: ${r.retrain_result?.status || "N/A"}`
+      );
+      fetchCorrectionStatus();
+      fetchBenchmarkLedger();
+    }
+  } catch (e) {
+    console.error("Error triggering retroactive correct:", e);
+    if (subEl) subEl.innerText = "❌ Lỗi kết nối";
+  }
+}
+
+
 
 async function fetchGapFillStatus() {
   try {

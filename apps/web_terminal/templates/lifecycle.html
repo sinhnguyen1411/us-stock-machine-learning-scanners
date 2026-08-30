@@ -69,7 +69,7 @@
   <main class="dashboard-container" style="padding-bottom: 60px;">
 
     <!-- TOP KPI ROW (CRISP-DM SYSTEM STATS) -->
-    <div class="stats-overview" style="grid-template-columns: repeat(4, 1fr); margin-bottom: 20px;">
+    <div class="stats-overview" style="grid-template-columns: repeat(5, 1fr); margin-bottom: 20px;">
       <div class="stat-card" style="border-left: 3px solid var(--accent-cyan);">
         <span class="stat-card-title">CHIẾN DỊCH ĐANG CHẠY</span>
         <div id="stat-active-count" class="stat-card-val" style="color: var(--accent-cyan);">1</div>
@@ -90,10 +90,18 @@
 
       <div class="stat-card" style="border-left: 3px solid var(--accent-yellow);">
         <span class="stat-card-title">DỮ LIỆU HUẤN LUYỆN</span>
-        <div class="stat-card-val" style="color: var(--accent-yellow);">126 Event</div>
+        <div id="stat-training-events" class="stat-card-val" style="color: var(--accent-yellow);">388 Event</div>
         <span class="stat-card-sub">100% Binance USD-M Futures 2026</span>
       </div>
+
+      <!-- ACE Data Quality Card -->
+      <div id="ace-quality-card" class="stat-card" style="border-left: 3px solid #b388ff; cursor: pointer;" onclick="triggerRetroactiveCorrect()" title="Nhấn để chạy Retroactive Correction trên toàn bộ dataset">
+        <span class="stat-card-title" style="color: #b388ff;">🔬 CHẤT LƯỢNG DỮ LIỆU</span>
+        <div id="stat-data-quality" class="stat-card-val" style="color: #b388ff;">—</div>
+        <span id="ace-quality-sub" class="stat-card-sub">Đang kiểm tra...</span>
+      </div>
     </div>
+
 
     <!-- SECTION 1: STATEFUL MULTI-MONTH CAMPAIGN MONITOR -->
     <section class="card-panel" style="border-color: rgba(0, 240, 255, 0.35); background: linear-gradient(180deg, rgba(0, 240, 255, 0.04) 0%, rgba(18, 24, 36, 0.6) 100%); margin-bottom: 24px;">

@@ -207,6 +207,36 @@ class SmartGapFiller:
                     })
                     logger.info(f"[GapFiller] ⚠️ Dump breakdown confirmed for {sym} during offline period (DD: -{camp.drawdown_from_peak_pct}%)")
 
+                    # ── ACE: Upsert verified ATH into training DB ──
+                    # Critical: highest_peak_price has been updated with offline ATH above.
+                    # Now we lock this into training data before the next retrain cycle.
+                    if not camp.correction_finalized and camp.max_n >= 2.0:
+                        try:
+                            from .accuracy_correction_engine import get_accuracy_correction_engine
+                            ace = get_accuracy_correction_engine()
+                            ace.correct_peak_and_upsert_to_db(
+                                symbol=camp.symbol,
+                                origin_date=camp.origin_date,
+                                origin_bottom_price=camp.origin_bottom_price,
+                                corrected_peak_price=camp.highest_peak_price,
+                                original_peak_price=camp.highest_peak_price,
+                                reason="OFFLINE_DUMP_DETECTED_GAP_FILL",
+                            )
+                            camp.correction_finalized = True
+
+                            from .self_learning_engine import get_self_learning_engine
+                            get_self_learning_engine().finalize_completed_cycle(
+                                symbol=camp.symbol,
+                                base_price=camp.origin_bottom_price,
+                                peak_price_actual=camp.highest_peak_price,  # ← verified ATH
+                                dump_price=latest_close,
+                                event_date=camp.origin_date,
+                                notes=f"Xác nhận dump trong lúc offline: -{camp.drawdown_from_peak_pct:.1f}% từ đỉnh ${camp.highest_peak_price:.6f}",
+                            )
+                        except Exception as ace_ex:
+                            logger.debug(f"[GapFiller] ACE finalize error for {sym}: {ace_ex}")
+
+
             # Save updated state to registry
             registry.save()
             summary["status"] = "SYNCED"
