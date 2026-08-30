@@ -110,3 +110,39 @@ class TestRegressorInFlightIntegration:
         assert "n_multivariate_target" in decomp
         assert decomp["funding_boost_pct"] > 0.0
         assert res["n_expected"] >= decomp["n_curve_baseline"]
+
+
+class TestPhase2APIContracts:
+    """Validate Phase 2 REST API endpoint synchronization."""
+
+    def test_api_pump_multiplier_research_returns_hill_parameters(self):
+        """GET /api/ml/pump_multiplier_research must return hill_model_parameters payload."""
+        from apps.web_terminal.app import app
+        client = app.test_client()
+        res = client.get("/api/ml/pump_multiplier_research")
+        assert res.status_code == 200
+        data = res.get_json()
+        assert data["status"] == "success"
+        assert "hill_model_parameters" in data
+        params = data["hill_model_parameters"]
+        assert params["n_floor"] == 1.85
+        assert params["n_ceiling"] == 145.0
+        assert params["p0"] == 0.045
+        assert params["gamma"] == 0.42
+        assert params["sigma_max"] == 0.58
+        assert params["sigma_min"] == 0.18
+
+    def test_api_active_pump_campaigns_returns_multivariate_decomp(self):
+        """GET /api/ml/active_pump_campaigns must attach multivariate_decomp to active campaigns."""
+        from apps.web_terminal.app import app
+        client = app.test_client()
+        res = client.get("/api/ml/active_pump_campaigns")
+        assert res.status_code == 200
+        data = res.get_json()
+        assert data["status"] == "success"
+        assert len(data["active_campaigns"]) > 0
+        first_active = data["active_campaigns"][0]
+        assert "multivariate_decomp" in first_active
+        assert "n_curve_baseline" in first_active["multivariate_decomp"]
+        assert "n_multivariate_target" in first_active["multivariate_decomp"]
+

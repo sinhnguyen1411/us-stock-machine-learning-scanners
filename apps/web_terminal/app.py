@@ -398,11 +398,13 @@ def api_pump_multiplier_research():
         ]
         
         tiers_info = [t.to_dict() for t in PRICE_TIERS]
+        hill_params = reg.hill_model.to_dict() if hasattr(reg, "hill_model") else {}
         
         return jsonify({
             "status": "success",
             "events_count": len(events_data),
             "model_summary": summary,
+            "hill_model_parameters": hill_params,
             "events": events_data,
             "tiers": tiers_info,
         })
@@ -471,7 +473,7 @@ def api_active_pump_campaigns():
         active = registry.get_active_campaigns()
         all_c = registry.get_all_campaigns()
         
-        # Enrich active campaigns with real-time in-flight ML predictions
+        # Enrich active campaigns with real-time in-flight ML predictions & multivariate decomposition
         active_list = []
         all_list = []
         for c in all_c:
@@ -485,10 +487,18 @@ def api_active_pump_campaigns():
                         vol_spike_ratio=15.0,
                     )
                     c_dict["ml_prediction"] = ml_eval
+                    c_dict["multivariate_decomp"] = ml_eval.get("multivariate_decomp", {})
                 except Exception:
                     pass
                 active_list.append(c_dict)
+            else:
+                try:
+                    if hasattr(reg, "hill_model"):
+                        c_dict["multivariate_decomp"] = reg.hill_model.decompose_multivariate(c.origin_bottom_price)
+                except Exception:
+                    pass
             all_list.append(c_dict)
+
 
         return jsonify({
             "status": "success",
