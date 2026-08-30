@@ -1165,13 +1165,13 @@ function renderScatterCanvas(events) {
   // ── 4. GENERALIZED HILL SATURATION DECAY & DYNAMIC HETEROSCEDASTIC FUNNEL ────
   const hp = (cachedResearchData && cachedResearchData.hill_model_parameters) || {
     n_floor: 1.85,
-    n_ceiling: 145.0,
-    p0: 0.045,
-    gamma: 0.42,
-    sigma_max: 0.58,
-    sigma_min: 0.18,
-    p_sigma0: 0.050,
-    gamma_sigma: 0.45
+    n_ceiling: 68.0,
+    p0: 0.012,
+    gamma: 0.38,
+    sigma_max: 0.45,
+    sigma_min: 0.16,
+    p_sigma0: 0.015,
+    gamma_sigma: 0.40
   };
 
   function evalHillMedian(p) {
@@ -1256,12 +1256,6 @@ function renderScatterCanvas(events) {
   ctx.stroke();
   ctx.shadowBlur = 0;
 
-  // Mathematical Watermark
-  ctx.font = "italic 10px Inter, sans-serif";
-  ctx.fillStyle = "rgba(0, 240, 255, 0.85)";
-  ctx.fillText("Dải Phân Phối Chuẩn 90% CI (Heteroscedastic Funnel)", toScreenX(0.0003), toScreenY(68));
-  ctx.fillText("Hàm Bão Hòa Bậc Cao: n(P) = 1.85 + 143.15 / [1 + (P/0.045)^0.42]", toScreenX(0.015), toScreenY(6.5));
-
   // ── 6. DATA POINTS WITH Z-ORDERING ──────────────────────────────────
   scatterPoints = [];
 
@@ -1335,7 +1329,7 @@ function renderScatterCanvas(events) {
     ctx.shadowBlur = 0;
   });
 
-  // ── 7. RENDER ACTIVE RUNNING COINS (SYNCHRONIZED WITH SECTION 1) ───────
+  // ── 7. RENDER ACTIVE RUNNING COINS (SMART COLLISION-FREE LABELING) ─────
   const activeLandmarkOffsets = {
     "AKEUSDT":     { dx: 12,  dy: -10, align: "left" },
     "BTRUSDT":     { dx: 12,  dy: -8,  align: "left" },
@@ -1368,12 +1362,28 @@ function renderScatterCanvas(events) {
     window.selectedScatterSymbol = activeCoinsList[0].symbol;
   }
 
-  // Render each active campaign from Section 1 exactly ONCE
-  activeCoinsList.forEach(c => {
+  // Determine which coins get prominent Badge Tags
+  const sortedActive = [...activeCoinsList].sort((a, b) => (b.max_n || b.current_n || 1.0) - (a.max_n || a.current_n || 1.0));
+  const topFeaturedSymbols = new Set(sortedActive.slice(0, 6).map(c => c.symbol.toUpperCase()));
+  if (window.selectedScatterSymbol) {
+    topFeaturedSymbols.add(window.selectedScatterSymbol.toUpperCase());
+  }
+
+  // Render each active campaign
+  activeCoinsList.forEach((c, cIdx) => {
     const sym = c.symbol;
     const basePrice = c.origin_bottom_price;
     const maxN = c.max_n || c.current_n || 2.0;
-    const offset = activeLandmarkOffsets[sym] || { dx: 10, dy: -8, align: "left" };
+    const isSelected = window.selectedScatterSymbol && window.selectedScatterSymbol.toUpperCase() === sym.toUpperCase();
+    const isTopFeatured = topFeaturedSymbols.has(sym.toUpperCase());
+    const shouldShowBadge = (window.currentLabelMode === "ALL") || isTopFeatured || isSelected;
+
+    let offset = activeLandmarkOffsets[sym] || { dx: 10, dy: -8, align: "left" };
+    // In ALL mode, alternate vertical offset to reduce collisions
+    if (window.currentLabelMode === "ALL" && !activeLandmarkOffsets[sym]) {
+      const altDy = (cIdx % 2 === 0) ? -12 : 12;
+      offset = { dx: 10, dy: altDy, align: "left" };
+    }
 
     const x = toScreenX(basePrice);
     const y = toScreenY(maxN);
@@ -1383,53 +1393,56 @@ function renderScatterCanvas(events) {
       x, y,
       isActive: true,
       campaign: c,
-      radius: 10
+      radius: isSelected ? 12 : 9
     });
 
     // 1. Draw Active Point Dot
     ctx.beginPath();
-    ctx.arc(x, y, 6.5, 0, 2 * Math.PI);
+    ctx.arc(x, y, isSelected ? 8.0 : 6.0, 0, 2 * Math.PI);
     ctx.fillStyle = maxN >= 30 ? "#ff0055" : maxN >= 10 ? "#ffb800" : "#00f0ff";
     ctx.fill();
     ctx.strokeStyle = "#ffffff";
-    ctx.lineWidth = 2.0;
+    ctx.lineWidth = isSelected ? 2.5 : 1.8;
     ctx.stroke();
 
     // 2. Draw Active Green Pulsing Halo
     ctx.beginPath();
-    ctx.arc(x, y, 11.5, 0, 2 * Math.PI);
-    ctx.strokeStyle = "#00e676";
-    ctx.lineWidth = 2.0;
+    ctx.arc(x, y, isSelected ? 14.0 : 10.5, 0, 2 * Math.PI);
+    ctx.strokeStyle = isSelected ? "#ffd700" : "#00e676";
+    ctx.lineWidth = isSelected ? 2.5 : 1.8;
     ctx.stroke();
 
-    // 3. Draw Badge Tag
-    const cleanSym = sym.endsWith("USDT") ? sym.slice(0, -4) : sym;
-    const labelText = `${cleanSym} (${maxN.toFixed(1)}x) 🔥`;
+    // 3. Draw Badge Tag (Only for Top / Selected / In ALL mode)
+    if (shouldShowBadge) {
+      const cleanSym = sym.endsWith("USDT") ? sym.slice(0, -4) : sym;
+      const labelText = `${cleanSym} (${maxN.toFixed(1)}x) ${maxN >= 10 ? '🔥' : '⚡'}`;
 
-    ctx.font = "bold 11px 'JetBrains Mono', Inter, sans-serif";
-    const textMetrics = ctx.measureText(labelText);
-    const textW = textMetrics.width;
-    const textH = 16;
+      ctx.font = isSelected ? "bold 12px 'JetBrains Mono', Inter, sans-serif" : "bold 10.5px 'JetBrains Mono', Inter, sans-serif";
+      const textMetrics = ctx.measureText(labelText);
+      const textW = textMetrics.width;
+      const textH = isSelected ? 18 : 15;
 
-    const lx = offset.align === "right" ? x + offset.dx - textW - 6 : x + offset.dx;
-    const ly = y + offset.dy - 10;
+      const lx = offset.align === "right" ? x + offset.dx - textW - 6 : x + offset.dx;
+      const ly = y + offset.dy - 10;
 
-    // Glowing Pill badge for Active Coin
-    ctx.shadowColor = "rgba(0, 230, 118, 0.5)";
-    ctx.shadowBlur = 8;
-    ctx.fillStyle = "rgba(10, 20, 30, 0.95)";
-    ctx.strokeStyle = "#00e676";
-    ctx.lineWidth = 1.6;
-    ctx.beginPath();
-    ctx.roundRect(lx - 4, ly - 2, textW + 8, textH + 2, 4);
-    ctx.fill();
-    ctx.stroke();
-    ctx.shadowBlur = 0;
+      // Glowing Pill badge for Active Coin
+      ctx.shadowColor = isSelected ? "rgba(255, 215, 0, 0.6)" : "rgba(0, 230, 118, 0.5)";
+      ctx.shadowBlur = isSelected ? 12 : 8;
+      ctx.fillStyle = isSelected ? "rgba(18, 25, 45, 0.98)" : "rgba(10, 20, 30, 0.92)";
+      ctx.strokeStyle = isSelected ? "#ffd700" : "#00e676";
+      ctx.lineWidth = isSelected ? 2.0 : 1.4;
+      ctx.beginPath();
+      ctx.roundRect(lx - 4, ly - 2, textW + 8, textH + 2, 4);
+      ctx.fill();
+      ctx.stroke();
+      ctx.shadowBlur = 0;
 
-    // Text
-    ctx.fillStyle = "#ffffff";
-    ctx.fillText(labelText, lx, ly + 11);
+      // Text
+      ctx.fillStyle = isSelected ? "#ffd700" : "#ffffff";
+      ctx.fillText(labelText, lx, ly + (isSelected ? 12 : 10));
+    }
   });
+
 
   // ── 7.5. INTERACTIVE MULTIVARIATE RETICLE & LIFT VECTOR ──────────────────
   if (window.selectedScatterSymbol) {
@@ -1649,14 +1662,34 @@ function renderScatterCanvas(events) {
   }
 }
 
-// Global selector for interactive scatter focus
+// Global selector for interactive scatter focus and label mode
 window.selectedScatterSymbol = "4USDT";
+window.currentLabelMode = "FOCUS";
+
 window.selectScatterSymbol = function(sym) {
   window.selectedScatterSymbol = sym;
   if (cachedResearchData && cachedResearchData.events) {
     renderScatterCanvas(cachedResearchData.events);
   }
 };
+
+window.setLabelMode = function(mode) {
+  window.currentLabelMode = mode;
+  const focusBtn = document.getElementById("label-mode-focus");
+  const allBtn = document.getElementById("label-mode-all");
+  if (focusBtn) {
+    if (mode === "FOCUS") focusBtn.classList.add("active");
+    else focusBtn.classList.remove("active");
+  }
+  if (allBtn) {
+    if (mode === "ALL") allBtn.classList.add("active");
+    else allBtn.classList.remove("active");
+  }
+  if (cachedResearchData && cachedResearchData.events) {
+    renderScatterCanvas(cachedResearchData.events);
+  }
+};
+
 
 
 

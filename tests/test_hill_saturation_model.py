@@ -25,12 +25,12 @@ class TestHillSaturationModelMathematicalProperties:
     """Validate mathematical rigor of the Generalized Hill Saturation Decay equation."""
 
     def test_asymptotic_limits(self):
-        """As P -> 0, n -> n_ceiling (145x). As P -> inf, n -> n_floor (1.85x)."""
+        """As P -> 0, n -> n_ceiling (68x). As P -> inf, n -> n_floor (1.85x)."""
         model = HillSaturationModel()
         
         # Micro/Nano extreme: P = 10^-10
         n_nano = model.eval_median(1e-10)
-        assert 140.0 <= n_nano <= 145.0, f"Nano extreme should approach ceiling, got {n_nano}"
+        assert 65.0 <= n_nano <= 68.0, f"Nano extreme should approach ceiling, got {n_nano}"
 
         # Mega/Macro extreme: P = 100,000.0 (e.g. Bitcoin)
         n_mega = model.eval_median(100_000.0)
@@ -39,6 +39,7 @@ class TestHillSaturationModelMathematicalProperties:
         # Infinite limit: P = 10^8
         n_inf = model.eval_median(1e8)
         assert 1.85 <= n_inf <= 1.95, f"Infinite limit should be within 1.95, got {n_inf}"
+
 
 
     def test_strict_continuous_monotonicity(self):
@@ -126,11 +127,12 @@ class TestPhase2APIContracts:
         assert "hill_model_parameters" in data
         params = data["hill_model_parameters"]
         assert params["n_floor"] == 1.85
-        assert params["n_ceiling"] == 145.0
-        assert params["p0"] == 0.045
-        assert params["gamma"] == 0.42
-        assert params["sigma_max"] == 0.58
-        assert params["sigma_min"] == 0.18
+        assert params["n_ceiling"] == 68.0
+        assert params["p0"] == 0.012
+        assert params["gamma"] == 0.38
+        assert params["sigma_max"] == 0.45
+        assert params["sigma_min"] == 0.16
+
 
     def test_api_active_pump_campaigns_returns_multivariate_decomp(self):
         """GET /api/ml/active_pump_campaigns must attach multivariate_decomp to active campaigns."""

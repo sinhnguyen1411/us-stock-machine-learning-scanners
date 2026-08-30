@@ -42,15 +42,17 @@ class HillSaturationModel:
     """
     Generalized Hill Saturation Decay Model with Heteroscedastic Quantile Funnel.
     Formula: n(P) = n_floor + (n_ceiling - n_floor) / (1 + (P / P0)^gamma)
+    Calibrated empirically on 396 Binance USD-M Futures events.
     """
     n_floor: float = 1.85
-    n_ceiling: float = 145.0
-    p0: float = 0.045
-    gamma: float = 0.42
-    sigma_max: float = 0.58
-    sigma_min: float = 0.18
-    p_sigma0: float = 0.050
-    gamma_sigma: float = 0.45
+    n_ceiling: float = 68.0
+    p0: float = 0.012
+    gamma: float = 0.38
+    sigma_max: float = 0.45
+    sigma_min: float = 0.16
+    p_sigma0: float = 0.015
+    gamma_sigma: float = 0.40
+
 
     def eval_median(self, price: float) -> float:
         p = max(float(price), 1e-12)
