@@ -94,14 +94,31 @@ class AutonomousSuperPumpScanner:
           2. Early Volume Ignition (n >= 1.8x + vol_24h >= $15M or spike >= 4.0x)
           3. Stealth Slow-Grind Climber (n >= 1.5x + R^2 >= 0.70 + green_days >= 65%)
         """
-        if not klines or len(klines) < 15:
+        if not klines or not isinstance(klines, (list, tuple)):
             return []
 
-        highs = [float(k[2]) for k in klines]
-        lows = [float(k[3]) for k in klines]
-        closes = [float(k[4]) for k in klines]
-        times = [k[0] for k in klines]
-        n_bars = len(klines)
+        sanitized_klines = []
+        for k in klines:
+            try:
+                if not isinstance(k, (list, tuple)) or len(k) < 5:
+                    continue
+                t = int(k[0])
+                h = float(k[2])
+                l = float(k[3])
+                c = float(k[4])
+                if h > 0 and l > 0 and c > 0 and h >= l:
+                    sanitized_klines.append((t, h, l, c))
+            except (ValueError, TypeError):
+                continue
+
+        if len(sanitized_klines) < 15:
+            return []
+
+        times = [k[0] for k in sanitized_klines]
+        highs = [k[1] for k in sanitized_klines]
+        lows = [k[2] for k in sanitized_klines]
+        closes = [k[3] for k in sanitized_klines]
+        n_bars = len(sanitized_klines)
 
         cycles = []
         i = 0
@@ -123,10 +140,13 @@ class AutonomousSuperPumpScanner:
                     continue
 
                 mult_peak = running_peak / local_base
-                # Check for completed dump (must occur strictly after peak_idx and drawdown >= 45% from peak)
-                if j > peak_idx and mult_peak >= 2.0 and (running_peak - min(closes[j], lows[j])) / running_peak >= 0.45:
+                # Check for completed dump: strictly after peak_idx, qualified (>= 2.0x), and close drops >= 45% (or low drops >= 60%)
+                close_dd = (running_peak - closes[j]) / running_peak
+                low_dd = (running_peak - lows[j]) / running_peak
+                if j > peak_idx and mult_peak >= 2.0 and (close_dd >= 0.45 or low_dd >= 0.60):
                     dump_idx = j
                     break
+
 
 
             # Re-evaluate best base for this segment

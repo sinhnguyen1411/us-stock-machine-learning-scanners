@@ -19,14 +19,18 @@ from __future__ import annotations
 import json
 import os
 import time
+import logging
 from dataclasses import asdict, dataclass, field
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
+
+logger = logging.getLogger("PumpLifecycleTracker")
 
 _PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 _DATA_DIR     = os.path.join(_PROJECT_ROOT, "data")
 _REGISTRY_PATH = os.path.join(_DATA_DIR, "active_pumps_registry.json")
 os.makedirs(_DATA_DIR, exist_ok=True)
+
 
 
 class PumpStage:
@@ -98,7 +102,10 @@ class PumpCampaign:
             if self.highest_peak_price > 0:
                 self.max_n = round(self.highest_peak_price / self.origin_bottom_price, 2)
         if self.highest_peak_price > 0:
-            self.dump_threshold_price = round(self.highest_peak_price * 0.55, 8)  # -45% from peak
+            if self.dump_threshold_price <= 0:
+                self.dump_threshold_price = round(self.highest_peak_price * 0.55, 8)  # -45% from peak
+            if self.trailing_stop_price <= 0:
+                self.trailing_stop_price = round(self.highest_peak_price * 0.70, 8)   # -30% from peak
             if self.current_price > 0:
                 dd = (self.highest_peak_price - self.current_price) / self.highest_peak_price * 100.0
                 self.drawdown_from_peak_pct = round(max(0.0, dd), 1)
@@ -133,6 +140,11 @@ class PumpLifecycleRegistry:
         "REQUSDT",      # Delisted
         "GLMRUSDT",     # Delisted
         "LUNCUSDT",     # Delisted (Terra Luna Classic)
+        "WAVESUSDT",    # Delisted
+        "OMGUSDT",      # Delisted
+        "REEFUSDT",     # Delisted
+        "DREPUSDT",     # Delisted
+
         "OSMOUSDT",     # Delisted
         "CGPTUSDT",     # Delisted
         "MITOUSDT",     # Delisted
@@ -228,11 +240,20 @@ class PumpLifecycleRegistry:
                 for item in data.get("campaigns", []):
                     c = PumpCampaign(**item)
                     self.campaigns[c.campaign_id] = c
-        except Exception:
-            pass
+        except (json.JSONDecodeError, ValueError) as jde:
+            logger.warning(f"Corrupted registry JSON at {self.file_path}: {jde}. Backing up and self-healing.")
+            try:
+                backup_path = f"{self.file_path}.corrupted.{int(time.time())}"
+                os.replace(self.file_path, backup_path)
+            except Exception:
+                pass
+        except Exception as ex:
+            logger.debug(f"Error loading registry: {ex}")
 
     def _trigger_smart_gap_fill(self) -> None:
         """Autonomous Startup Hook: Syncs historical gaps across machine downtimes."""
+        if self.file_path != _REGISTRY_PATH or os.getenv("PYTEST_CURRENT_TEST"):
+            return
         try:
             from .smart_gap_filler import get_gap_filler
             from .db_storage import get_db_storage
@@ -244,6 +265,7 @@ class PumpLifecycleRegistry:
         except Exception as e:
             logger.debug(f"[LifecycleRegistry] Error in startup smart gap fill: {e}")
 
+
     def save(self, update_heartbeat: bool = True) -> None:
         try:
             payload = {
@@ -252,14 +274,21 @@ class PumpLifecycleRegistry:
                 "active_count": len([c for c in self.campaigns.values() if c.is_active]),
                 "campaigns": [c.to_dict() for c in self.campaigns.values()],
             }
-            with open(self.file_path, "w", encoding="utf-8") as f:
+            # Atomic Persistence: Write to temp file, fsync to disk, then atomic replace to prevent race conditions
+            temp_file = f"{self.file_path}.tmp.{os.getpid()}.{time.time_ns()}"
+            with open(temp_file, "w", encoding="utf-8") as f:
                 json.dump(payload, f, indent=2, ensure_ascii=False)
+                f.flush()
+                os.fsync(f.fileno())
+            os.replace(temp_file, self.file_path)
+
             
             # Save heartbeat & DB checkpoint if requested
             if update_heartbeat:
                 try:
                     from .smart_gap_filler import get_gap_filler
                     get_gap_filler().save_heartbeat()
+
                 except Exception:
                     pass
         except Exception:
