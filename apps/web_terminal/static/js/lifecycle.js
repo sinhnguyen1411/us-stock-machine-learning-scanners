@@ -1065,24 +1065,24 @@ function renderScatterCanvas(events) {
   ctx.fillStyle = "#0a0f1d";
   ctx.fillRect(0, 0, W, H);
 
-  const padLeft = 75;
-  const padRight = 35;
-  const padTop = 38;
-  const padBottom = 48;
+  const padLeft = 85;
+  const padRight = 45;
+  const padTop = 45;
+  const padBottom = 52;
 
   const plotW = W - padLeft - padRight;
   const plotH = H - padTop - padBottom;
 
-  // Log Price Range: 1e-4 ($0.0001) to 1e3 ($1000)
-  const minLogP = Math.log(0.0001);
+  // Log Price Range: 1e-5 ($0.00001) to 1e3 ($1000) for ample margin around micro-caps
+  const minLogP = Math.log(0.00001);
   const maxLogP = Math.log(1000.0);
 
-  // Log N Range: 1.0 (1x) to 130.0 (130x)
+  // Log N Range: 1.0 (1x) to 150.0 (150x) for headroom above 94x outliers
   const minLogN = Math.log(1.0);
-  const maxLogN = Math.log(130.0);
+  const maxLogN = Math.log(150.0);
 
   function toScreenX(price) {
-    const lp = Math.log(Math.max(price, 0.00008));
+    const lp = Math.log(Math.max(price, 0.000005));
     return padLeft + ((lp - minLogP) / (maxLogP - minLogP)) * plotW;
   }
 
@@ -1091,8 +1091,9 @@ function renderScatterCanvas(events) {
     return padTop + plotH - ((ln - minLogN) / (maxLogN - minLogN)) * plotH;
   }
 
-  // ── 2. BACKGROUND 8 PRICE TIER BANDS & LABELS ────────────────────────
+  // ── 2. BACKGROUND PRICE TIER BANDS & LABELS ──────────────────────────
   const tierBands = [
+    { code: "T0", label: "Nano", min: 0.00001, max: 0.0001 },
     { code: "T1", label: "Micro", min: 0.0001, max: 0.001 },
     { code: "T2", label: "Sub-Cent", min: 0.001, max: 0.01 },
     { code: "T3", label: "Penny", min: 0.01, max: 0.10 },
@@ -1117,50 +1118,137 @@ function renderScatterCanvas(events) {
     ctx.font = "bold 9px 'JetBrains Mono', monospace";
     ctx.fillStyle = "rgba(0, 240, 255, 0.4)";
     ctx.textAlign = "center";
-    ctx.fillText(`${tb.code} ${tb.label}`, (x1 + x2) / 2, padTop - 8);
+    ctx.fillText(`${tb.code} ${tb.label}`, (x1 + x2) / 2, padTop - 12);
     ctx.textAlign = "left";
   });
 
-  // ── 3. GRID LINES & AXIS TICKS ───────────────────────────────────────
-  ctx.strokeStyle = "rgba(255, 255, 255, 0.08)";
-  ctx.lineWidth = 1;
-  ctx.font = "bold 11px 'JetBrains Mono', monospace";
-
-  // Y-axis grid: 2x, 5x, 10x, 20x, 50x, 100x
+  // ── 3. SUBTLE GRID LINES & LABELS ─────────────────────────────────────
+  // Horizontal grid lines
   const yTicks = [2, 5, 10, 20, 50, 100];
   yTicks.forEach(nVal => {
     const y = toScreenY(nVal);
     ctx.beginPath();
+    ctx.setLineDash([2, 4]);
+    ctx.strokeStyle = "rgba(255, 255, 255, 0.06)";
+    ctx.lineWidth = 1;
     ctx.moveTo(padLeft, y);
-    ctx.lineTo(W - padRight, y);
+    ctx.lineTo(padLeft + plotW, y);
     ctx.stroke();
-
-    ctx.fillStyle = nVal >= 30 ? "#ff0055" : nVal >= 10 ? "#ffb800" : "#64748b";
-    ctx.fillText(`${nVal}x`, 20, y + 4);
+    ctx.setLineDash([]);
   });
 
-  // X-axis grid & labels
+  // Vertical grid lines
   const xTicks = [
-    { p: 0.0001, lbl: "$0.0001" },
-    { p: 0.001,  lbl: "$0.001" },
-    { p: 0.01,   lbl: "$0.01" },
-    { p: 0.1,    lbl: "$0.10" },
-    { p: 1.0,    lbl: "$1.0" },
-    { p: 10.0,   lbl: "$10" },
-    { p: 100.0,  lbl: "$100" },
+    { p: 0.00001, lbl: "$0.00001" },
+    { p: 0.0001,  lbl: "$0.0001" },
+    { p: 0.001,   lbl: "$0.001" },
+    { p: 0.01,    lbl: "$0.01" },
+    { p: 0.1,     lbl: "$0.10" },
+    { p: 1.0,     lbl: "$1.0" },
+    { p: 10.0,    lbl: "$10" },
+    { p: 100.0,   lbl: "$100" },
   ];
   xTicks.forEach(t => {
     const x = toScreenX(t.p);
     ctx.beginPath();
-    ctx.setLineDash([3, 3]);
+    ctx.setLineDash([2, 4]);
+    ctx.strokeStyle = "rgba(255, 255, 255, 0.06)";
+    ctx.lineWidth = 1;
     ctx.moveTo(x, padTop);
     ctx.lineTo(x, padTop + plotH);
     ctx.stroke();
     ctx.setLineDash([]);
-
-    ctx.fillStyle = "#94a3b8";
-    ctx.fillText(t.lbl, x - 18, H - 18);
   });
+
+  // ── 3.5. SOLID 0xy COORDINATE AXES (TRỤC OXY NỔI BẬT & RÕ RÀNG) ─────────
+  // 1. Solid Trục Tung (Oy / Y-Axis)
+  ctx.strokeStyle = "rgba(0, 240, 255, 0.75)";
+  ctx.lineWidth = 1.8;
+  ctx.beginPath();
+  ctx.moveTo(padLeft, padTop - 12);
+  ctx.lineTo(padLeft, padTop + plotH);
+  ctx.stroke();
+
+  // Y-Axis Arrow Head
+  ctx.beginPath();
+  ctx.moveTo(padLeft - 4, padTop - 6);
+  ctx.lineTo(padLeft, padTop - 15);
+  ctx.lineTo(padLeft + 4, padTop - 6);
+  ctx.fillStyle = "#00f0ff";
+  ctx.fill();
+
+  // Y-Axis Title
+  ctx.font = "bold 10px 'JetBrains Mono', Inter, sans-serif";
+  ctx.fillStyle = "#00f0ff";
+  ctx.textAlign = "left";
+  ctx.fillText("↑ Bội Số n (Log)", padLeft - 75, padTop - 18);
+
+  // Y-Axis Ticks & Values
+  yTicks.forEach(nVal => {
+    const y = toScreenY(nVal);
+    // Tick mark
+    ctx.beginPath();
+    ctx.strokeStyle = "rgba(0, 240, 255, 0.8)";
+    ctx.lineWidth = 1.5;
+    ctx.moveTo(padLeft - 6, y);
+    ctx.lineTo(padLeft, y);
+    ctx.stroke();
+
+    // Value text
+    ctx.font = "bold 11px 'JetBrains Mono', monospace";
+    ctx.fillStyle = nVal >= 30 ? "#ff0055" : nVal >= 10 ? "#ffb800" : "#94a3b8";
+    ctx.textAlign = "right";
+    ctx.fillText(`${nVal}x`, padLeft - 10, y + 4);
+    ctx.textAlign = "left";
+  });
+
+  // 2. Solid Trục Hoành (Ox / X-Axis)
+  ctx.strokeStyle = "rgba(0, 240, 255, 0.75)";
+  ctx.lineWidth = 1.8;
+  ctx.beginPath();
+  ctx.moveTo(padLeft, padTop + plotH);
+  ctx.lineTo(padLeft + plotW + 16, padTop + plotH);
+  ctx.stroke();
+
+  // X-Axis Arrow Head
+  ctx.beginPath();
+  ctx.moveTo(padLeft + plotW + 8, padTop + plotH - 4);
+  ctx.lineTo(padLeft + plotW + 18, padTop + plotH);
+  ctx.lineTo(padLeft + plotW + 8, padTop + plotH + 4);
+  ctx.fillStyle = "#00f0ff";
+  ctx.fill();
+
+  // X-Axis Title
+  ctx.font = "bold 10px 'JetBrains Mono', Inter, sans-serif";
+  ctx.fillStyle = "#00f0ff";
+  ctx.textAlign = "right";
+  ctx.fillText("Giá Đáy Khởi Phát P_base ($ USD, Log Scale) →", padLeft + plotW, padTop + plotH + 40);
+
+  // X-Axis Ticks & Values
+  xTicks.forEach(t => {
+    const x = toScreenX(t.p);
+    // Tick mark
+    ctx.beginPath();
+    ctx.strokeStyle = "rgba(0, 240, 255, 0.8)";
+    ctx.lineWidth = 1.5;
+    ctx.moveTo(x, padTop + plotH);
+    ctx.lineTo(x, padTop + plotH + 6);
+    ctx.stroke();
+
+    // Value text
+    ctx.font = "bold 10.5px 'JetBrains Mono', monospace";
+    ctx.fillStyle = "#94a3b8";
+    ctx.textAlign = "center";
+    ctx.fillText(t.lbl, x, padTop + plotH + 20);
+    ctx.textAlign = "left";
+  });
+
+  // Origin point dot
+  ctx.beginPath();
+  ctx.arc(padLeft, padTop + plotH, 3.0, 0, 2 * Math.PI);
+  ctx.fillStyle = "#00f0ff";
+  ctx.fill();
+
 
   // ── 4. GENERALIZED HILL SATURATION DECAY & DYNAMIC HETEROSCEDASTIC FUNNEL ────
   const hp = (cachedResearchData && cachedResearchData.hill_model_parameters) || {
