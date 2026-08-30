@@ -473,27 +473,31 @@ def api_active_pump_campaigns():
         
         # Enrich active campaigns with real-time in-flight ML predictions
         active_list = []
-        for c in active:
+        all_list = []
+        for c in all_c:
             c_dict = c.to_dict()
-            try:
-                ml_eval = reg.predict_in_flight(
-                    symbol=c.symbol,
-                    base_price=c.origin_bottom_price,
-                    current_price=c.current_price,
-                    vol_spike_ratio=15.0,
-                )
-                c_dict["ml_prediction"] = ml_eval
-            except Exception:
-                pass
-            active_list.append(c_dict)
-            
+            if c.is_active:
+                try:
+                    ml_eval = reg.predict_in_flight(
+                        symbol=c.symbol,
+                        base_price=c.origin_bottom_price,
+                        current_price=c.current_price,
+                        vol_spike_ratio=15.0,
+                    )
+                    c_dict["ml_prediction"] = ml_eval
+                except Exception:
+                    pass
+                active_list.append(c_dict)
+            all_list.append(c_dict)
+
         return jsonify({
             "status": "success",
             "timestamp": datetime.now(timezone.utc).strftime("%H:%M:%S"),
             "active_count": len(active),
             "active_campaigns": active_list,
-            "all_campaigns": [c.to_dict() for c in all_c],
+            "all_campaigns": all_list,
         })
+
     except Exception as ex:
         logger.error(f"Error in api_active_pump_campaigns: {ex}")
         return jsonify({"status": "error", "message": str(ex)}), 500
