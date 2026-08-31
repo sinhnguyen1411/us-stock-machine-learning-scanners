@@ -217,11 +217,31 @@ class PumpDatasetBuilder:
     # ── I/O ─────────────────────────────────────────────────
 
     def load_all(self) -> List[PumpEvent]:
-        """Load all events from the JSON database."""
+        """Load all events from the JSON database with automatic self-healing resilience."""
         if not os.path.exists(self.db_path):
             return []
-        with open(self.db_path, "r", encoding="utf-8") as f:
-            raw = json.load(f)
+        try:
+            with open(self.db_path, "r", encoding="utf-8") as f:
+                raw = json.load(f)
+        except Exception:
+            # Self-healing fallback: extract valid event JSON blocks via regex
+            try:
+                import re
+                with open(self.db_path, "r", encoding="utf-8", errors="ignore") as f:
+                    content = f.read()
+                raw_blocks = re.findall(r'\{\s*"symbol":\s*"[^"]+".*?\n    \}', content, re.DOTALL)
+                recovered = []
+                for b in raw_blocks:
+                    try:
+                        obj = json.loads(b)
+                        if "symbol" in obj and "n_actual" in obj:
+                            recovered.append(obj)
+                    except Exception:
+                        pass
+                raw = {"events": recovered}
+            except Exception:
+                raw = {"events": []}
+
         events = []
         for record in raw.get("events", []):
             try:
@@ -229,6 +249,7 @@ class PumpDatasetBuilder:
             except Exception:
                 pass   # skip malformed records
         return events
+
 
     def save_all(self, events: List[PumpEvent]) -> None:
         """Overwrite the entire database."""
