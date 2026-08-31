@@ -15,6 +15,8 @@ import datetime
 import logging
 from typing import List, Dict, Any, Optional
 from pathlib import Path
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from datetime import datetime, timezone
 
 from .pump_lifecycle_tracker import PumpLifecycleRegistry, PumpCampaign, PumpStage, get_pump_registry
 
@@ -33,6 +35,26 @@ class AutonomousSuperPumpScanner:
         self.min_multiplier = min_multiplier
         self.last_scan_time: float = 0.0
         self.scan_interval: float = 600.0  # Run every 10 minutes
+        self.is_syncing: bool = False
+        self.scanned_symbols: int = 0
+        self.total_symbols: int = 0
+        self.sync_progress_pct: float = 100.0
+        self.last_active_found: List[str] = []
+
+    def get_sync_status(self) -> Dict[str, Any]:
+        """Returns real-time scanner telemetry for UI status pill and progress bars."""
+        active_campaigns = self.registry.get_active_campaigns()
+        return {
+            "status": "SCANNING" if self.is_syncing else "READY",
+            "is_syncing": self.is_syncing,
+            "progress_pct": round(self.sync_progress_pct, 1),
+            "scanned_symbols": self.scanned_symbols,
+            "total_symbols": self.total_symbols,
+            "active_campaigns_count": len(active_campaigns),
+            "last_scan_utc": datetime.fromtimestamp(self.last_scan_time, tz=timezone.utc).isoformat() if self.last_scan_time > 0 else None,
+            "active_symbols": [c.symbol for c in active_campaigns[:10]],
+        }
+
 
     @staticmethod
     def calculate_trend_efficiency(closes: List[float]) -> Dict[str, float]:
@@ -157,8 +179,9 @@ class AutonomousSuperPumpScanner:
             if base_min <= 0:
                 break
 
-            base_date = datetime.datetime.fromtimestamp(times[base_idx] / 1000, tz=datetime.timezone.utc).strftime("%Y-%m-%d")
-            peak_date = datetime.datetime.fromtimestamp(times[peak_idx] / 1000, tz=datetime.timezone.utc).strftime("%Y-%m-%d")
+            base_date = datetime.fromtimestamp(times[base_idx] / 1000, tz=timezone.utc).strftime("%Y-%m-%d")
+            peak_date = datetime.fromtimestamp(times[peak_idx] / 1000, tz=timezone.utc).strftime("%Y-%m-%d")
+
 
             curr_price = closes[dump_idx] if dump_idx is not None else closes[-1]
             mult_peak = running_peak / base_min
@@ -434,59 +457,162 @@ class AutonomousSuperPumpScanner:
             symbols_to_scan = valid_tickers if max_symbols is None else valid_tickers[:max_symbols]
         except Exception as ex:
             logger.error(f"Failed to fetch 24hr ticker symbol list: {ex}")
-            return {"active_count": 0, "dumped_count": 0}
+            return {"active_found": [], "dumped_found": [], "total_registered": len(self.registry.campaigns)}
+
+        self.is_syncing = True
+        self.total_symbols = len(symbols_to_scan)
+        self.scanned_symbols = 0
+        self.sync_progress_pct = 0.0
 
         active_found = []
         dumped_found = []
 
-        # Scan symbols with paced token-bucket rate limiter
-        for idx, t in enumerate(symbols_to_scan):
-            sym = t["symbol"]
-            vol_24h = float(t.get("quoteVolume", 0.0))
-            res = self.scan_symbol_cycle(sym, vol_24h_quote=vol_24h)
-            if res:
-                pattern_type = res.get("pattern_type", "SUPER_PUMP")
-                cid = f"{res['symbol']}_{res['origin_date']}"
+        try:
+            # Scan symbols with paced token-bucket rate limiter
+            for idx, t in enumerate(symbols_to_scan):
+                sym = t["symbol"]
+                vol_24h = float(t.get("quoteVolume", 0.0))
+                res = self.scan_symbol_cycle(sym, vol_24h_quote=vol_24h)
+                if res:
+                    pattern_type = res.get("pattern_type", "SUPER_PUMP")
+                    cid = f"{res['symbol']}_{res['origin_date']}"
 
-                note_prefix = {
-                    "VOLUME_IGNITION": "🔥 Volume Ignition",
-                    "STEALTH_CLIMBER": "🐢 Stealth Climber (Leo dốc bền vững)",
-                    "SUPER_PUMP": "⚡ Super-Pump Macro Wave",
-                }.get(pattern_type, "⚡ Super-Pump")
+                    note_prefix = {
+                        "VOLUME_IGNITION": "🔥 Volume Ignition",
+                        "STEALTH_CLIMBER": "🐢 Stealth Climber (Leo dốc bền vững)",
+                        "SUPER_PUMP": "⚡ Super-Pump Macro Wave",
+                    }.get(pattern_type, "⚡ Super-Pump")
 
-                c = PumpCampaign(
-                    campaign_id=cid,
-                    symbol=res["symbol"],
-                    origin_date=res["origin_date"],
-                    origin_bottom_price=res["origin_bottom_price"],
-                    highest_peak_price=res["highest_peak_price"],
-                    highest_peak_date=res["peak_date"],
-                    current_price=res["current_price"],
-                    current_n=res["current_n"],
-                    max_n=res["peak_n"],
-                    expected_n_ml=res["peak_n"],
-                    expected_n_low=round(max(1.5, res["peak_n"] * 0.5), 1),
-                    expected_n_high=round(res["peak_n"] * 1.3, 1),
-                    drawdown_from_peak_pct=res["drawdown_pct"],
-                    stage=res["stage"],
-                    is_active=res["is_active"],
-                    pattern_type=pattern_type,
-                    dump_threshold_price=round(res["highest_peak_price"] * 0.55, 8),
-                    notes=f"{note_prefix}: n={res['peak_n']}x từ đáy ${res['origin_bottom_price']} ngày {res['origin_date']}."
-                )
-                self.registry.campaigns[cid] = c
-                if res["is_active"]:
-                    active_found.append(sym)
-                else:
-                    dumped_found.append(sym)
+                    c = PumpCampaign(
+                        campaign_id=cid,
+                        symbol=res["symbol"],
+                        origin_date=res["origin_date"],
+                        origin_bottom_price=res["origin_bottom_price"],
+                        highest_peak_price=res["highest_peak_price"],
+                        highest_peak_date=res["peak_date"],
+                        current_price=res["current_price"],
+                        current_n=res["current_n"],
+                        max_n=res["peak_n"],
+                        expected_n_ml=res["peak_n"],
+                        expected_n_low=round(max(1.5, res["peak_n"] * 0.5), 1),
+                        expected_n_high=round(res["peak_n"] * 1.3, 1),
+                        drawdown_from_peak_pct=res["drawdown_pct"],
+                        stage=res["stage"],
+                        is_active=res["is_active"],
+                        pattern_type=pattern_type,
+                        dump_threshold_price=round(res["highest_peak_price"] * 0.55, 8),
+                        notes=f"{note_prefix}: n={res['peak_n']}x từ đáy ${res['origin_bottom_price']} ngày {res['origin_date']}."
+                    )
+                    self.registry.campaigns[cid] = c
+                    if res["is_active"]:
+                        active_found.append(sym)
+                    else:
+                        dumped_found.append(sym)
 
-            # Paced Rate Limiting: 25 req/s (0.04s sleep)
-            time.sleep(0.04)
+                self.scanned_symbols = idx + 1
+                self.sync_progress_pct = round((idx + 1) / self.total_symbols * 100.0, 1)
 
-        self.registry.save()
-        logger.info(f"Autonomous Market Scan Complete: Discovered {len(active_found)} Active ({active_found}), {len(dumped_found)} Dumped.")
+                # Paced Rate Limiting: 25 req/s (0.04s sleep)
+                time.sleep(0.04)
+
+            self.registry.save()
+            self.last_scan_time = time.time()
+            self.last_active_found = active_found
+            logger.info(f"Autonomous Market Scan Complete: Discovered {len(active_found)} Active ({active_found}), {len(dumped_found)} Dumped.")
+        finally:
+            self.is_syncing = False
+            self.sync_progress_pct = 100.0
+
         return {
             "active_found": active_found,
             "dumped_found": dumped_found,
             "total_registered": len(self.registry.campaigns),
         }
+
+    def fast_bootstrap_sync(self, top_n: int = 30) -> Dict[str, Any]:
+        """
+        Fast Startup Hook: Scans the top 30 highest-liquidity USD-M contracts concurrently
+        in ~1-2 seconds using a multi-threaded pool so the UI renders active campaigns instantly.
+        """
+        logger.info(f"[FastBootstrap] ⚡ Initiating rapid priority bootstrap for Top {top_n} liquid pairs...")
+        self.is_syncing = True
+        self.scanned_symbols = 0
+        self.total_symbols = top_n
+        self.sync_progress_pct = 10.0
+
+        active_found = []
+        try:
+            tickers = self.fetch_24hr_tickers()
+            valid_tickers = [
+                t for t in tickers
+                if t.get("symbol", "").endswith("USDT")
+                and not any(s in t.get("symbol", "") for s in ["USDC", "FDUSD", "TUSD", "DAI"])
+            ]
+            valid_tickers.sort(key=lambda t: float(t.get("quoteVolume", 0.0)), reverse=True)
+            top_tickers = valid_tickers[:top_n]
+
+            def scan_worker(t):
+                sym = t["symbol"]
+                vol = float(t.get("quoteVolume", 0.0))
+                return self.scan_symbol_cycle(sym, vol_24h_quote=vol)
+
+            with ThreadPoolExecutor(max_workers=8) as executor:
+                futures = {executor.submit(scan_worker, t): t["symbol"] for t in top_tickers}
+                for i, future in enumerate(as_completed(futures)):
+                    self.scanned_symbols = i + 1
+                    self.sync_progress_pct = round((i + 1) / top_n * 100.0, 1)
+                    try:
+                        res = future.result()
+                        if res:
+                            pattern_type = res.get("pattern_type", "SUPER_PUMP")
+                            cid = f"{res['symbol']}_{res['origin_date']}"
+                            c = PumpCampaign(
+                                campaign_id=cid,
+                                symbol=res["symbol"],
+                                origin_date=res["origin_date"],
+                                origin_bottom_price=res["origin_bottom_price"],
+                                highest_peak_price=res["highest_peak_price"],
+                                highest_peak_date=res["peak_date"],
+                                current_price=res["current_price"],
+                                current_n=res["current_n"],
+                                max_n=res["peak_n"],
+                                expected_n_ml=res["peak_n"],
+                                expected_n_low=round(max(1.5, res["peak_n"] * 0.5), 1),
+                                expected_n_high=round(res["peak_n"] * 1.3, 1),
+                                drawdown_from_peak_pct=res["drawdown_pct"],
+                                stage=res["stage"],
+                                is_active=res["is_active"],
+                                pattern_type=pattern_type,
+                                dump_threshold_price=round(res["highest_peak_price"] * 0.55, 8),
+                                notes=f"⚡ Fast Bootstrap Super-Pump: n={res['peak_n']}x từ đáy ${res['origin_bottom_price']} ngày {res['origin_date']}."
+                            )
+                            self.registry.campaigns[cid] = c
+                            if res["is_active"]:
+                                active_found.append(res["symbol"])
+                    except Exception as e:
+                        logger.debug(f"[FastBootstrap] Error scanning symbol: {e}")
+
+            self.registry.save()
+            self.last_scan_time = time.time()
+            self.last_active_found = active_found
+            logger.info(f"[FastBootstrap] ✅ Completed rapid bootstrap. {len(active_found)} active campaigns initialized.")
+        finally:
+            self.is_syncing = False
+            self.sync_progress_pct = 100.0
+
+        return {
+            "bootstrap_active": active_found,
+            "total_registered": len(self.registry.campaigns),
+        }
+
+
+# Global Scanner Singleton
+_GLOBAL_SCANNER: Optional[AutonomousSuperPumpScanner] = None
+
+
+def get_autonomous_scanner() -> AutonomousSuperPumpScanner:
+    global _GLOBAL_SCANNER
+    if _GLOBAL_SCANNER is None:
+        _GLOBAL_SCANNER = AutonomousSuperPumpScanner()
+    return _GLOBAL_SCANNER
+

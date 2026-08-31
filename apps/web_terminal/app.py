@@ -513,8 +513,23 @@ def api_active_pump_campaigns():
         return jsonify({"status": "error", "message": str(ex)}), 500
 
 
+@app.route("/api/ml/sync_status")
+def api_sync_status():
+    try:
+        from core_engine.autonomous_super_pump_scanner import get_autonomous_scanner
+        scanner = get_autonomous_scanner()
+        return jsonify({
+            "status": "success",
+            "sync": scanner.get_sync_status()
+        })
+    except Exception as ex:
+        logger.error(f"Error in api_sync_status: {ex}")
+        return jsonify({"status": "error", "message": str(ex)}), 500
+
+
 @app.route("/api/ml/gap_fill_status")
 def api_gap_fill_status():
+
     try:
         from core_engine import get_pump_registry
         from core_engine.smart_gap_filler import get_gap_filler
@@ -1275,10 +1290,18 @@ def radar_scanner_loop():
 def autonomous_cycle_scanner_loop():
     """Autonomous background thread scanning the entire Binance USD-M contract universe for multi-month super pumps."""
     logger.info("Autonomous Super-Pump Discovery Engine thread started.")
-    time.sleep(8.0)  # Initial startup delay
+    time.sleep(1.0)  # Brief initial delay
     try:
-        from core_engine import AutonomousSuperPumpScanner
-        scanner = AutonomousSuperPumpScanner()
+        from core_engine.autonomous_super_pump_scanner import get_autonomous_scanner
+        scanner = get_autonomous_scanner()
+
+        # Step 1: Rapid priority bootstrap for top liquid pairs within 2 seconds
+        try:
+            scanner.fast_bootstrap_sync(top_n=30)
+        except Exception as fb_err:
+            logger.debug(f"[FastBootstrap] Startup error: {fb_err}")
+
+        # Step 2: Continuous full universe scan loop
         while True:
             try:
                 scanner.scan_all_markets(max_symbols=None)
@@ -1288,6 +1311,7 @@ def autonomous_cycle_scanner_loop():
             time.sleep(600.0)  # Run every 10 minutes
     except Exception as e:
         logger.error(f"Error in autonomous cycle loop: {e}")
+
 
 
 if __name__ == "__main__":

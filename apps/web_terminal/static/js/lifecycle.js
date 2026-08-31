@@ -22,18 +22,150 @@ let ledgerCurrentPage = 1;
 let ledgerPageSize = 20;
 let cachedLedgerRecords = [];
 
+let previousActiveSymbols = new Set();
+let isFirstSyncStatusFetched = false;
+
 document.addEventListener("DOMContentLoaded", () => {
+  renderSkeletonTable(); // Render instant glowing shimmer skeletons on load
+  pollSyncStatus(); // Fetch real-time market scanner telemetry
   fetchGapFillStatus();
   fetchCampaignsData();
   fetchResearchData();
   fetchBenchmarkLedger();
   fetchCorrectionStatus();
   runInteractiveMLPrediction(); // Immediately fetch live Binance Futures metrics on load
+  setInterval(pollSyncStatus, 3000);
   setInterval(fetchCampaignsData, 5000);
   setInterval(fetchBenchmarkLedger, 10000);
   setInterval(fetchGapFillStatus, 15000);
   setInterval(fetchCorrectionStatus, 30000);
 });
+
+/**
+ * Real-time Scanner Telemetry Poller & Dynamic Header Pill Updater
+ */
+async function pollSyncStatus() {
+  try {
+    const res = await fetch("/api/ml/sync_status");
+    if (!res.ok) return;
+    const data = await res.json();
+    if (data.status !== "success" || !data.sync) return;
+
+    const sync = data.sync;
+    const pill = document.getElementById("scanner-status-pill");
+    const dot = document.getElementById("scanner-pulse-dot");
+    const text = document.getElementById("scanner-status-text");
+    const progress = document.getElementById("scanner-mini-progress");
+
+    if (sync.is_syncing) {
+      if (pill) pill.classList.add("scanning");
+      if (dot) {
+        dot.style.background = "#ffb800";
+        dot.style.boxShadow = "0 0 10px #ffb800";
+      }
+      if (text) text.innerText = `⚡ Quét: ${sync.scanned_symbols}/${sync.total_symbols} cặp (${sync.progress_pct}%)`;
+      if (progress) progress.style.width = `${Math.max(5, sync.progress_pct)}%`;
+    } else {
+      if (pill) pill.classList.remove("scanning");
+      if (dot) {
+        dot.style.background = "#00e676";
+        dot.style.boxShadow = "0 0 10px #00e676";
+      }
+      if (text) text.innerText = `🟢 Radar: ${sync.active_campaigns_count} Mã Đang Chạy`;
+      if (progress) progress.style.width = "100%";
+    }
+
+    // Detect newly ignited super-pumps and trigger Toast
+    if (sync.active_symbols && Array.isArray(sync.active_symbols)) {
+      if (isFirstSyncStatusFetched) {
+        sync.active_symbols.forEach(sym => {
+          if (!previousActiveSymbols.has(sym)) {
+            showLifecycleToast("Phát Hiện Sóng Mới!", `Mã ${sym} đang mở rộng sóng đẩy mạnh từ đáy.`, "🚀");
+          }
+        });
+      }
+      previousActiveSymbols = new Set(sync.active_symbols);
+      isFirstSyncStatusFetched = true;
+    }
+  } catch (e) {
+    console.debug("Error polling scanner sync status:", e);
+  }
+}
+
+/**
+ * Toast Notification Banner Dispatcher
+ */
+function showLifecycleToast(title, message, icon = "⚡") {
+  const container = document.getElementById("lifecycle-toast-container");
+  if (!container) return;
+
+  const toast = document.createElement("div");
+  toast.className = "lifecycle-toast";
+  toast.innerHTML = `
+    <div class="lifecycle-toast-icon">${icon}</div>
+    <div>
+      <div class="lifecycle-toast-title">${title}</div>
+      <div class="lifecycle-toast-msg">${message}</div>
+    </div>
+  `;
+  container.appendChild(toast);
+
+  setTimeout(() => {
+    toast.classList.add("toast-closing");
+    setTimeout(() => toast.remove(), 350);
+  }, 4500);
+}
+
+/**
+ * Render Instant Skeleton Shimmer Loading Table in Section 1
+ */
+function renderSkeletonTable() {
+  const container = document.getElementById("campaigns-container");
+  if (!container) return;
+  let rows = "";
+  for (let i = 0; i < 5; i++) {
+    rows += `
+      <tr class="skeleton-row">
+        <td><div class="skeleton-box" style="width: 24px;"></div></td>
+        <td><div class="skeleton-box" style="width: 110px;"></div></td>
+        <td><div class="skeleton-box" style="width: 140px;"></div></td>
+        <td><div class="skeleton-box" style="width: 80px;"></div></td>
+        <td><div class="skeleton-box" style="width: 80px;"></div></td>
+        <td><div class="skeleton-box" style="width: 80px;"></div></td>
+        <td><div class="skeleton-box" style="width: 60px;"></div></td>
+        <td><div class="skeleton-box" style="width: 120px;"></div></td>
+        <td><div class="skeleton-box" style="width: 130px;"></div></td>
+        <td><div class="skeleton-box" style="width: 70px;"></div></td>
+        <td><div class="skeleton-box" style="width: 80px;"></div></td>
+      </tr>
+    `;
+  }
+  container.innerHTML = `
+    <div style="overflow-x: auto;">
+      <table class="styled-table campaign-list-table" style="font-size: 0.82rem;">
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Mã Coin / Khởi Phát</th>
+            <th>Trạng Thái</th>
+            <th>Đáy Gốc (Base)</th>
+            <th>Đỉnh Cao (Peak)</th>
+            <th>Giá Hiện Tại</th>
+            <th>Sụt Từ Đỉnh</th>
+            <th>Dải Đỉnh ML (90% CI)</th>
+            <th>Tiến Độ &amp; Giá Đích 100%</th>
+            <th>Cắt Dump</th>
+            <th>Thao Tác</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${rows}
+        </tbody>
+      </table>
+    </div>
+  `;
+}
+
 
 async function fetchCorrectionStatus() {
   try {
@@ -1631,8 +1763,17 @@ function renderScatterCanvas(events) {
     }
   }
 
+  // Gracefully fade out Canvas Radar Loading Overlay
+  const canvasOverlay = document.getElementById("canvas-loading-overlay");
+  if (canvasOverlay && !canvasOverlay.classList.contains("loaded")) {
+    setTimeout(() => {
+      canvasOverlay.classList.add("loaded");
+    }, 250);
+  }
+
   // ── 8. RICH INTERACTIVE TOOLTIP & CLICK SELECTION ─────────────────────
   if (!isScatterHoverAttached) {
+
     isScatterHoverAttached = true;
     const tooltip = document.getElementById("ml-scatter-tooltip");
 

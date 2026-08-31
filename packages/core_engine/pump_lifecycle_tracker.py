@@ -18,6 +18,8 @@ from __future__ import annotations
 
 import json
 import os
+import shutil
+import threading
 import time
 import logging
 from dataclasses import asdict, dataclass, field
@@ -25,6 +27,9 @@ from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
 logger = logging.getLogger("PumpLifecycleTracker")
+
+_REGISTRY_LOCK = threading.RLock()
+
 
 _PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 _DATA_DIR     = os.path.join(_PROJECT_ROOT, "data")
@@ -232,37 +237,55 @@ class PumpLifecycleRegistry:
                 c.expected_n_high = max(c.expected_n_high, round(real_n * 1.5, 2))
 
     def reload_if_modified(self) -> None:
-        """Hot-reload registry if another process or background scanner updated the JSON file."""
-        if not os.path.exists(self.file_path):
-            return
-        try:
-            mtime = os.path.getmtime(self.file_path)
-            if getattr(self, "_last_mtime", 0.0) < mtime:
-                self._last_mtime = mtime
-                self._load()
-        except Exception:
-            pass
-
-    def _load(self) -> None:
-        if not os.path.exists(self.file_path):
-            return
-        try:
-            self._last_mtime = os.path.getmtime(self.file_path)
-            with open(self.file_path, "r", encoding="utf-8") as f:
-                data = json.load(f)
-                for item in data.get("campaigns", []):
-                    c = PumpCampaign(**item)
-                    self.campaigns[c.campaign_id] = c
-        except (json.JSONDecodeError, ValueError) as jde:
-            logger.warning(f"Corrupted registry JSON at {self.file_path}: {jde}. Backing up and self-healing.")
+        """Hot-reload registry thread-safely if another process or background scanner updated the JSON file."""
+        with _REGISTRY_LOCK:
+            if not os.path.exists(self.file_path):
+                return
             try:
-                backup_path = f"{self.file_path}.corrupted.{int(time.time())}"
-                os.replace(self.file_path, backup_path)
+                mtime = os.path.getmtime(self.file_path)
+                if getattr(self, "_last_mtime", 0.0) < mtime:
+                    self._last_mtime = mtime
+                    self._load()
             except Exception:
                 pass
-        except Exception as ex:
-            logger.debug(f"Error loading registry: {ex}")
 
+    def _load(self) -> None:
+        with _REGISTRY_LOCK:
+            if not os.path.exists(self.file_path):
+                # Fallback to .bak if available
+                bak_path = f"{self.file_path}.bak"
+                if os.path.exists(bak_path):
+                    try:
+                        shutil.copy2(bak_path, self.file_path)
+                    except Exception:
+                        pass
+                if not os.path.exists(self.file_path):
+                    return
+
+            try:
+                self._last_mtime = os.path.getmtime(self.file_path)
+                with open(self.file_path, "r", encoding="utf-8") as f:
+                    data = json.load(f)
+                    for item in data.get("campaigns", []):
+                        c = PumpCampaign(**item)
+                        self.campaigns[c.campaign_id] = c
+            except (json.JSONDecodeError, ValueError) as jde:
+                logger.warning(f"Corrupted registry JSON at {self.file_path}: {jde}. Backing up and attempting recovery from .bak.")
+                try:
+                    backup_path = f"{self.file_path}.corrupted.{int(time.time())}"
+                    os.replace(self.file_path, backup_path)
+                    bak_path = f"{self.file_path}.bak"
+                    if os.path.exists(bak_path):
+                        with open(bak_path, "r", encoding="utf-8") as f:
+                            data = json.load(f)
+                            for item in data.get("campaigns", []):
+                                c = PumpCampaign(**item)
+                                self.campaigns[c.campaign_id] = c
+                        self.save(update_heartbeat=False)
+                except Exception as ex:
+                    logger.debug(f"Recovery failed: {ex}")
+            except Exception as ex:
+                logger.debug(f"Error loading registry: {ex}")
 
     def _trigger_smart_gap_fill(self) -> None:
         """Autonomous Startup Hook: Syncs historical gaps across machine downtimes."""
@@ -279,34 +302,51 @@ class PumpLifecycleRegistry:
         except Exception as e:
             logger.debug(f"[LifecycleRegistry] Error in startup smart gap fill: {e}")
 
-
     def save(self, update_heartbeat: bool = True) -> None:
-        try:
-            payload = {
-                "version": "1.0",
-                "updated_at": datetime.now(timezone.utc).isoformat(),
-                "active_count": len([c for c in self.campaigns.values() if c.is_active]),
-                "campaigns": [c.to_dict() for c in self.campaigns.values()],
-            }
-            # Atomic Persistence: Write to temp file, fsync to disk, then atomic replace to prevent race conditions
-            temp_file = f"{self.file_path}.tmp.{os.getpid()}.{time.time_ns()}"
-            with open(temp_file, "w", encoding="utf-8") as f:
-                json.dump(payload, f, indent=2, ensure_ascii=False)
-                f.flush()
-                os.fsync(f.fileno())
-            os.replace(temp_file, self.file_path)
+        with _REGISTRY_LOCK:
+            try:
+                payload = {
+                    "version": "1.0",
+                    "updated_at": datetime.now(timezone.utc).isoformat(),
+                    "active_count": len([c for c in self.campaigns.values() if c.is_active]),
+                    "campaigns": [c.to_dict() for c in self.campaigns.values()],
+                }
 
-            
-            # Save heartbeat & DB checkpoint if requested
-            if update_heartbeat:
+                # 1. Maintain last known good backup (.bak)
+                bak_path = f"{self.file_path}.bak"
+                if os.path.exists(self.file_path) and os.path.getsize(self.file_path) > 100:
+                    try:
+                        shutil.copy2(self.file_path, bak_path)
+                    except Exception:
+                        pass
+
+                # 2. Atomic Persistence: Write to temp file, fsync to disk, then atomic replace
+                temp_file = f"{self.file_path}.tmp.{os.getpid()}.{time.time_ns()}"
                 try:
-                    from .smart_gap_filler import get_gap_filler
-                    get_gap_filler().save_heartbeat()
-
+                    with open(temp_file, "w", encoding="utf-8") as f:
+                        json.dump(payload, f, indent=2, ensure_ascii=False)
+                        f.flush()
+                        os.fsync(f.fileno())
+                    os.replace(temp_file, self.file_path)
+                    self._last_mtime = os.path.getmtime(self.file_path)
                 except Exception:
-                    pass
-        except Exception:
-            pass
+                    if os.path.exists(temp_file):
+                        try:
+                            os.remove(temp_file)
+                        except Exception:
+                            pass
+                    raise
+
+                # Save heartbeat & DB checkpoint if requested
+                if update_heartbeat:
+                    try:
+                        from .smart_gap_filler import get_gap_filler
+                        get_gap_filler().save_heartbeat()
+                    except Exception:
+                        pass
+            except Exception as ex:
+                logger.debug(f"Error saving registry: {ex}")
+
 
 
 

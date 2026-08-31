@@ -22,9 +22,14 @@ from __future__ import annotations
 import json
 import math
 import os
+import shutil
+import threading
+import time
 from dataclasses import asdict, dataclass, field
 from datetime import datetime, timezone
 from typing import List, Optional
+
+_DB_LOCK = threading.RLock()
 
 
 # ══════════════════════════════════════════════════════════════
@@ -218,75 +223,121 @@ class PumpDatasetBuilder:
 
     def load_all(self) -> List[PumpEvent]:
         """Load all events from the JSON database with automatic self-healing resilience."""
-        if not os.path.exists(self.db_path):
-            return []
-        try:
-            with open(self.db_path, "r", encoding="utf-8") as f:
-                raw = json.load(f)
-        except Exception:
-            # Self-healing fallback: extract valid event JSON blocks via regex
-            try:
-                import re
-                with open(self.db_path, "r", encoding="utf-8", errors="ignore") as f:
-                    content = f.read()
-                raw_blocks = re.findall(r'\{\s*"symbol":\s*"[^"]+".*?\n    \}', content, re.DOTALL)
-                recovered = []
-                for b in raw_blocks:
+        with _DB_LOCK:
+            if not os.path.exists(self.db_path):
+                # Try fallback from .bak if main is missing
+                bak_path = f"{self.db_path}.bak"
+                if os.path.exists(bak_path):
                     try:
-                        obj = json.loads(b)
-                        if "symbol" in obj and "n_actual" in obj:
-                            recovered.append(obj)
+                        shutil.copy2(bak_path, self.db_path)
                     except Exception:
                         pass
-                raw = {"events": recovered}
-            except Exception:
-                raw = {"events": []}
+                if not os.path.exists(self.db_path):
+                    return []
 
-        events = []
-        for record in raw.get("events", []):
+            needs_resave = False
             try:
-                events.append(PumpEvent.from_dict(record))
+                with open(self.db_path, "r", encoding="utf-8") as f:
+                    raw = json.load(f)
             except Exception:
-                pass   # skip malformed records
-        return events
+                needs_resave = True
+                # Self-healing fallback: extract valid event JSON blocks via regex
+                try:
+                    import re
+                    with open(self.db_path, "r", encoding="utf-8", errors="ignore") as f:
+                        content = f.read()
+                    raw_blocks = re.findall(r'\{\s*"symbol":\s*"[^"]+".*?\n    \}', content, re.DOTALL)
+                    recovered = []
+                    for b in raw_blocks:
+                        try:
+                            obj = json.loads(b)
+                            if "symbol" in obj and "n_actual" in obj:
+                                recovered.append(obj)
+                        except Exception:
+                            pass
+                    raw = {"events": recovered}
+                except Exception:
+                    raw = {"events": []}
 
+            events = []
+            for record in raw.get("events", []):
+                try:
+                    events.append(PumpEvent.from_dict(record))
+                except Exception:
+                    pass   # skip malformed records
+
+            if needs_resave and events:
+                try:
+                    self.save_all(events)
+                except Exception:
+                    pass
+
+            return events
 
     def save_all(self, events: List[PumpEvent]) -> None:
-        """Overwrite the entire database."""
-        payload = {
-            "version": "1.0",
-            "updated_at": datetime.now(timezone.utc).isoformat(),
-            "count": len(events),
-            "events": [e.to_dict() for e in events],
-        }
-        with open(self.db_path, "w", encoding="utf-8") as f:
-            json.dump(payload, f, indent=2, ensure_ascii=False)
+        """Overwrite the entire database using thread-safe POSIX/Windows atomic replace."""
+        with _DB_LOCK:
+            payload = {
+                "version": "1.0",
+                "updated_at": datetime.now(timezone.utc).isoformat(),
+                "count": len(events),
+                "events": [e.to_dict() for e in events],
+            }
+
+            # 1. Maintain last known good backup (.bak)
+            bak_path = f"{self.db_path}.bak"
+            if os.path.exists(self.db_path) and os.path.getsize(self.db_path) > 100:
+                try:
+                    shutil.copy2(self.db_path, bak_path)
+                except Exception:
+                    pass
+
+            # 2. Atomic Temp Write: write, flush, fsync, then atomic replace
+            temp_file = f"{self.db_path}.tmp.{os.getpid()}.{time.time_ns()}"
+            try:
+                with open(temp_file, "w", encoding="utf-8") as f:
+                    json.dump(payload, f, indent=2, ensure_ascii=False)
+                    f.flush()
+                    os.fsync(f.fileno())
+                os.replace(temp_file, self.db_path)
+            except Exception:
+                if os.path.exists(temp_file):
+                    try:
+                        os.remove(temp_file)
+                    except Exception:
+                        pass
+                raise
 
     def add_event(self, event: PumpEvent, deduplicate: bool = True) -> None:
-        """Append a new event; optionally skip if same symbol+date already exists."""
-        events = self.load_all()
-        if deduplicate:
-            key = (event.symbol.upper(), event.event_date)
-            existing_keys = {(e.symbol.upper(), e.event_date) for e in events}
-            if key in existing_keys:
-                return   # already exists
-        events.append(event)
-        self.save_all(events)
+        """Append a new event thread-safely; optionally skip if same symbol+date already exists."""
+        with _DB_LOCK:
+            events = self.load_all()
+            if deduplicate:
+                key = (event.symbol.upper(), event.event_date)
+                existing_keys = {(e.symbol.upper(), e.event_date) for e in events}
+                if key in existing_keys:
+                    return
+            events.append(event)
+            self.save_all(events)
 
     def add_events_bulk(self, new_events: List[PumpEvent], deduplicate: bool = True) -> int:
-        """Bulk insert; returns count of events actually added."""
-        events = self.load_all()
-        existing_keys = {(e.symbol.upper(), e.event_date) for e in events}
-        added = 0
-        for event in new_events:
-            key = (event.symbol.upper(), event.event_date)
-            if deduplicate and key in existing_keys:
-                continue
-            events.append(event)
-            existing_keys.add(key)
-            added += 1
-        self.save_all(events)
-        return added
+        """Bulk insert thread-safely; returns count of events actually added."""
+        with _DB_LOCK:
+            events = self.load_all()
+            existing_keys = {(e.symbol.upper(), e.event_date) for e in events} if deduplicate else set()
+            added = 0
+            for ev in new_events:
+                if deduplicate:
+                    key = (ev.symbol.upper(), ev.event_date)
+                    if key in existing_keys:
+                        continue
+                    existing_keys.add(key)
+                events.append(ev)
+                added += 1
+            if added > 0:
+                self.save_all(events)
+            return added
+
 
     def upsert(self, event: PumpEvent) -> None:
         """Insert or update a single event by (symbol, event_date)."""
