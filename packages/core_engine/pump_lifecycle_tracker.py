@@ -231,10 +231,23 @@ class PumpLifecycleRegistry:
                 c.expected_n_ml = real_n
                 c.expected_n_high = max(c.expected_n_high, round(real_n * 1.5, 2))
 
+    def reload_if_modified(self) -> None:
+        """Hot-reload registry if another process or background scanner updated the JSON file."""
+        if not os.path.exists(self.file_path):
+            return
+        try:
+            mtime = os.path.getmtime(self.file_path)
+            if getattr(self, "_last_mtime", 0.0) < mtime:
+                self._last_mtime = mtime
+                self._load()
+        except Exception:
+            pass
+
     def _load(self) -> None:
         if not os.path.exists(self.file_path):
             return
         try:
+            self._last_mtime = os.path.getmtime(self.file_path)
             with open(self.file_path, "r", encoding="utf-8") as f:
                 data = json.load(f)
                 for item in data.get("campaigns", []):
@@ -249,6 +262,7 @@ class PumpLifecycleRegistry:
                 pass
         except Exception as ex:
             logger.debug(f"Error loading registry: {ex}")
+
 
     def _trigger_smart_gap_fill(self) -> None:
         """Autonomous Startup Hook: Syncs historical gaps across machine downtimes."""
@@ -923,6 +937,7 @@ class PumpLifecycleRegistry:
 
     def get_active_campaigns(self) -> List[PumpCampaign]:
         """Return all currently active pump campaigns sorted by current_n descending."""
+        self.reload_if_modified()
         active = [
             c for c in self.campaigns.values()
             if c.is_active
@@ -934,6 +949,7 @@ class PumpLifecycleRegistry:
 
     def get_dumped_campaigns(self) -> List[PumpCampaign]:
         """Return all completed/dumped campaigns."""
+        self.reload_if_modified()
         dumped = [
             c for c in self.campaigns.values()
             if not c.is_active or c.stage in (PumpStage.DUMP_CONFIRMED, PumpStage.ARCHIVED)
@@ -942,6 +958,7 @@ class PumpLifecycleRegistry:
         return dumped
 
     def get_all_campaigns(self) -> List[PumpCampaign]:
+        self.reload_if_modified()
         all_c = list(self.campaigns.values())
         all_c.sort(key=lambda c: c.current_n, reverse=True)
         return all_c
@@ -953,8 +970,10 @@ class PumpLifecycleRegistry:
           - Returns the currently active campaign if one exists.
           - Otherwise returns the most recent campaign (by origin_date).
         """
+        self.reload_if_modified()
         if not symbol_or_id:
             return None
+
         key = symbol_or_id.strip().upper()
         if key in self.campaigns:
             return self.campaigns[key]
