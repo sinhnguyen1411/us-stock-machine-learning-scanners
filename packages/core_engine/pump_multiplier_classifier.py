@@ -218,6 +218,16 @@ class PumpDatasetBuilder:
     def __init__(self, db_path: Optional[str] = None):
         self.db_path = os.path.abspath(db_path or _DEFAULT_DB_PATH)
         os.makedirs(os.path.dirname(self.db_path), exist_ok=True)
+        self._cleanup_stale_temp_files()
+
+    def _cleanup_stale_temp_files(self) -> None:
+        """Purge orphaned .tmp.* files left by previous crashed or killed processes."""
+        import glob
+        for tmp in glob.glob(f"{self.db_path}.tmp.*"):
+            try:
+                os.remove(tmp)
+            except Exception:
+                pass
 
     # ── I/O ─────────────────────────────────────────────────
 
@@ -300,13 +310,12 @@ class PumpDatasetBuilder:
                     f.flush()
                     os.fsync(f.fileno())
                 os.replace(temp_file, self.db_path)
-            except Exception:
+            finally:
                 if os.path.exists(temp_file):
                     try:
                         os.remove(temp_file)
                     except Exception:
                         pass
-                raise
 
     def add_event(self, event: PumpEvent, deduplicate: bool = True) -> None:
         """Append a new event thread-safely; optionally skip if same symbol+date already exists."""

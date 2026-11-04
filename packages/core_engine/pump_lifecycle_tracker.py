@@ -128,11 +128,21 @@ class PumpLifecycleRegistry:
         self.file_path = file_path or _REGISTRY_PATH
         self.campaigns: Dict[str, PumpCampaign] = {}
         self.latest_gap_fill_summary: Optional[Dict[str, Any]] = None
+        self._cleanup_stale_temp_files()
         self._load()
         self._seed_known_2026_campaigns()
         self._mark_known_delisted()       # Remove coins no longer on Binance Futures
         self._promote_confirmed_peaks()   # Ensure real peaks override stale tier-medians (active only)
         self._trigger_smart_gap_fill()    # Auto-backfill downtime gap seamlessly on startup
+
+    def _cleanup_stale_temp_files(self) -> None:
+        """Purge orphaned .tmp.* files left by previous crashed or killed processes."""
+        import glob
+        for tmp in glob.glob(f"{self.file_path}.tmp.*"):
+            try:
+                os.remove(tmp)
+            except Exception:
+                pass
 
 
     # Coins confirmed NOT on Binance Futures as of 2026-08-29 (verified by API scan)
@@ -329,13 +339,12 @@ class PumpLifecycleRegistry:
                         os.fsync(f.fileno())
                     os.replace(temp_file, self.file_path)
                     self._last_mtime = os.path.getmtime(self.file_path)
-                except Exception:
+                finally:
                     if os.path.exists(temp_file):
                         try:
                             os.remove(temp_file)
                         except Exception:
                             pass
-                    raise
 
                 # Save heartbeat & DB checkpoint if requested
                 if update_heartbeat:
