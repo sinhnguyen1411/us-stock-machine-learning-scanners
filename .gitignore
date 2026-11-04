@@ -1,10 +1,67 @@
+# Byte-compiled / optimized / DLL files
 __pycache__/
-*.pyc
+*.py[cod]
+*$py.class
+
+# Distribution / packaging
+build/
+dist/
+*.egg-info/
+
+# Virtual Environments
+venv/
+.venv/
+env/
+ENV/
+
+# Environment Variables & Secrets (CRITICAL: never commit real secrets)
 .env
+.env.*
+*.env
+!.env.example
+*.pem
+*.key
+*.pfx
+*.p12
+*.cert
+*.crt
+
+# Runtime Data, Logs & Local State
+data/
 pump_trades.json
 pump_seen_listings.json
 binance_seen_listings.json
 *.log
-data/
+logs/
+*.bak
+*.tmp
+*.tmp.*
+*.corrupted.*
+
+# Local Databases
+*.db
+*.sqlite
+*.sqlite3
+
+# Testing & Coverage Cache
+.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+.tox/
+
+# IDE & Editor Configurations
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Operating System Files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Output Assets & Tools
 *.png
 tools/

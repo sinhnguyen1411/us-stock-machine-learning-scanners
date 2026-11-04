@@ -6,7 +6,7 @@ build-backend = "setuptools.build_meta"
 name = "crypto-pump-scanner"
 version = "2.0.0"
 description = "DeepAlpha Binance Futures (USDT-M) Pump Scanner & Real-Time Terminal Monorepo"
-authors = [{ name = "Sinh Nguyễn", email = "ng.dms1411@gmail.com" }]
+authors = [{ name = "sinhnguyen1411", email = "200356788+sinhnguyen1411@users.noreply.github.com" }]
 license = { text = "Proprietary" }
 readme = "README.md"
 requires-python = ">=3.9"
