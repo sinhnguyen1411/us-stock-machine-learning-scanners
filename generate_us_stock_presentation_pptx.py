@@ -143,12 +143,13 @@ def build_us_stock_presentation(output_path="final_project_us_stock_30_slides.pp
 
     # Author Card
     add_card(s1, Inches(1.0), Inches(4.5), Inches(11.3), Inches(2.2), "THÔNG TIN ĐỒ ÁN & PHƯƠNG PHÁP LUẬN")
-    add_bullets(s1, Inches(1.2), Inches(5.1), Inches(10.9), Inches(1.5), [
-        ("Nghiên Cứu Viên:", "Sinh Nguyen (Quant Engineer & Data Scientist)"),
-        ("Khung Phương Pháp Luận:", "Tiêu chuẩn công nghiệp CRISP-DM 6 giai đoạn (Cross-Industry Standard Process for Data Mining)"),
-        ("Công Nghệ Áp Dụng:", "Python Monorepo, Binance Matching Engine API, Vectorized NumPy/Pandas, Machine Learning Ensemble, TradingView Pro Charts"),
-        ("Phạm Vi Phân Tích:", "Hơn 90+ hợp đồng phái sinh cổ phiếu Mỹ (Mega Tech, Bán Dẫn, ETF, AI Pre-IPO, Tài Chính) hoạt động liên tục 24/7")
-    ], font_size=12)
+    add_bullets(s1, Inches(1.2), Inches(4.95), Inches(10.9), Inches(1.7), [
+        ("Cơ sở & Đơn vị đào tạo:", "Trường ĐH Công nghệ Thông tin - ĐHQG TP.HCM (UIT) | Khoa KHKT Thông tin | CITD VB2"),
+        ("Học viên thực hiện:", "NGUYỄN DƯƠNG MẠNH SINH (MSSV: 24210169) - Lớp SIC 2026: AI1 UFM"),
+        ("Giảng viên hướng dẫn:", "ThS Trần Mạnh Tường | Thời gian thực hiện: Tháng 06/2026 – Tháng 10/2026"),
+        ("Phương pháp luận & Trạng thái:", "Chu trình chuẩn CRISP-DM 6 giai đoạn | Trạng thái đóng góp: 100% (Đã hoàn thành)"),
+        ("Mã nguồn GitHub (Public):", "https://github.com/sinhnguyen1411/us-stock-machine-learning-scanners")
+    ], font_size=11)
 
     # SLIDE 2: Problem Statement
     s2 = prs.slides.add_slide(blank_layout)
@@ -704,9 +705,10 @@ def build_us_stock_presentation(output_path="final_project_us_stock_30_slides.pp
     add_card(s30, Inches(6.8), Inches(1.7), Inches(5.7), Inches(5.2), "CẢM ƠN HỘI ĐỒNG & PHẦN HỎI ĐÁP (Q&A)", YELLOW)
     add_bullets(s30, Inches(7.0), Inches(2.3), Inches(5.3), Inches(4.4), [
         ("Trân trọng cảm ơn Thầy/Cô và Hội Đồng:", "Đã dành thời gian theo dõi và lắng nghe bài thuyết trình đồ án tốt nghiệp!"),
-        ("Mã nguồn & Tài liệu:", "Hệ thống mã nguồn đầy đủ và tài liệu kiến trúc CRISP-DM đã được đóng gói hoàn chỉnh tại repository."),
+        ("Mã nguồn GitHub (Public):", "https://github.com/sinhnguyen1411/us-stock-machine-learning-scanners"),
+        ("Tài liệu báo cáo & CRISP-DM:", "Toàn bộ tài liệu Quarto (.qmd), Notebook (.ipynb) và dữ liệu thực nghiệm đã được đóng gói hoàn chỉnh."),
         ("Sẵn sàng trả lời câu hỏi:", "Rất mong nhận được các câu hỏi phản biện, góp ý và đánh giá chuyên môn từ Hội Đồng!")
-    ], font_size=13)
+    ], font_size=12)
 
     # Save presentation
     prs.save(output_path)

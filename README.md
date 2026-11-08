@@ -1,5 +1,10 @@
 # DeepAlpha — US Stock Machine Learning Scanners & Binance Futures Terminal
 
+> **Đồ Án Cuối Khóa:** Trí tuệ Nhân tạo Ứng dụng & Khoa học Dữ liệu (SIC 2026 AI1 UIT)  
+> **Cơ sở đào tạo:** Trường Đại học Công nghệ Thông tin — ĐHQG TP.HCM (UIT) — Khoa Khoa học và Kỹ thuật Thông tin — CITD VB2  
+> **Học viên:** NGUYỄN DƯƠNG MẠNH SINH (MSSV: 24210169) — **GVHD:** ThS. Trần Mạnh Tường  
+> **Kho lưu trữ GitHub chính thức (Public):** [https://github.com/sinhnguyen1411/us-stock-machine-learning-scanners](https://github.com/sinhnguyen1411/us-stock-machine-learning-scanners)
+
 Hệ thống giám sát vi mô thị trường thời gian thực, phát hiện bất thường dòng tiền thể chế và phân tích điểm số Machine Learning đa tầng cho **90+ hợp đồng tương lai cổ phiếu Mỹ (TradFi USD-M Perpetual Futures)** và **526 cặp hợp đồng Binance Futures (USDT-M)**, được tổ chức dưới dạng kiến trúc Monorepo tiêu chuẩn doanh nghiệp.
 
 ---

@@ -64,4 +64,7 @@ desktop.ini
 
 # Output Assets & Tools
 *.png
+!assets/**/*.png
+!Tiểu luận cuối khóa SIC 2026 AI1 UIT/figures/*.png
+!Tiểu luận cuối khóa SIC 2026 AI1 UIT/data/*.csv
 tools/
