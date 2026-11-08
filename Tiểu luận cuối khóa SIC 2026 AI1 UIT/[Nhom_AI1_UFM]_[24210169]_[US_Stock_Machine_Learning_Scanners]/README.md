@@ -26,8 +26,6 @@ Thư mục này được tổ chức đầy đủ và chuẩn xác theo quy đ�
 | **`US_Stock_ML_Scanners_Final_Project_30_Slides.pptx`** | PowerPoint | Slide trình chiếu bảo vệ đồ án 30 trang đồng bộ đầy đủ nhận diện học thuật UIT, biểu đồ và kiến trúc hệ thống. | Trình bày & Demo |
 | **`figures/`** | Thư mục PNG | Chứa 15 hình ảnh, biểu đồ định lượng 300 DPI và ảnh chụp thực tế từ Web Terminal Scanner của dự án. | Minh chứng trực quan |
 | **`data/`** | Thư mục CSV | Chứa tập dữ liệu thực tế nến vi mô 5M (`NVDAUSDT_5m_288candles_20260827.csv`) trích xuất từ Binance Futures Matching Engine API. | Điểm thưởng dữ liệu thực tế |
-| **`huong_dan_tieu_luan_va_rubric_cuoi_khoa.pdf`** | PDF | Tài liệu gốc hướng dẫn viết tiểu luận và rubric chấm điểm 12 trang của giảng viên. | Tham chiếu gốc |
-| **`huong_dan_tieu_luan_va_rubric_cuoi_khoa.qmd`** | Quarto | Bản số hóa Quarto Markdown đầy đủ của rubric môn học để đối soát 1:1. | Đối soát chuẩn hóa |
 | **`README.md`** | Markdown | Tài liệu hướng dẫn tổng quan và đối soát hồ sơ nộp bài. | Chỉ mục tra cứu |
 
 ---

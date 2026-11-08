@@ -18,8 +18,6 @@ def package_submission():
         'tieu_luan_cuoi_khoa_us_stock_ml_scanners.qmd',
         'US_Stock_ML_Scanners_CRISP_DM.ipynb',
         'US_Stock_ML_Scanners_Final_Project_30_Slides.pptx',
-        'huong_dan_tieu_luan_va_rubric_cuoi_khoa.pdf',
-        'huong_dan_tieu_luan_va_rubric_cuoi_khoa.qmd',
         'README.md',
     ]
 
